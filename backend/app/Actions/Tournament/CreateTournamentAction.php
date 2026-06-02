@@ -2,10 +2,15 @@
 
 namespace App\Actions\Tournament;
 
+use App\Enums\TournamentStatus;
+use App\Models\Tournament;
+
 final class CreateTournamentAction
 {
-    public function __invoke(array $payload): void
+    public function __invoke(array $payload): Tournament
     {
-        // Implementar en la siguiente etapa.
+        $payload['status'] ??= TournamentStatus::Draft;
+
+        return Tournament::query()->create($payload);
     }
 }

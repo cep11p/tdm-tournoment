@@ -2,10 +2,15 @@
 
 namespace App\Actions\Tournament;
 
+use App\Models\Tournament;
+
 final class UpdateTournamentAction
 {
-    public function __invoke(array $payload): void
+    public function __invoke(Tournament $tournament, array $payload): Tournament
     {
-        // Implementar en la siguiente etapa.
+        $tournament->fill($payload);
+        $tournament->save();
+
+        return $tournament->refresh();
     }
 }
