@@ -6,11 +6,16 @@ services:
     build:
       context: .
       dockerfile: docker/php/Dockerfile
+      args:
+        TZ: ${APP_TIMEZONE:-America/Argentina/Buenos_Aires}
     container_name: tdm-api
     user: "${UID}:${GID}"
     working_dir: /var/www/html
+    environment:
+      TZ: ${APP_TIMEZONE:-America/Argentina/Buenos_Aires}
     volumes:
       - ./backend:/var/www/html
+      - ./docker/php/conf.d/99-timezone.ini:/usr/local/etc/php/conf.d/99-timezone.ini:ro
     depends_on:
       - db
     networks:
@@ -34,6 +39,7 @@ services:
     container_name: tdm-db
     restart: unless-stopped
     environment:
+      TZ: ${APP_TIMEZONE:-America/Argentina/Buenos_Aires}
       MYSQL_DATABASE: tdm
       MYSQL_ROOT_PASSWORD: root
       MYSQL_USER: tdm
@@ -42,6 +48,7 @@ services:
       - "3307:3306"
     volumes:
       - dbdata:/var/lib/mysql
+      - ./docker/mariadb/conf.d:/etc/mysql/mariadb.conf.d:ro
     networks:
       - tdm-network
 

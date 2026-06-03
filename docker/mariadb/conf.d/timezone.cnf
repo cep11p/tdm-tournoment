@@ -1,0 +1,4 @@
+[mysqld]
+# ART = UTC-3, sin horario de verano (equivalente a America/Argentina/Buenos_Aires).
+# Offset explícito: no requiere tablas mysql.time_zone_* (mariadb-tzinfo-to-sql).
+default-time-zone = '-03:00'
