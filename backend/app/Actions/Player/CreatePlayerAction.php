@@ -2,10 +2,12 @@
 
 namespace App\Actions\Player;
 
+use App\Models\Player;
+
 final class CreatePlayerAction
 {
-    public function __invoke(array $payload): void
+    public function __invoke(array $payload): Player
     {
-        // Implementar en la siguiente etapa.
+        return Player::query()->create($payload);
     }
 }

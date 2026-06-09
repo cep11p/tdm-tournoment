@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Model;
 
-class MatchSet extends Model
+class GameSet extends Model
 {
     use HasFactory;
 
@@ -21,8 +21,8 @@ class MatchSet extends Model
         ];
     }
 
-    public function gameMatch(): BelongsTo
+    public function game(): BelongsTo
     {
-        return $this->belongsTo(GameMatch::class, 'match_id');
+        return $this->belongsTo(Game::class);
     }
 }

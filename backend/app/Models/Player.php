@@ -17,18 +17,18 @@ class Player extends Model
         return $this->hasMany(Registration::class);
     }
 
-    public function matchesAsPlayer1(): HasMany
+    public function gamesAsPlayer1(): HasMany
     {
-        return $this->hasMany(GameMatch::class, 'player1_id');
+        return $this->hasMany(Game::class, 'player1_id');
     }
 
-    public function matchesAsPlayer2(): HasMany
+    public function gamesAsPlayer2(): HasMany
     {
-        return $this->hasMany(GameMatch::class, 'player2_id');
+        return $this->hasMany(Game::class, 'player2_id');
     }
 
-    public function wonMatches(): HasMany
+    public function wonGames(): HasMany
     {
-        return $this->hasMany(GameMatch::class, 'winner_id');
+        return $this->hasMany(Game::class, 'winner_id');
     }
 }

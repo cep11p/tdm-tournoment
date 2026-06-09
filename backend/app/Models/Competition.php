@@ -35,8 +35,8 @@ class Competition extends Model
         return $this->hasMany(Registration::class);
     }
 
-    public function matches(): HasMany
+    public function games(): HasMany
     {
-        return $this->hasMany(GameMatch::class, 'competition_id');
+        return $this->hasMany(Game::class);
     }
 }

@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\MatchStatus;
+use App\Enums\GameStatus;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -12,7 +12,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('matches', function (Blueprint $table): void {
+        if (Schema::hasTable('games') || Schema::hasTable('matches')) {
+            return;
+        }
+
+        Schema::create('games', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('competition_id')
                 ->constrained()
@@ -27,8 +31,10 @@ return new class extends Migration
                 ->nullable()
                 ->constrained('players')
                 ->restrictOnDelete();
-            $table->string('status')->default(MatchStatus::Pending->value)->index();
+            $table->string('status')->default(GameStatus::Pending->value)->index();
+            $table->timestamp('finished_at')->nullable();
             $table->string('round')->nullable();
+            $table->unsignedSmallInteger('table_number')->nullable();
             $table->timestamps();
 
             $table->index(['competition_id', 'status']);
@@ -41,6 +47,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('matches');
+        Schema::dropIfExists('games');
     }
 };

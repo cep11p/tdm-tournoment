@@ -39,10 +39,11 @@ Queda **fuera del MVP**:
 - Clasificación automática.
 - Multi-organización.
 - Pagos y licencias federativas.
+- Edición de sets individuales.
+- Scheduling y conflictos de mesa.
 
 En el MVP no se valida diferencia mínima de dos puntos.
 Solo se requiere alcanzar `points_per_set`.
-
 
 ---
 
@@ -77,10 +78,35 @@ Representa una competencia concreta dentro de un torneo.
 | type            | enum     | `singles` (en MVP solo singles).                    |
 | category        | string   | División (ej: primera, amateur, libre).             |
 | format          | enum     | `manual` (en MVP solo manual).                      |
-| sets_to_win     | int      | Sets que debe ganar un jugador para ganar el match. |
+| sets_to_win     | int      | Sets que debe ganar un jugador para ganar el game. |
 | points_per_set  | int      | Puntos necesarios para ganar un set (ej: 11).       |
 
+`sets_to_win` es configurable y define el formato del partido:
+
+| sets_to_win | Formato habitual |
+|-------------|------------------|
+| 2           | Mejor de 3       |
+| 3           | Mejor de 5       |
+| 4           | Mejor de 7       |
+
+Los valores anteriores representan configuraciones habituales.
+
+El sistema permite cualquier valor mayor o igual a 1.
+
+Ejemplos:
+
+- `sets_to_win = 1` → partido a un único set.
+- `sets_to_win = 2` → mejor de 3.
+- `sets_to_win = 3` → mejor de 5.
+- `sets_to_win = 4` → mejor de 7.
+- `sets_to_win = 5` → mejor de 9.
+
+La lógica del sistema siempre utiliza el valor configurado en la Competition para determinar cuándo un jugador gana el Game.
+
+La competencia es dueña de las reglas del partido. Los games leen `sets_to_win` y `points_per_set` desde su competencia.
+
 Los jugadores **no** se inscriben al torneo en general, sino a cada competencia concreta.
+
 
 ---
 
@@ -112,52 +138,60 @@ Restricción única: `(competition_id, player_id)`.
 
 ---
 
-### Match
+### Game
 
 Representa un partido entre dos jugadores dentro de una competencia.
 
-| Campo          | Tipo     | Descripción                                        |
-|----------------|----------|----------------------------------------------------|
-| id             | bigint   | Identificador único.                               |
-| competition_id | bigint   | FK a Competition.                                  |
-| player1_id     | bigint   | FK a Player.                                       |
-| player2_id     | bigint   | FK a Player.                                       |
-| winner_id      | bigint   | FK a Player (nullable, se completa al terminar).   |
-| status         | enum     | `pending`, `in_progress`, `finished`.              |
-| round          | string   | Ronda descriptiva opcional (ej: "Final").          |
+| Campo          | Tipo       | Descripción                                        |
+|----------------|------------|----------------------------------------------------|
+| id             | bigint     | Identificador único.                               |
+| competition_id | bigint     | FK a Competition.                                  |
+| player1_id     | bigint     | FK a Player.                                       |
+| player2_id     | bigint     | FK a Player.                                       |
+| winner_id      | bigint     | FK a Player (nullable, se completa al terminar).   |
+| status         | enum       | `pending`, `in_progress`, `finished`.              |
+| finished_at    | timestamp  | Momento de cierre (nullable).                      |
+| round          | string     | Ronda descriptiva opcional (ej: "Final").          |
+| table_number   | int        | Número de mesa (nullable, sin lógica de scheduling). |
 
 Un partido se crea manualmente. El ganador se calcula a partir de los sets cargados.
 
-El estado del partido es controlado por el sistema.
+El estado del partido es controlado por el sistema:
 
 - `pending`: el partido fue creado pero aún no tiene sets cargados.
 - `in_progress`: existe al menos un set cargado y todavía no hay ganador.
 - `finished`: uno de los jugadores alcanzó `sets_to_win`.
 
-El estado no debe modificarse manualmente una vez iniciado el partido.
+El estado no debe modificarse manualmente.
 
-Un partido puede existir sin sets cargados.
-
-En ese caso:
+Un partido puede existir sin sets cargados. En ese caso:
 
 - `winner_id` debe ser `null`
 - `status` debe ser `pending`
+- `finished_at` debe ser `null`
+
+**No se persiste** en Game:
+
+- marcador resumido (ej: `2-1`)
+- cantidad de sets ganados (se calcula dinámicamente)
 
 ---
 
-### MatchSet
+### GameSet
 
-Representa un set dentro de un partido.
+Representa un set dentro de un partido. Es **append-only** en el MVP: no se editan sets individuales.
 
 | Campo           | Tipo   | Descripción                       |
 |-----------------|--------|-----------------------------------|
 | id              | bigint | Identificador único.              |
-| match_id        | bigint | FK a Match.                       |
+| game_id         | bigint | FK a Game.                        |
 | set_number      | int    | Número de set (1, 2, 3...).       |
 | player1_score   | int    | Puntos del jugador 1 en este set. |
 | player2_score   | int    | Puntos del jugador 2 en este set. |
 
-El ganador de cada set se deriva de `player1_score` vs `player2_score`.
+Restricción única: `(game_id, set_number)`.
+
+El ganador de cada set se deriva dinámicamente de `player1_score` vs `player2_score`. No se persiste `winner_id` en GameSet.
 
 Reglas del set:
 
@@ -176,7 +210,7 @@ Tournament
 Competition
   ├── belongsTo Tournament
   ├── hasMany Registration
-  └── hasMany Match
+  └── hasMany Game
 
 Player
   └── hasMany Registration
@@ -185,15 +219,15 @@ Registration
   ├── belongsTo Competition
   └── belongsTo Player
 
-Match
+Game
   ├── belongsTo Competition
   ├── belongsTo Player (player1)
   ├── belongsTo Player (player2)
   ├── belongsTo Player (winner)
-  └── hasMany MatchSet
+  └── hasMany GameSet
 
-MatchSet
-  └── belongsTo Match
+GameSet
+  └── belongsTo Game
 ```
 
 ---
@@ -202,27 +236,33 @@ MatchSet
 
 1. Un jugador debe existir antes de inscribirse a una competencia.
 2. Un jugador no puede inscribirse dos veces en la misma competencia.
-3. Un partido pertenece a una competencia y tiene exactamente dos jugadores.
-4. El ganador del partido se calcula a partir de los sets cargados.
-5. Un jugador gana el partido cuando acumula `sets_to_win` sets ganados.
-6. Un partido no puede marcarse como `finished` sin un ganador válido.
-7. El sistema determina automáticamente el ganador al cargar un set que lo define.
-8. Los jugadores de un Match deben estar previamente inscriptos en la Competition.
+3. Un partido pertenece a una competencia y tiene exactamente dos jugadores distintos.
+4. Los jugadores de un Game deben estar previamente inscriptos en la Competition.
+5. El ganador del partido se calcula a partir de los GameSets cargados.
+6. Un jugador gana el partido cuando acumula `sets_to_win` sets ganados.
+7. Un partido no puede marcarse como `finished` sin un ganador válido.
+8. El sistema determina automáticamente el ganador al cargar un set que lo define.
+9. No se pueden registrar sets en un partido ya finalizado.
+10. No se editan GameSets en el MVP; opcionalmente se puede borrar el Game completo.
 
 ---
 
 ## 6. Lógica de cálculo del ganador
 
-Al cargar o actualizar un set, el sistema debe:
+Al cargar un set, el sistema debe:
 
-1. Contar los sets ganados por `player1` y por `player2`.
-2. Si alguno alcanzó `sets_to_win`:
+1. Validar reglas del set según la Competition.
+2. Persistir el GameSet (append-only).
+3. Contar los sets ganados por `player1` y por `player2`.
+4. Si alguno alcanzó `sets_to_win`:
    - Setear `winner_id` con el id del ganador.
    - Setear `status = finished`.
-3. Si ninguno alcanzó `sets_to_win` aún:
-   - Mantener `status = in_progress`.
+   - Setear `finished_at = now()`.
+5. Si ninguno alcanzó `sets_to_win` aún:
+   - Mantener `winner_id = null`.
+   - Setear `status = in_progress`.
 
-El ganador de un set es el jugador con mayor `score` en ese set.
+El ganador de un set es el jugador con mayor score en ese set.
 
 ---
 
@@ -233,34 +273,47 @@ El ganador de un set es el jugador con mayor `score` en ese set.
 2. Crear Competition (vinculada al Tournament)
 3. Registrar Players
 4. Inscribir Players a la Competition (Registration)
-5. Crear Match manualmente (player1_id, player2_id, competition_id)
-6. Cargar MatchSets (set_number, player1_score, player2_score)
+5. Crear Game manualmente (player1_id, player2_id, competition_id)
+6. Cargar GameSets (set_number, player1_score, player2_score)
 7. El sistema calcula el ganador automáticamente
+8. Consultar Game consolidado (sets + sets_won + winner)
 ```
 
 ---
 
-## 8. Estados del torneo y la competencia
+## 8. API MVP (Games)
+
+| Método   | Ruta                                         | Descripción                    |
+|----------|----------------------------------------------|--------------------------------|
+| POST     | `/api/v1/competitions/{competition}/games`     | Crear game manual              |
+| GET      | `/api/v1/competitions/{competition}/games`     | Listar games de la competencia |
+| GET      | `/api/v1/games/{game}`                         | Resultado consolidado          |
+| POST     | `/api/v1/games/{game}/sets`                    | Registrar set (append-only)    |
+| DELETE   | `/api/v1/games/{game}`                         | Borrar game completo           |
+
+`POST /games/{game}/sets` devuelve el `GameResource` consolidado.
+
+---
+
+## 9. Estados del torneo y la competencia
 
 | Entidad     | Estados posibles                       |
 |-------------|----------------------------------------|
 | Tournament  | `draft` → `in_progress` → `finished`  |
-| Competition | (hereda estado del torneo en MVP)      |
-| Match       | `pending` → `in_progress` → `finished`|
+| Competition | No posee estado propio en el MVP.      |
+| Game        | `pending` → `in_progress` → `finished`|
 
-En el MVP, el estado de la competencia no tiene lógica propia; el organizador maneja el estado del torneo.
+En el MVP una Competition no tiene estados propios.
 
----
+La disponibilidad de una Competition se deriva del estado del Tournament al que pertenece.
 
-## 9. Criterios de diseño
+Por ejemplo:
 
-- Simplicidad ante todo.
-- Código claro y predecible.
-- API REST como contrato principal.
-- Backend: Laravel con base de datos relacional.
-- Frontend: Vue 3 consumiendo API REST desacoplada.
-- Sin acoplamiento innecesario entre cliente y servidor.
-- El sistema debe poder crecer sin rediseñar la base.
+- Tournament `draft` → la Competition se considera en preparación.
+- Tournament `in_progress` → la Competition se considera activa.
+- Tournament `finished` → la Competition se considera finalizada.
+
+No existe una máquina de estados independiente para Competition en el MVP.
 
 ---
 
@@ -271,6 +324,10 @@ En el MVP, el estado de la competencia no tiene lógica propia; el organizador m
 - Llaves eliminatorias automáticas (Bracket, AdvancementRule).
 - Ranking de jugadores.
 - Estadísticas avanzadas.
+- Edición de GameSets.
+- Walkover y abandono.
+- `win_by_two` y reglas ITTF completas.
+- Scheduling y conflictos de mesa.
 - Notificaciones.
 - Multi-tenant u organizaciones.
 - App móvil.
@@ -302,8 +359,9 @@ Para priorizar simplicidad y velocidad de desarrollo:
 - No existe diferencia mínima de dos puntos en sets.
 - No existe walkover.
 - No existe abandono de partido.
-- Un Match siempre tiene exactamente dos jugadores.
+- Un Game siempre tiene exactamente dos jugadores.
 - El MVP soporta únicamente competencias singles.
+- GameSet es append-only; no hay edición de sets individuales.
 
 ---
 
@@ -311,12 +369,14 @@ Para priorizar simplicidad y velocidad de desarrollo:
 
 El sistema debe garantizar siempre que:
 
-- Un Match pertenece a una única Competition.
-- Un Match tiene exactamente dos jugadores distintos.
-- `winner_id` debe ser uno de los jugadores del Match.
-- Un Match terminado debe tener ganador.
-- Un Match sin sets no puede tener ganador.
+- Un Game pertenece a una única Competition.
+- Un Game tiene exactamente dos jugadores distintos.
+- Ambos jugadores del Game están inscriptos en la Competition.
+- `winner_id` debe ser uno de los jugadores del Game.
+- Un Game terminado debe tener ganador y `finished_at`.
+- Un Game sin sets no puede tener ganador.
 - Un Registration vincula exactamente un Player con una Competition.
+- No puede haber dos GameSets con el mismo `set_number` en un Game.
 
 ---
 

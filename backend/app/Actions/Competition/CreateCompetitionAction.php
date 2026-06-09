@@ -2,10 +2,12 @@
 
 namespace App\Actions\Competition;
 
+use App\Models\Competition;
+
 final class CreateCompetitionAction
 {
-    public function __invoke(array $payload): void
+    public function __invoke(array $payload): Competition
     {
-        // Implementar en la siguiente etapa.
+        return Competition::query()->create($payload);
     }
 }
