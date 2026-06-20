@@ -20,6 +20,8 @@ class Game extends Model
         return [
             'status' => GameStatus::class,
             'table_number' => 'integer',
+            'bracket_round' => 'integer',
+            'bracket_match' => 'integer',
             'finished_at' => 'datetime',
         ];
     }
@@ -32,6 +34,11 @@ class Game extends Model
     public function group(): BelongsTo
     {
         return $this->belongsTo(Group::class);
+    }
+
+    public function bracket(): BelongsTo
+    {
+        return $this->belongsTo(Bracket::class);
     }
 
     public function player1(): BelongsTo

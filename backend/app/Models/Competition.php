@@ -44,4 +44,9 @@ class Competition extends Model
     {
         return $this->hasMany(Group::class);
     }
+
+    public function brackets(): HasMany
+    {
+        return $this->hasMany(Bracket::class);
+    }
 }
