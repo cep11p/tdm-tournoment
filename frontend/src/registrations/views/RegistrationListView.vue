@@ -1,12 +1,16 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 
+import AppBackButton from '../../components/AppBackButton.vue'
+import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
+import CompetitionService from '../../competitions/services/CompetitionService'
 import PlayerService from '../../players/services/PlayerService'
 import RegistrationService from '../services/RegistrationService'
 
 const route = useRoute()
 const competitionId = computed(() => route.params.id)
+const competition = ref(null)
 
 const registrations = ref([])
 const isLoadingRegistrations = ref(false)
@@ -44,6 +48,14 @@ const loadRegistrations = async () => {
       error?.response?.data?.message || 'No se pudo cargar el listado de inscriptos.'
   } finally {
     isLoadingRegistrations.value = false
+  }
+}
+
+const loadCompetition = async () => {
+  try {
+    competition.value = await CompetitionService.show(competitionId.value)
+  } catch {
+    competition.value = null
   }
 }
 
@@ -132,20 +144,26 @@ const handleCreateAndRegisterPlayer = async () => {
   }
 }
 
-onMounted(loadRegistrations)
+onMounted(async () => {
+  await Promise.all([loadRegistrations(), loadCompetition()])
+})
 </script>
 
 <template>
   <section class="space-y-4">
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Inscriptos de la competencia</h1>
+    <AppBreadcrumbs
+      :context="{
+        tournamentId: competition?.tournament_id,
+        tournamentName: competition?.tournament?.name,
+        competitionId,
+        competitionName: competition?.name,
+      }"
+    />
 
-      <RouterLink
-        :to="`/competitions/${competitionId}`"
-        class="text-sm font-medium text-slate-700 hover:underline"
-      >
-        Volver a competencia
-      </RouterLink>
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-bold">Inscriptos - {{ competition?.name || `Competencia #${competitionId}` }}</h1>
+
+      <AppBackButton :fallback-to="`/competitions/${competitionId}`" />
     </div>
 
     <div>

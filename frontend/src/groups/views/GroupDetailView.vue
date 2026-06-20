@@ -2,6 +2,9 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
+import AppBackButton from '../../components/AppBackButton.vue'
+import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
+import CompetitionService from '../../competitions/services/CompetitionService'
 import RegistrationService from '../../registrations/services/RegistrationService'
 import GroupService from '../services/GroupService'
 
@@ -10,6 +13,7 @@ const route = useRoute()
 const groupId = computed(() => route.params.id)
 const competitionId = computed(() => route.query.competitionId || '')
 const groupName = computed(() => route.query.groupName || `Grupo #${groupId.value}`)
+const competition = ref(null)
 
 const groupPlayers = ref([])
 const isLoadingGroupPlayers = ref(false)
@@ -63,6 +67,19 @@ const loadRegisteredPlayers = async () => {
       error?.response?.data?.message || 'No se pudo cargar el listado de inscriptos.'
   } finally {
     isLoadingRegisteredPlayers.value = false
+  }
+}
+
+const loadCompetition = async () => {
+  if (!competitionId.value) {
+    competition.value = null
+    return
+  }
+
+  try {
+    competition.value = await CompetitionService.show(competitionId.value)
+  } catch {
+    competition.value = null
   }
 }
 
@@ -120,29 +137,35 @@ const handleGenerateRoundRobin = async () => {
 }
 
 onMounted(async () => {
-  await Promise.all([loadGroupPlayers(), loadRegisteredPlayers()])
+  await Promise.all([loadGroupPlayers(), loadRegisteredPlayers(), loadCompetition()])
 })
 </script>
 
 <template>
   <section class="space-y-4">
+    <AppBreadcrumbs
+      :context="{
+        tournamentId: competition?.tournament_id,
+        competitionId: competitionId || competition?.id,
+        competitionName: competition?.name,
+        groupId,
+        groupName,
+      }"
+    />
+
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">{{ groupName }}</h1>
+      <h1 class="text-2xl font-bold">
+        {{ competition?.name ? `${competition.name} - ${groupName}` : groupName }}
+      </h1>
 
       <div class="flex items-center gap-3">
+        <AppBackButton :fallback-to="competitionId ? `/competitions/${competitionId}/groups` : '/competitions'" />
+
         <RouterLink
           :to="`/groups/${groupId}/standings?competitionId=${competitionId}&groupName=${encodeURIComponent(groupName)}`"
           class="text-sm font-medium text-slate-700 hover:underline"
         >
           Ver posiciones
-        </RouterLink>
-
-        <RouterLink
-          v-if="competitionId"
-          :to="`/competitions/${competitionId}/groups`"
-          class="text-sm font-medium text-slate-700 hover:underline"
-        >
-          Volver a grupos
         </RouterLink>
       </div>
     </div>

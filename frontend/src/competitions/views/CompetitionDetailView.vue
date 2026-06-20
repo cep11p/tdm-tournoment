@@ -1,7 +1,9 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
+import AppBackButton from '../../components/AppBackButton.vue'
+import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import CompetitionService from '../services/CompetitionService'
 
 const route = useRoute()
@@ -9,6 +11,9 @@ const route = useRoute()
 const competition = ref(null)
 const isLoading = ref(false)
 const errorMessage = ref('')
+const fallbackBackRoute = computed(() =>
+  competition.value?.tournament_id ? `/tournaments/${competition.value.tournament_id}/competitions` : '/tournaments',
+)
 
 const loadCompetition = async () => {
   isLoading.value = true
@@ -29,15 +34,17 @@ onMounted(loadCompetition)
 
 <template>
   <section class="space-y-4">
+    <AppBreadcrumbs
+      :context="{
+        tournamentId: competition?.tournament_id,
+        competitionId: competition?.id || route.params.id,
+        competitionName: competition?.name,
+      }"
+    />
+
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Detalle de competencia</h1>
-      <RouterLink
-        v-if="competition"
-        :to="`/tournaments/${competition.tournament_id}/competitions`"
-        class="text-sm font-medium text-slate-700 hover:underline"
-      >
-        Volver al listado
-      </RouterLink>
+      <h1 class="text-2xl font-bold">{{ competition?.name || `Competencia #${route.params.id}` }}</h1>
+      <AppBackButton :fallback-to="fallbackBackRoute" />
     </div>
 
     <p v-if="isLoading" class="text-sm text-slate-600">Cargando competencia...</p>

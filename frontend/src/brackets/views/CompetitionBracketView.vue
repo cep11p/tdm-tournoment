@@ -1,11 +1,15 @@
 <script setup>
-import { computed, reactive, ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 
+import AppBackButton from '../../components/AppBackButton.vue'
+import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
+import CompetitionService from '../../competitions/services/CompetitionService'
 import BracketService from '../services/BracketService'
 
 const route = useRoute()
 const competitionId = computed(() => route.params.id)
+const competition = ref(null)
 
 const bracket = ref(null)
 const isCreatingBracket = ref(false)
@@ -20,6 +24,14 @@ const form = reactive({
   qualifiers_per_group: 2,
   name: 'Eliminatoria',
 })
+
+const loadCompetition = async () => {
+  try {
+    competition.value = await CompetitionService.show(competitionId.value)
+  } catch {
+    competition.value = null
+  }
+}
 
 const playerName = (player) => {
   if (!player?.id) {
@@ -128,18 +140,23 @@ const handleGenerateNextRound = async () => {
     isGeneratingNextRound.value = false
   }
 }
+
+onMounted(loadCompetition)
 </script>
 
 <template>
   <section class="space-y-4">
+    <AppBreadcrumbs
+      :context="{
+        tournamentId: competition?.tournament_id,
+        competitionId,
+        competitionName: competition?.name,
+      }"
+    />
+
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Bracket de la competencia</h1>
-      <RouterLink
-        :to="`/competitions/${competitionId}`"
-        class="text-sm font-medium text-slate-700 hover:underline"
-      >
-        Volver a competencia
-      </RouterLink>
+      <h1 class="text-2xl font-bold">Bracket - {{ competition?.name || `Competencia #${competitionId}` }}</h1>
+      <AppBackButton :fallback-to="`/competitions/${competitionId}`" />
     </div>
 
     <form

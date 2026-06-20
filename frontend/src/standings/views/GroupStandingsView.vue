@@ -1,7 +1,10 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 
+import AppBackButton from '../../components/AppBackButton.vue'
+import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
+import CompetitionService from '../../competitions/services/CompetitionService'
 import StandingService from '../services/StandingService'
 
 const route = useRoute()
@@ -9,6 +12,7 @@ const route = useRoute()
 const groupId = computed(() => route.params.id)
 const competitionId = computed(() => route.query.competitionId || '')
 const groupName = computed(() => route.query.groupName || `Grupo #${groupId.value}`)
+const competition = ref(null)
 
 const standings = ref([])
 const isLoading = ref(false)
@@ -34,24 +38,48 @@ const loadStandings = async () => {
   }
 }
 
-onMounted(loadStandings)
+const loadCompetition = async () => {
+  if (!competitionId.value) {
+    competition.value = null
+    return
+  }
+
+  try {
+    competition.value = await CompetitionService.show(competitionId.value)
+  } catch {
+    competition.value = null
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([loadStandings(), loadCompetition()])
+})
 </script>
 
 <template>
   <section class="space-y-4">
-    <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Posiciones - {{ groupName }}</h1>
+    <AppBreadcrumbs
+      :context="{
+        tournamentId: competition?.tournament_id,
+        competitionId: competitionId || competition?.id,
+        competitionName: competition?.name,
+        groupId,
+        groupName,
+      }"
+    />
 
-      <RouterLink
-        :to="
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-bold">
+        {{ competition?.name ? `${competition.name} - ${groupName} - Posiciones` : `Posiciones - ${groupName}` }}
+      </h1>
+
+      <AppBackButton
+        :fallback-to="
           competitionId
             ? `/groups/${groupId}?competitionId=${competitionId}&groupName=${encodeURIComponent(groupName)}`
             : `/groups/${groupId}`
         "
-        class="text-sm font-medium text-slate-700 hover:underline"
-      >
-        Volver al grupo
-      </RouterLink>
+      />
     </div>
 
     <p v-if="isLoading" class="text-sm text-slate-600">Cargando posiciones...</p>

@@ -1,13 +1,17 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 
+import AppBackButton from '../../components/AppBackButton.vue'
+import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
+import CompetitionService from '../../competitions/services/CompetitionService'
 import GameService from '../services/GameService'
 
 const route = useRoute()
 const gameId = computed(() => route.params.id)
 
 const game = ref(null)
+const competition = ref(null)
 const isLoading = ref(false)
 const errorMessage = ref('')
 
@@ -54,6 +58,13 @@ const loadGame = async () => {
 
   try {
     game.value = await GameService.show(gameId.value)
+    if (game.value?.competition_id) {
+      try {
+        competition.value = await CompetitionService.show(game.value.competition_id)
+      } catch {
+        competition.value = null
+      }
+    }
   } catch (error) {
     errorMessage.value = error?.response?.data?.message || 'No se pudo cargar el partido.'
   } finally {
@@ -101,15 +112,21 @@ onMounted(loadGame)
 
 <template>
   <section class="space-y-4">
+    <AppBreadcrumbs
+      :context="{
+        tournamentId: competition?.tournament_id,
+        competitionId: game?.competition_id,
+        competitionName: competition?.name,
+        gameId: game?.id || gameId,
+        gameName: game ? `${playerName(game.player1)} vs ${playerName(game.player2)}` : undefined,
+      }"
+    />
+
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Detalle de partido</h1>
-      <RouterLink
-        v-if="game?.competition_id"
-        :to="`/competitions/${game.competition_id}/games`"
-        class="text-sm font-medium text-slate-700 hover:underline"
-      >
-        Volver a partidos
-      </RouterLink>
+      <h1 class="text-2xl font-bold">
+        {{ game ? `${playerName(game.player1)} vs ${playerName(game.player2)}` : `Partido #${gameId}` }}
+      </h1>
+      <AppBackButton :fallback-to="game?.competition_id ? `/competitions/${game.competition_id}/games` : '/'" />
     </div>
 
     <p v-if="isLoading" class="text-sm text-slate-600">Cargando partido...</p>

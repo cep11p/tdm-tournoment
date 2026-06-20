@@ -2,6 +2,8 @@
 import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
+import AppBackButton from '../../components/AppBackButton.vue'
+import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import TournamentService from '../services/TournamentService'
 
 const route = useRoute()
@@ -29,11 +31,11 @@ onMounted(loadTournament)
 
 <template>
   <section class="space-y-4">
+    <AppBreadcrumbs :context="{ tournamentId: route.params.id, tournamentName: tournament?.name }" />
+
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Detalle de torneo</h1>
-      <RouterLink to="/tournaments" class="text-sm font-medium text-slate-700 hover:underline">
-        Volver al listado
-      </RouterLink>
+      <h1 class="text-2xl font-bold">{{ tournament?.name || `Torneo #${route.params.id}` }}</h1>
+      <AppBackButton fallback-to="/tournaments" />
     </div>
 
     <p v-if="isLoading" class="text-sm text-slate-600">Cargando torneo...</p>
