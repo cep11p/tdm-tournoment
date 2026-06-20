@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\CompetitionController;
+use App\Http\Controllers\Api\V1\CompetitionStandingsController;
 use App\Http\Controllers\Api\V1\GameController;
 use App\Http\Controllers\Api\V1\PlayerController;
 use App\Http\Controllers\Api\V1\RegistrationController;
@@ -17,6 +18,9 @@ Route::prefix(config('api.version_prefix', 'v1'))
 
         Route::apiResource('competitions', CompetitionController::class)
             ->only(['show']);
+
+        Route::get('competitions/{competition}/standings', [CompetitionStandingsController::class, 'index'])
+            ->name('competitions.standings.index');
 
         Route::apiResource('players', PlayerController::class)
             ->only(['store', 'index', 'show']);
