@@ -129,13 +129,22 @@ onMounted(async () => {
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold">{{ groupName }}</h1>
 
-      <RouterLink
-        v-if="competitionId"
-        :to="`/competitions/${competitionId}/groups`"
-        class="text-sm font-medium text-slate-700 hover:underline"
-      >
-        Volver a grupos
-      </RouterLink>
+      <div class="flex items-center gap-3">
+        <RouterLink
+          :to="`/groups/${groupId}/standings?competitionId=${competitionId}&groupName=${encodeURIComponent(groupName)}`"
+          class="text-sm font-medium text-slate-700 hover:underline"
+        >
+          Ver posiciones
+        </RouterLink>
+
+        <RouterLink
+          v-if="competitionId"
+          :to="`/competitions/${competitionId}/groups`"
+          class="text-sm font-medium text-slate-700 hover:underline"
+        >
+          Volver a grupos
+        </RouterLink>
+      </div>
     </div>
 
     <div class="space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm">

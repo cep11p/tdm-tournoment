@@ -66,6 +66,15 @@ onMounted(loadCompetition)
       </div>
 
       <div>
+        <RouterLink
+          :to="`/competitions/${competition.id}/games`"
+          class="inline-flex rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+        >
+          Ver partidos
+        </RouterLink>
+      </div>
+
+      <div>
         <p class="text-slate-500">Nombre</p>
         <p class="font-medium text-slate-900">{{ competition.name }}</p>
       </div>

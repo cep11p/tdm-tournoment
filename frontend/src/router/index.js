@@ -10,6 +10,9 @@ import CompetitionDetailView from '../competitions/views/CompetitionDetailView.v
 import RegistrationListView from '../registrations/views/RegistrationListView.vue'
 import GroupListView from '../groups/views/GroupListView.vue'
 import GroupDetailView from '../groups/views/GroupDetailView.vue'
+import GameListView from '../games/views/GameListView.vue'
+import GameDetailView from '../games/views/GameDetailView.vue'
+import GroupStandingsView from '../standings/views/GroupStandingsView.vue'
 import PlayerListView from '../players/views/PlayerListView.vue'
 
 const routes = [
@@ -59,9 +62,24 @@ const routes = [
     component: GroupListView,
   },
   {
+    path: '/competitions/:id/games',
+    name: 'competitions-games',
+    component: GameListView,
+  },
+  {
     path: '/groups/:id',
     name: 'groups-detail',
     component: GroupDetailView,
+  },
+  {
+    path: '/groups/:id/standings',
+    name: 'groups-standings',
+    component: GroupStandingsView,
+  },
+  {
+    path: '/games/:id',
+    name: 'games-detail',
+    component: GameDetailView,
   },
   {
     path: '/players',
