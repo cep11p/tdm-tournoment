@@ -29,6 +29,11 @@ class Game extends Model
         return $this->belongsTo(Competition::class);
     }
 
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(Group::class);
+    }
+
     public function player1(): BelongsTo
     {
         return $this->belongsTo(Player::class, 'player1_id');

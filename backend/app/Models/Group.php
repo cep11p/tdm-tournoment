@@ -22,4 +22,9 @@ class Group extends Model
     {
         return $this->hasMany(GroupPlayer::class);
     }
+
+    public function games(): HasMany
+    {
+        return $this->hasMany(Game::class);
+    }
 }
