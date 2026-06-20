@@ -60,6 +60,18 @@ services:
     networks:
       - tdm-network
 
+  frontend:
+    image: node:22-alpine
+    container_name: tdm-front
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+    networks:
+      - tdm-network
+
 networks:
   tdm-network:
 
