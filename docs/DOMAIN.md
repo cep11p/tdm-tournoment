@@ -48,8 +48,8 @@ Queda **fuera del MVP**:
 - Multi-organización.
 - Pagos y licencias federativas.
 
-En el MVP no se valida diferencia mínima de dos puntos.
-Solo se requiere alcanzar `points_per_set`.
+En el MVP no se valida diferencia mínima de dos puntos de forma aislada.
+El sistema valida que el marcador registrado represente el **momento exacto de cierre** del set (ver regla 10).
 
 ---
 
@@ -283,16 +283,19 @@ GameSet
 7. No se pueden registrar sets en un partido ya finalizado.
 8. No se puede registrar un set empatado.
 9. El ganador del set debe alcanzar al menos `points_per_set`.
-10. No puede repetirse `set_number` dentro del mismo game.
-11. Un grupo necesita al menos 2 jugadores para generar round robin.
-12. No se regenera round robin en un grupo que ya tiene partidos.
-13. Un jugador no puede estar en dos grupos de la misma competencia.
-14. Solo puede existir un bracket por competencia.
-15. Para crear bracket, todos los partidos de grupos deben estar finalizados.
-16. El total de clasificados del bracket debe ser 2, 4 u 8.
-17. La siguiente ronda del bracket se genera con `winner_id` de la ronda actual.
-18. No puede generarse siguiente ronda si la actual está incompleta.
-19. No puede generarse una ronda ya creada ni avanzar cuando el bracket ya terminó.
+10. El marcador del set debe representar un **resultado final válido** (no basta con diferencia mínima de puntos):
+    - si el ganador llega exactamente a `points_per_set`, el perdedor debe tener como máximo `points_per_set - 2`;
+    - si el ganador supera `points_per_set` (deuce), la diferencia debe ser exactamente 2.
+11. No puede repetirse `set_number` dentro del mismo game.
+12. Un grupo necesita al menos 2 jugadores para generar round robin.
+13. No se regenera round robin en un grupo que ya tiene partidos.
+14. Un jugador no puede estar en dos grupos de la misma competencia.
+15. Solo puede existir un bracket por competencia.
+16. Para crear bracket, todos los partidos de grupos deben estar finalizados.
+17. El total de clasificados del bracket debe ser 2, 4 u 8.
+18. La siguiente ronda del bracket se genera con `winner_id` de la ronda actual.
+19. No puede generarse siguiente ronda si la actual está incompleta.
+20. No puede generarse una ronda ya creada ni avanzar cuando el bracket ya terminó.
 
 ---
 
@@ -303,14 +306,15 @@ Al registrar un set (`POST /games/{game}/sets`), el sistema:
 1. Valida `set_number` y scores.
 2. Rechaza set empatado.
 3. Rechaza score ganador por debajo de `points_per_set`.
-4. Rechaza duplicado de `set_number` en el mismo game.
-5. Persiste el set (append-only).
-6. Recalcula sets ganados por cada jugador.
-7. Si un jugador alcanza `sets_to_win`:
+4. Rechaza marcadores que no representen un cierre válido del set (ver regla 10).
+5. Rechaza duplicado de `set_number` en el mismo game.
+6. Persiste el set (append-only).
+7. Recalcula sets ganados por cada jugador.
+8. Si un jugador alcanza `sets_to_win`:
    - setea `winner_id`,
    - setea `status = finished`,
    - setea `finished_at = now()`.
-8. Si nadie alcanza `sets_to_win`:
+9. Si nadie alcanza `sets_to_win`:
    - mantiene `winner_id = null`,
    - setea `status = in_progress`,
    - mantiene `finished_at = null`.

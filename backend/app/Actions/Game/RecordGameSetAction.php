@@ -43,13 +43,25 @@ final class RecordGameSetAction
                 ]);
             }
 
-            $winningScore = max($player1Score, $player2Score);
+            $winnerScore = max($player1Score, $player2Score);
+            $loserScore = min($player1Score, $player2Score);
+            $targetScore = (int) $competition->points_per_set;
 
-            if ($winningScore < $competition->points_per_set) {
+            if ($winnerScore < $targetScore) {
                 throw ValidationException::withMessages([
                     'player1_score' => [
-                        "El ganador del set debe alcanzar al menos {$competition->points_per_set} puntos.",
+                        "El ganador del set debe alcanzar al menos {$targetScore} puntos.",
                     ],
+                ]);
+            }
+
+            $isValidFinalScore = $winnerScore === $targetScore
+                ? $loserScore <= $targetScore - 2
+                : ($winnerScore - $loserScore) === 2;
+
+            if (! $isValidFinalScore) {
+                throw ValidationException::withMessages([
+                    'player1_score' => ['El marcador no representa un resultado final válido de set.'],
                 ]);
             }
 

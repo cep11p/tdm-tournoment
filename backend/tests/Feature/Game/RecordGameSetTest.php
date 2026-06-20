@@ -4,6 +4,7 @@ namespace Tests\Feature\Game;
 
 use App\Enums\GameStatus;
 use App\Models\Game;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class RecordGameSetTest extends TestCase
@@ -123,6 +124,67 @@ class RecordGameSetTest extends TestCase
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['set_number']);
+
+        $this->assertDatabaseCount('game_sets', 1);
+    }
+
+    /**
+     * @return array<string, array{int, int}>
+     */
+    public static function invalidFinalSetScoreProvider(): array
+    {
+        return [
+            '11-10' => [11, 10],
+            '12-11' => [12, 11],
+            '20-19' => [20, 19],
+            '20-10' => [20, 10],
+            '50-10' => [50, 10],
+            '50-45' => [50, 45],
+            '50-47' => [50, 47],
+        ];
+    }
+
+    #[DataProvider('invalidFinalSetScoreProvider')]
+    public function test_rejects_invalid_final_set_score(int $player1Score, int $player2Score): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $context->createPendingSinglesGame(pointsPerSet: 11);
+
+        $response = $context->recordSet($setup['game'], setNumber: 1, player1Score: $player1Score, player2Score: $player2Score);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['player1_score']);
+
+        $this->assertDatabaseCount('game_sets', 0);
+    }
+
+    /**
+     * @return array<string, array{int, int}>
+     */
+    public static function validFinalSetScoreProvider(): array
+    {
+        return [
+            '11-0' => [11, 0],
+            '11-5' => [11, 5],
+            '11-9' => [11, 9],
+            '12-10' => [12, 10],
+            '13-11' => [13, 11],
+            '14-12' => [14, 12],
+            '20-18' => [20, 18],
+            '52-50' => [52, 50],
+        ];
+    }
+
+    #[DataProvider('validFinalSetScoreProvider')]
+    public function test_accepts_valid_final_set_score(int $player1Score, int $player2Score): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $context->createPendingSinglesGame(pointsPerSet: 11);
+
+        $response = $context->recordSet($setup['game'], setNumber: 1, player1Score: $player1Score, player2Score: $player2Score);
+
+        $response->assertOk();
 
         $this->assertDatabaseCount('game_sets', 1);
     }
