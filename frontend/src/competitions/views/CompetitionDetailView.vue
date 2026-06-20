@@ -250,6 +250,50 @@ const hasQualifiersData = computed(() =>
   qualifiersByGroup.value.some((entry) => entry.qualifiers?.length > 0),
 )
 
+const groupPhaseGamesForQualifiers = computed(() => {
+  if (!games.value) {
+    return []
+  }
+
+  return groupGames.value.length > 0 ? groupGames.value : games.value
+})
+
+const isGroupPhaseComplete = computed(() => {
+  const phaseGames = groupPhaseGamesForQualifiers.value
+
+  if (phaseGames.length === 0) {
+    return false
+  }
+
+  return phaseGames.every((game) => game.status === 'finished')
+})
+
+const qualifiersSectionTitle = computed(() =>
+  isGroupPhaseComplete.value ? 'Clasificados' : 'Posiciones provisionales',
+)
+
+const qualifiersSectionMessage = computed(() =>
+  isGroupPhaseComplete.value
+    ? 'Clasificación definida'
+    : 'Los clasificados se definirán cuando finalice la fase de grupos.',
+)
+
+const qualifiersStatusBadgeClasses = computed(() =>
+  isGroupPhaseComplete.value
+    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
+    : 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200',
+)
+
+const qualifiersStatusBadgeLabel = computed(() =>
+  isGroupPhaseComplete.value ? 'Definitivo' : 'Provisional',
+)
+
+const qualifierItemClasses = computed(() =>
+  isGroupPhaseComplete.value
+    ? 'border-emerald-200 bg-emerald-50/40 dark:border-emerald-900 dark:bg-emerald-950/20'
+    : 'border-amber-200 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20',
+)
+
 const positionBadgeClasses = (position) => {
   if (position === 1) {
     return 'bg-amber-100 text-amber-900 ring-1 ring-amber-200 dark:bg-amber-900/50 dark:text-amber-200 dark:ring-amber-800'
@@ -483,7 +527,26 @@ onMounted(loadCompetitionSummary)
       <div
         class="rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
       >
-        <p class="font-medium text-slate-700 dark:text-slate-200">Clasificados</p>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="font-medium text-slate-700 dark:text-slate-200">{{ qualifiersSectionTitle }}</p>
+
+          <span
+            v-if="hasQualifiersData"
+            class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+            :class="qualifiersStatusBadgeClasses"
+          >
+            <span aria-hidden="true">{{ isGroupPhaseComplete ? '✓' : '⏳' }}</span>
+            {{ qualifiersStatusBadgeLabel }}
+          </span>
+        </div>
+
+        <p
+          v-if="hasQualifiersData"
+          class="mt-2 text-slate-600 dark:text-slate-300"
+        >
+          <span aria-hidden="true">{{ isGroupPhaseComplete ? '✓' : '⏳' }}</span>
+          {{ qualifiersSectionMessage }}
+        </p>
 
         <p
           v-if="groups !== null && groups.length === 0"
@@ -508,7 +571,8 @@ onMounted(loadCompetitionSummary)
                 <li
                   v-for="qualifier in entry.qualifiers"
                   :key="qualifier.player_id"
-                  class="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50/40 px-3 py-2 dark:border-emerald-900 dark:bg-emerald-950/20"
+                  class="flex items-center gap-2 rounded-md border px-3 py-2"
+                  :class="qualifierItemClasses"
                 >
                   <span
                     class="inline-flex min-w-[2.5rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold"
