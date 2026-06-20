@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\GameController;
 use App\Http\Controllers\Api\V1\GroupController;
 use App\Http\Controllers\Api\V1\GroupPlayerController;
 use App\Http\Controllers\Api\V1\GroupRoundRobinGameController;
+use App\Http\Controllers\Api\V1\GroupStandingsController;
 use App\Http\Controllers\Api\V1\PlayerController;
 use App\Http\Controllers\Api\V1\RegistrationController;
 use App\Http\Controllers\Api\V1\TournamentController;
@@ -39,6 +40,9 @@ Route::prefix(config('api.version_prefix', 'v1'))
 
         Route::post('groups/{group}/round-robin-games', [GroupRoundRobinGameController::class, 'store'])
             ->name('groups.round-robin-games.store');
+
+        Route::get('groups/{group}/standings', [GroupStandingsController::class, 'index'])
+            ->name('groups.standings.index');
 
         Route::apiResource('competitions.games', GameController::class)
             ->only(['store', 'index']);
