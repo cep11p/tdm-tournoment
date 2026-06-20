@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\CompetitionController;
 use App\Http\Controllers\Api\V1\CompetitionStandingsController;
 use App\Http\Controllers\Api\V1\GameController;
+use App\Http\Controllers\Api\V1\GroupController;
 use App\Http\Controllers\Api\V1\PlayerController;
 use App\Http\Controllers\Api\V1\RegistrationController;
 use App\Http\Controllers\Api\V1\TournamentController;
@@ -26,6 +27,9 @@ Route::prefix(config('api.version_prefix', 'v1'))
             ->only(['store', 'index', 'show']);
 
         Route::apiResource('competitions.registrations', RegistrationController::class)
+            ->only(['store', 'index']);
+
+        Route::apiResource('competitions.groups', GroupController::class)
             ->only(['store', 'index']);
 
         Route::apiResource('competitions.games', GameController::class)

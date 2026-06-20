@@ -39,4 +39,9 @@ class Competition extends Model
     {
         return $this->hasMany(Game::class);
     }
+
+    public function groups(): HasMany
+    {
+        return $this->hasMany(Group::class);
+    }
 }
