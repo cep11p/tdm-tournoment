@@ -13,6 +13,7 @@ import GroupDetailView from '../groups/views/GroupDetailView.vue'
 import GameListView from '../games/views/GameListView.vue'
 import GameDetailView from '../games/views/GameDetailView.vue'
 import GroupStandingsView from '../standings/views/GroupStandingsView.vue'
+import CompetitionBracketView from '../brackets/views/CompetitionBracketView.vue'
 import PlayerListView from '../players/views/PlayerListView.vue'
 
 const routes = [
@@ -65,6 +66,11 @@ const routes = [
     path: '/competitions/:id/games',
     name: 'competitions-games',
     component: GameListView,
+  },
+  {
+    path: '/competitions/:id/bracket',
+    name: 'competitions-bracket',
+    component: CompetitionBracketView,
   },
   {
     path: '/groups/:id',
