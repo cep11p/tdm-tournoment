@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\BracketNextRoundController;
 use App\Http\Controllers\Api\V1\CompetitionBracketController;
 use App\Http\Controllers\Api\V1\CompetitionController;
 use App\Http\Controllers\Api\V1\CompetitionStandingsController;
@@ -29,6 +30,9 @@ Route::prefix(config('api.version_prefix', 'v1'))
 
         Route::post('competitions/{competition}/bracket', [CompetitionBracketController::class, 'store'])
             ->name('competitions.bracket.store');
+
+        Route::post('brackets/{bracket}/next-round', [BracketNextRoundController::class, 'store'])
+            ->name('brackets.next-round.store');
 
         Route::apiResource('players', PlayerController::class)
             ->only(['store', 'index', 'show']);
