@@ -151,26 +151,29 @@ onMounted(loadGame)
     <p v-else-if="errorMessage" class="text-sm text-red-600">{{ errorMessage }}</p>
 
     <template v-else-if="game">
-      <div class="space-y-2 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900">
-        <p class="font-medium text-slate-900 dark:text-slate-100">
-          {{ playerName(game.player1) }} vs {{ playerName(game.player2) }}
-        </p>
+      <div
+        class="space-y-2 rounded-md border p-4 text-sm"
+        :class="
+          isFinished
+            ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/40'
+            : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900'
+        "
+      >
+        <p class="font-medium text-slate-900 dark:text-slate-100">Resultado del partido</p>
         <p class="text-slate-600 dark:text-slate-300">Estado: {{ game.status }}</p>
-        <p class="text-slate-600 dark:text-slate-300">Ganador: {{ winnerName }}</p>
+        <p
+          v-if="isFinished"
+          class="font-semibold text-emerald-800 dark:text-emerald-300"
+        >
+          🏆 Ganador: {{ winnerName }}
+        </p>
+        <p v-else class="text-slate-600 dark:text-slate-300">Ganador: {{ winnerName }}</p>
       </div>
 
       <div class="space-y-2 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900">
         <p class="font-medium text-slate-700 dark:text-slate-200">Resultado actual</p>
         <p class="text-slate-700 dark:text-slate-200">{{ player1Name }}: {{ setsSummary.player1Sets }} sets</p>
         <p class="text-slate-700 dark:text-slate-200">{{ player2Name }}: {{ setsSummary.player2Sets }} sets</p>
-      </div>
-
-      <div
-        v-if="isFinished"
-        class="space-y-1 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
-      >
-        <p class="font-semibold">✅ Partido finalizado</p>
-        <p>Ganador: {{ winnerName }}</p>
       </div>
 
       <div class="space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900">
