@@ -44,6 +44,15 @@ onMounted(loadTournament)
       class="space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm"
     >
       <div>
+        <RouterLink
+          :to="`/tournaments/${tournament.id}/competitions`"
+          class="inline-flex rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+        >
+          Administrar competencias
+        </RouterLink>
+      </div>
+
+      <div>
         <p class="text-slate-500">Nombre</p>
         <p class="font-medium text-slate-900">{{ tournament.name }}</p>
       </div>

@@ -1,0 +1,91 @@
+<script setup>
+import { onMounted, ref } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
+
+import CompetitionService from '../services/CompetitionService'
+
+const route = useRoute()
+const tournamentId = route.params.id
+
+const competitions = ref([])
+const isLoading = ref(false)
+const errorMessage = ref('')
+
+const loadCompetitions = async () => {
+  isLoading.value = true
+  errorMessage.value = ''
+
+  try {
+    competitions.value = await CompetitionService.listByTournament(tournamentId)
+  } catch (error) {
+    errorMessage.value =
+      error?.response?.data?.message || 'No se pudo cargar el listado de competencias.'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+onMounted(loadCompetitions)
+</script>
+
+<template>
+  <section class="space-y-4">
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-bold">Competencias del torneo</h1>
+      <RouterLink
+        :to="`/tournaments/${tournamentId}/competitions/create`"
+        class="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+      >
+        Nueva competencia
+      </RouterLink>
+    </div>
+
+    <p v-if="isLoading" class="text-sm text-slate-600">Cargando competencias...</p>
+    <p v-else-if="errorMessage" class="text-sm text-red-600">{{ errorMessage }}</p>
+
+    <div
+      v-else-if="competitions.length === 0"
+      class="rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-600"
+    >
+      No hay competencias cargadas para este torneo.
+    </div>
+
+    <div v-else class="overflow-hidden rounded-md border border-slate-200 bg-white">
+      <table class="min-w-full divide-y divide-slate-200">
+        <thead class="bg-slate-50">
+          <tr>
+            <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">
+              Nombre
+            </th>
+            <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">
+              Categoría
+            </th>
+            <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">Tipo</th>
+            <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">
+              Formato
+            </th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200">
+          <tr
+            v-for="competition in competitions"
+            :key="competition.id"
+            class="hover:bg-slate-50"
+          >
+            <td class="px-4 py-3 text-sm">
+              <RouterLink
+                :to="`/competitions/${competition.id}`"
+                class="font-medium text-slate-900 hover:underline"
+              >
+                {{ competition.name }}
+              </RouterLink>
+            </td>
+            <td class="px-4 py-3 text-sm text-slate-700">{{ competition.category }}</td>
+            <td class="px-4 py-3 text-sm text-slate-700">{{ competition.type }}</td>
+            <td class="px-4 py-3 text-sm text-slate-700">{{ competition.format }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</template>

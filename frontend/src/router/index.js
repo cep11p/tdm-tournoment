@@ -4,6 +4,9 @@ import DashboardView from '../views/DashboardView.vue'
 import TournamentListView from '../tournaments/views/TournamentListView.vue'
 import TournamentCreateView from '../tournaments/views/TournamentCreateView.vue'
 import TournamentDetailView from '../tournaments/views/TournamentDetailView.vue'
+import CompetitionListView from '../competitions/views/CompetitionListView.vue'
+import CompetitionCreateView from '../competitions/views/CompetitionCreateView.vue'
+import CompetitionDetailView from '../competitions/views/CompetitionDetailView.vue'
 import PlayerListView from '../players/views/PlayerListView.vue'
 
 const routes = [
@@ -26,6 +29,21 @@ const routes = [
     path: '/tournaments/:id',
     name: 'tournaments-detail',
     component: TournamentDetailView,
+  },
+  {
+    path: '/tournaments/:id/competitions',
+    name: 'competitions',
+    component: CompetitionListView,
+  },
+  {
+    path: '/tournaments/:id/competitions/create',
+    name: 'competitions-create',
+    component: CompetitionCreateView,
+  },
+  {
+    path: '/competitions/:id',
+    name: 'competitions-detail',
+    component: CompetitionDetailView,
   },
   {
     path: '/players',
