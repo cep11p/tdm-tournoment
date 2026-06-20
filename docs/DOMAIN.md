@@ -4,13 +4,15 @@
 
 Construir un MVP para gestionar torneos de tenis de mesa en ámbitos pequeños, domésticos o de club.
 
-El sistema debe permitir:
+El sistema permite:
 
 - Crear torneos.
 - Crear competencias dentro de un torneo (ej: "Singles Primera").
 - Registrar jugadores.
 - Inscribir jugadores a competencias.
-- Crear partidos manualmente.
+- Organizar fase de grupos.
+- Generar cuadro eliminatorio desde resultados de grupos.
+- Crear partidos manuales cuando se requiera.
 - Cargar resultados por sets.
 - Calcular automáticamente el ganador del partido.
 
@@ -25,6 +27,11 @@ El MVP cubre:
 - Gestión de torneos.
 - Gestión de competencias.
 - Registro e inscripción de jugadores.
+- Gestión de grupos y asignación de jugadores.
+- Generación de partidos round robin por grupo.
+- Standings por grupo y standings global de competencia.
+- Creación de bracket eliminatorio.
+- Generación de siguientes rondas del bracket.
 - Creación manual de partidos.
 - Carga de resultados por sets.
 - Determinación automática del ganador.
@@ -32,15 +39,14 @@ El MVP cubre:
 Queda **fuera del MVP**:
 
 - Dobles.
-- Grupos y fases (Stage).
-- Llaves eliminatorias automáticas.
-- Ranking y estadísticas.
-- Desempates complejos.
-- Clasificación automática.
+- Ranking y estadísticas avanzadas.
+- Desempates complejos más allá de las reglas implementadas.
+- Edición de sets individuales.
+- Walkover y abandono.
+- Validación ITTF completa (`win_by_two`, saque, etc.).
+- Scheduling y conflictos de mesa.
 - Multi-organización.
 - Pagos y licencias federativas.
-- Edición de sets individuales.
-- Scheduling y conflictos de mesa.
 
 En el MVP no se valida diferencia mínima de dos puntos.
 Solo se requiere alcanzar `points_per_set`.
@@ -78,35 +84,21 @@ Representa una competencia concreta dentro de un torneo.
 | type            | enum     | `singles` (en MVP solo singles).                    |
 | category        | string   | División (ej: primera, amateur, libre).             |
 | format          | enum     | `manual` (en MVP solo manual).                      |
-| sets_to_win     | int      | Sets que debe ganar un jugador para ganar el game. |
+| sets_to_win     | int      | Sets que debe ganar un jugador para ganar el game.  |
 | points_per_set  | int      | Puntos necesarios para ganar un set (ej: 11).       |
 
 `sets_to_win` es configurable y define el formato del partido:
 
 | sets_to_win | Formato habitual |
 |-------------|------------------|
+| 1           | Mejor de 1       |
 | 2           | Mejor de 3       |
 | 3           | Mejor de 5       |
 | 4           | Mejor de 7       |
 
-Los valores anteriores representan configuraciones habituales.
-
-El sistema permite cualquier valor mayor o igual a 1.
-
-Ejemplos:
-
-- `sets_to_win = 1` → partido a un único set.
-- `sets_to_win = 2` → mejor de 3.
-- `sets_to_win = 3` → mejor de 5.
-- `sets_to_win = 4` → mejor de 7.
-- `sets_to_win = 5` → mejor de 9.
-
 La lógica del sistema siempre utiliza el valor configurado en la Competition para determinar cuándo un jugador gana el Game.
 
-La competencia es dueña de las reglas del partido. Los games leen `sets_to_win` y `points_per_set` desde su competencia.
-
 Los jugadores **no** se inscriben al torneo en general, sino a cada competencia concreta.
-
 
 ---
 
@@ -138,6 +130,54 @@ Restricción única: `(competition_id, player_id)`.
 
 ---
 
+### Group
+
+Representa un grupo dentro de una competencia.
+
+| Campo          | Tipo   | Descripción                    |
+|----------------|--------|--------------------------------|
+| id             | bigint | Identificador único.           |
+| competition_id | bigint | FK a Competition.              |
+| name           | string | Nombre del grupo (ej: "Grupo A"). |
+
+**Regla:** el nombre de grupo es único por competencia.
+Restricción única: `(competition_id, name)`.
+
+---
+
+### GroupPlayer
+
+Representa la asignación de un jugador a un grupo.
+
+| Campo      | Tipo   | Descripción          |
+|------------|--------|----------------------|
+| id         | bigint | Identificador único. |
+| group_id   | bigint | FK a Group.          |
+| player_id  | bigint | FK a Player.         |
+
+Restricción única: `(group_id, player_id)`.
+
+Regla adicional implementada:
+
+- un jugador no puede estar en más de un grupo dentro de la misma competencia.
+
+---
+
+### Bracket
+
+Representa el cuadro eliminatorio de una competencia.
+
+| Campo                | Tipo   | Descripción                                  |
+|----------------------|--------|----------------------------------------------|
+| id                   | bigint | Identificador único.                         |
+| competition_id       | bigint | FK a Competition.                            |
+| name                 | string | Nombre del cuadro (ej: "Eliminatoria").      |
+| qualifiers_per_group | int    | Clasificados por grupo usados para generarlo.|
+
+Restricción única: `competition_id` (una competencia tiene un solo bracket).
+
+---
+
 ### Game
 
 Representa un partido entre dos jugadores dentro de una competencia.
@@ -146,34 +186,19 @@ Representa un partido entre dos jugadores dentro de una competencia.
 |----------------|------------|----------------------------------------------------|
 | id             | bigint     | Identificador único.                               |
 | competition_id | bigint     | FK a Competition.                                  |
+| group_id       | bigint     | FK a Group (nullable).                             |
+| bracket_id     | bigint     | FK a Bracket (nullable).                           |
 | player1_id     | bigint     | FK a Player.                                       |
 | player2_id     | bigint     | FK a Player.                                       |
 | winner_id      | bigint     | FK a Player (nullable, se completa al terminar).   |
 | status         | enum       | `pending`, `in_progress`, `finished`.              |
 | finished_at    | timestamp  | Momento de cierre (nullable).                      |
-| round          | string     | Ronda descriptiva opcional (ej: "Final").          |
-| table_number   | int        | Número de mesa (nullable, sin lógica de scheduling). |
+| round          | string     | Ronda descriptiva (ej: "Semifinal", "Final").      |
+| bracket_round  | int        | Número de ronda en bracket (nullable).             |
+| bracket_match  | int        | Número de partido dentro de la ronda (nullable).   |
+| table_number   | int        | Número de mesa (nullable, sin scheduling automático). |
 
-Un partido se crea manualmente. El ganador se calcula a partir de los sets cargados.
-
-El estado del partido es controlado por el sistema:
-
-- `pending`: el partido fue creado pero aún no tiene sets cargados.
-- `in_progress`: existe al menos un set cargado y todavía no hay ganador.
-- `finished`: uno de los jugadores alcanzó `sets_to_win`.
-
-El estado no debe modificarse manualmente.
-
-Un partido puede existir sin sets cargados. En ese caso:
-
-- `winner_id` debe ser `null`
-- `status` debe ser `pending`
-- `finished_at` debe ser `null`
-
-**No se persiste** en Game:
-
-- marcador resumido (ej: `2-1`)
-- cantidad de sets ganados (se calcula dinámicamente)
+Un partido puede pertenecer al flujo manual, a grupos o a bracket.
 
 ---
 
@@ -191,13 +216,7 @@ Representa un set dentro de un partido. Es **append-only** en el MVP: no se edit
 
 Restricción única: `(game_id, set_number)`.
 
-El ganador de cada set se deriva dinámicamente de `player1_score` vs `player2_score`. No se persiste `winner_id` en GameSet.
-
-Reglas del set:
-
-- Un set no puede finalizar empatado.
-- El ganador del set debe tener mayor score que el rival.
-- El ganador del set debe alcanzar al menos `points_per_set`.
+El ganador de cada set se deriva dinámicamente de `player1_score` vs `player2_score`.
 
 ---
 
@@ -210,17 +229,38 @@ Tournament
 Competition
   ├── belongsTo Tournament
   ├── hasMany Registration
+  ├── hasMany Group
+  ├── hasMany Bracket
   └── hasMany Game
 
 Player
-  └── hasMany Registration
+  ├── hasMany Registration
+  ├── hasMany GroupPlayer
+  ├── hasMany Game (player1)
+  ├── hasMany Game (player2)
+  └── hasMany Game (winner)
 
 Registration
   ├── belongsTo Competition
   └── belongsTo Player
 
+Group
+  ├── belongsTo Competition
+  ├── hasMany GroupPlayer
+  └── hasMany Game
+
+GroupPlayer
+  ├── belongsTo Group
+  └── belongsTo Player
+
+Bracket
+  ├── belongsTo Competition
+  └── hasMany Game
+
 Game
   ├── belongsTo Competition
+  ├── belongsTo Group (nullable)
+  ├── belongsTo Bracket (nullable)
   ├── belongsTo Player (player1)
   ├── belongsTo Player (player2)
   ├── belongsTo Player (winner)
@@ -240,101 +280,153 @@ GameSet
 4. Los jugadores de un Game deben estar previamente inscriptos en la Competition.
 5. El ganador del partido se calcula a partir de los GameSets cargados.
 6. Un jugador gana el partido cuando acumula `sets_to_win` sets ganados.
-7. Un partido no puede marcarse como `finished` sin un ganador válido.
-8. El sistema determina automáticamente el ganador al cargar un set que lo define.
-9. No se pueden registrar sets en un partido ya finalizado.
-10. No se editan GameSets en el MVP; opcionalmente se puede borrar el Game completo.
+7. No se pueden registrar sets en un partido ya finalizado.
+8. No se puede registrar un set empatado.
+9. El ganador del set debe alcanzar al menos `points_per_set`.
+10. No puede repetirse `set_number` dentro del mismo game.
+11. Un grupo necesita al menos 2 jugadores para generar round robin.
+12. No se regenera round robin en un grupo que ya tiene partidos.
+13. Un jugador no puede estar en dos grupos de la misma competencia.
+14. Solo puede existir un bracket por competencia.
+15. Para crear bracket, todos los partidos de grupos deben estar finalizados.
+16. El total de clasificados del bracket debe ser 2, 4 u 8.
+17. La siguiente ronda del bracket se genera con `winner_id` de la ronda actual.
+18. No puede generarse siguiente ronda si la actual está incompleta.
+19. No puede generarse una ronda ya creada ni avanzar cuando el bracket ya terminó.
 
 ---
 
-## 6. Lógica de cálculo del ganador
+## 6. Lógica de cálculo del ganador del game
 
-Al cargar un set, el sistema debe:
+Al registrar un set (`POST /games/{game}/sets`), el sistema:
 
-1. Validar reglas del set según la Competition.
-2. Persistir el GameSet (append-only).
-3. Contar los sets ganados por `player1` y por `player2`.
-4. Si alguno alcanzó `sets_to_win`:
-   - Setear `winner_id` con el id del ganador.
-   - Setear `status = finished`.
-   - Setear `finished_at = now()`.
-5. Si ninguno alcanzó `sets_to_win` aún:
-   - Mantener `winner_id = null`.
-   - Setear `status = in_progress`.
-
-El ganador de un set es el jugador con mayor score en ese set.
+1. Valida `set_number` y scores.
+2. Rechaza set empatado.
+3. Rechaza score ganador por debajo de `points_per_set`.
+4. Rechaza duplicado de `set_number` en el mismo game.
+5. Persiste el set (append-only).
+6. Recalcula sets ganados por cada jugador.
+7. Si un jugador alcanza `sets_to_win`:
+   - setea `winner_id`,
+   - setea `status = finished`,
+   - setea `finished_at = now()`.
+8. Si nadie alcanza `sets_to_win`:
+   - mantiene `winner_id = null`,
+   - setea `status = in_progress`,
+   - mantiene `finished_at = null`.
 
 ---
 
-## 7. Flujo del sistema
+## 7. Flujo completo del sistema
 
 ```
 1. Crear Tournament
 2. Crear Competition (vinculada al Tournament)
 3. Registrar Players
-4. Inscribir Players a la Competition (Registration)
-5. Crear Game manualmente (player1_id, player2_id, competition_id)
-6. Cargar GameSets (set_number, player1_score, player2_score)
-7. El sistema calcula el ganador automáticamente
-8. Consultar Game consolidado (sets + sets_won + winner)
+4. Inscribir Players a la Competition
+5. Crear Groups en la Competition
+6. Asignar Players a cada Group
+7. Generar Round Robin de cada Group
+8. Cargar sets hasta finalizar los games de grupos
+9. Consultar standings de grupos / competencia
+10. Crear Bracket eliminatorio (qualifiers_per_group)
+11. Cargar sets de games del bracket
+12. Generar siguiente ronda del bracket
+13. Repetir hasta la final
 ```
 
----
-
-## 8. API MVP (Games)
-
-| Método   | Ruta                                         | Descripción                    |
-|----------|----------------------------------------------|--------------------------------|
-| POST     | `/api/v1/competitions/{competition}/games`     | Crear game manual              |
-| GET      | `/api/v1/competitions/{competition}/games`     | Listar games de la competencia |
-| GET      | `/api/v1/games/{game}`                         | Resultado consolidado          |
-| POST     | `/api/v1/games/{game}/sets`                    | Registrar set (append-only)    |
-| DELETE   | `/api/v1/games/{game}`                         | Borrar game completo           |
-
-`POST /games/{game}/sets` devuelve el `GameResource` consolidado.
+También se pueden crear games manuales directamente en la competencia.
 
 ---
 
-## 9. Estados del torneo y la competencia
+## 8. Endpoints principales del MVP
+
+### Torneos
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/v1/tournaments` | Crear torneo |
+| GET | `/api/v1/tournaments` | Listar torneos |
+| GET | `/api/v1/tournaments/{tournament}` | Ver torneo |
+| PUT/PATCH | `/api/v1/tournaments/{tournament}` | Actualizar torneo |
+
+### Competencias
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/v1/tournaments/{tournament}/competitions` | Crear competencia |
+| GET | `/api/v1/tournaments/{tournament}/competitions` | Listar competencias del torneo |
+| GET | `/api/v1/competitions/{competition}` | Ver competencia |
+
+### Jugadores e inscripciones
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/v1/players` | Crear jugador |
+| GET | `/api/v1/players` | Listar jugadores |
+| GET | `/api/v1/players/{player}` | Ver jugador |
+| POST | `/api/v1/competitions/{competition}/registrations` | Inscribir jugador |
+| GET | `/api/v1/competitions/{competition}/registrations` | Listar inscripciones |
+
+### Grupos y standings
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/v1/competitions/{competition}/groups` | Crear grupo |
+| GET | `/api/v1/competitions/{competition}/groups` | Listar grupos |
+| POST | `/api/v1/groups/{group}/players` | Asignar jugador a grupo |
+| GET | `/api/v1/groups/{group}/players` | Listar jugadores del grupo |
+| POST | `/api/v1/groups/{group}/round-robin-games` | Generar round robin |
+| GET | `/api/v1/groups/{group}/standings` | Standings del grupo |
+| GET | `/api/v1/competitions/{competition}/standings` | Standings global de competencia |
+
+### Games y sets
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/v1/competitions/{competition}/games` | Crear game manual |
+| GET | `/api/v1/competitions/{competition}/games` | Listar games de la competencia |
+| GET | `/api/v1/games/{game}` | Ver game consolidado |
+| POST | `/api/v1/games/{game}/sets` | Registrar set |
+| DELETE | `/api/v1/games/{game}` | Borrar game |
+
+### Bracket
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/v1/competitions/{competition}/bracket` | Crear bracket eliminatorio |
+| POST | `/api/v1/brackets/{bracket}/next-round` | Generar siguiente ronda |
+
+---
+
+## 9. Estados de entidades
 
 | Entidad     | Estados posibles                       |
 |-------------|----------------------------------------|
 | Tournament  | `draft` → `in_progress` → `finished`  |
-| Competition | No posee estado propio en el MVP.      |
+| Competition | Sin estado propio en el MVP            |
 | Game        | `pending` → `in_progress` → `finished`|
 
-En el MVP una Competition no tiene estados propios.
-
-La disponibilidad de una Competition se deriva del estado del Tournament al que pertenece.
-
-Por ejemplo:
-
-- Tournament `draft` → la Competition se considera en preparación.
-- Tournament `in_progress` → la Competition se considera activa.
-- Tournament `finished` → la Competition se considera finalizada.
-
-No existe una máquina de estados independiente para Competition en el MVP.
+`Tournament.status` se valida por enum.
+No hay reglas de transición de estado implementadas más allá de aceptar valores válidos del enum.
 
 ---
 
-## 10. Lo que queda fuera del MVP (para versiones futuras)
+## 10. Lo que queda fuera del MVP (futuro)
 
-- Dobles (requiere modelar pareja e inscripción en par).
-- Fases y grupos (Stage, Group, GroupPlayer).
-- Llaves eliminatorias automáticas (Bracket, AdvancementRule).
+- Dobles.
+- Edición de sets individuales.
+- Walkover y abandono.
 - Ranking de jugadores.
 - Estadísticas avanzadas.
-- Edición de GameSets.
-- Walkover y abandono.
-- `win_by_two` y reglas ITTF completas.
-- Scheduling y conflictos de mesa.
-- Notificaciones.
-- Multi-tenant u organizaciones.
-- App móvil.
+- Reglas ITTF completas (`win_by_two`, saque, etc.).
+- Scheduling automático de mesas.
+- Multi-tenant / organizaciones.
+- Pagos y licencias.
 
 ---
 
-## 11 Convenciones generales
+## 11. Convenciones generales
 
 Todas las entidades persistidas incluyen:
 
@@ -345,42 +437,41 @@ siguiendo la convención estándar de Laravel/Eloquent.
 
 ---
 
-## 12 Decisiones simplificadas del MVP
+## 12. Decisiones simplificadas del MVP
 
 Para priorizar simplicidad y velocidad de desarrollo:
 
-- Los partidos se crean manualmente.
-- No existe generación automática de llaves.
-- No existe generación automática de grupos.
-- No existe clasificación automática.
-- No existen rankings.
-- No existe validación oficial completa de reglas ITTF.
-- No existe control de saque.
-- No existe diferencia mínima de dos puntos en sets.
-- No existe walkover.
-- No existe abandono de partido.
-- Un Game siempre tiene exactamente dos jugadores.
-- El MVP soporta únicamente competencias singles.
-- GameSet es append-only; no hay edición de sets individuales.
+- Competencias exclusivamente `singles`.
+- Formato de competencia `manual`.
+- Los games pueden crearse manualmente.
+- Los sets son append-only.
+- No hay edición de sets individuales.
+- No se valida diferencia mínima de dos puntos.
+- No hay lógica de desempate avanzada en standings.
+- No hay scheduling automático de mesas.
 
 ---
 
-## 13 Invariantes del dominio
+## 13. Invariantes del dominio
 
-El sistema debe garantizar siempre que:
+El sistema garantiza que:
 
-- Un Game pertenece a una única Competition.
-- Un Game tiene exactamente dos jugadores distintos.
-- Ambos jugadores del Game están inscriptos en la Competition.
-- `winner_id` debe ser uno de los jugadores del Game.
-- Un Game terminado debe tener ganador y `finished_at`.
-- Un Game sin sets no puede tener ganador.
 - Un Registration vincula exactamente un Player con una Competition.
-- No puede haber dos GameSets con el mismo `set_number` en un Game.
+- No hay dos registrations del mismo jugador en una misma competencia.
+- Un Game pertenece a una única Competition.
+- Un Game tiene dos jugadores distintos.
+- Ambos jugadores del Game deben estar inscriptos en la Competition.
+- `winner_id`, si existe, corresponde a uno de los jugadores del game.
+- Un Game terminado tiene `winner_id` y `finished_at`.
+- No hay dos GameSets con el mismo `set_number` en un mismo game.
+- Un Group pertenece a una Competition.
+- El nombre de Group es único por Competition.
+- Un jugador no puede pertenecer a dos grupos de la misma Competition.
+- Un Bracket pertenece a una Competition y es único por Competition.
 
 ---
 
-## 14 Filosofía del dominio
+## 14. Filosofía del dominio
 
 El dominio prioriza:
 
@@ -389,4 +480,4 @@ El dominio prioriza:
 - modelado explícito,
 - evolución incremental.
 
-Se evita incorporar complejidad anticipada que todavía no aporte valor al MVP.
+Se evita incorporar complejidad anticipada que todavía no aporta valor al MVP.
