@@ -17,7 +17,6 @@ const isSavingSet = ref(false)
 const setError = ref('')
 const setSuccessMessage = ref('')
 const form = reactive({
-  set_number: '',
   player1_score: '',
   player2_score: '',
 })
@@ -55,6 +54,8 @@ const orderedSets = computed(() =>
   [...(game.value?.sets || [])].sort((a, b) => a.set_number - b.set_number),
 )
 
+const nextSetNumber = computed(() => orderedSets.value.length + 1)
+
 const setsSummary = computed(() => {
   let player1Sets = 0
   let player2Sets = 0
@@ -87,8 +88,8 @@ const loadGame = async () => {
 }
 
 const handleRecordSet = async () => {
-  if (!form.set_number || form.player1_score === '' || form.player2_score === '') {
-    setError.value = 'Todos los campos del set son obligatorios.'
+  if (form.player1_score === '' || form.player2_score === '') {
+    setError.value = 'Completá los puntajes de ambos jugadores.'
     return
   }
 
@@ -98,13 +99,12 @@ const handleRecordSet = async () => {
 
   try {
     await GameService.recordSet(gameId.value, {
-      set_number: Number(form.set_number),
+      set_number: nextSetNumber.value,
       player1_score: Number(form.player1_score),
       player2_score: Number(form.player2_score),
     })
 
     setSuccessMessage.value = 'Set registrado correctamente.'
-    form.set_number = ''
     form.player1_score = ''
     form.player2_score = ''
     await loadGame()
@@ -147,36 +147,38 @@ onMounted(loadGame)
       />
     </div>
 
-    <p v-if="isLoading" class="text-sm text-slate-600">Cargando partido...</p>
+    <p v-if="isLoading" class="text-sm text-slate-600 dark:text-slate-300">Cargando partido...</p>
     <p v-else-if="errorMessage" class="text-sm text-red-600">{{ errorMessage }}</p>
 
     <template v-else-if="game">
-      <div class="space-y-2 rounded-md border border-slate-200 bg-white p-4 text-sm">
-        <p class="font-medium text-slate-900">{{ playerName(game.player1) }} vs {{ playerName(game.player2) }}</p>
-        <p class="text-slate-600">Estado: {{ game.status }}</p>
-        <p class="text-slate-600">Ganador: {{ winnerName }}</p>
+      <div class="space-y-2 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900">
+        <p class="font-medium text-slate-900 dark:text-slate-100">
+          {{ playerName(game.player1) }} vs {{ playerName(game.player2) }}
+        </p>
+        <p class="text-slate-600 dark:text-slate-300">Estado: {{ game.status }}</p>
+        <p class="text-slate-600 dark:text-slate-300">Ganador: {{ winnerName }}</p>
       </div>
 
-      <div class="space-y-2 rounded-md border border-slate-200 bg-white p-4 text-sm">
-        <p class="font-medium text-slate-700">Resultado actual</p>
-        <p class="text-slate-700">{{ player1Name }}: {{ setsSummary.player1Sets }} sets</p>
-        <p class="text-slate-700">{{ player2Name }}: {{ setsSummary.player2Sets }} sets</p>
+      <div class="space-y-2 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900">
+        <p class="font-medium text-slate-700 dark:text-slate-200">Resultado actual</p>
+        <p class="text-slate-700 dark:text-slate-200">{{ player1Name }}: {{ setsSummary.player1Sets }} sets</p>
+        <p class="text-slate-700 dark:text-slate-200">{{ player2Name }}: {{ setsSummary.player2Sets }} sets</p>
       </div>
 
       <div
         v-if="isFinished"
-        class="space-y-1 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800"
+        class="space-y-1 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
       >
         <p class="font-semibold">✅ Partido finalizado</p>
         <p>Ganador: {{ winnerName }}</p>
       </div>
 
-      <div class="space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm">
-        <p class="font-medium text-slate-700">Sets registrados</p>
+      <div class="space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900">
+        <p class="font-medium text-slate-700 dark:text-slate-200">Sets registrados</p>
 
         <div
           v-if="orderedSets.length === 0"
-          class="rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-600"
+          class="rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
         >
           Este partido todavía no tiene sets.
         </div>
@@ -185,17 +187,19 @@ onMounted(loadGame)
           <article
             v-for="gameSet in orderedSets"
             :key="gameSet.id"
-            class="rounded border border-slate-200 p-3"
+            class="rounded border border-slate-200 p-3 dark:border-slate-700"
           >
-            <p class="font-medium text-slate-900">Set {{ gameSet.set_number }}</p>
-            <div class="space-y-1 text-slate-700">
-              <div class="flex items-center justify-between gap-3 border-b border-dotted border-slate-200 pb-1">
+            <p class="font-medium text-slate-900 dark:text-slate-100">Set {{ gameSet.set_number }}</p>
+            <div class="space-y-1 text-slate-700 dark:text-slate-300">
+              <div
+                class="flex items-center justify-between gap-3 border-b border-dotted border-slate-200 pb-1 dark:border-slate-700"
+              >
                 <span>{{ player1Name }}</span>
-                <span class="font-semibold text-slate-900">{{ gameSet.player1_score }}</span>
+                <span class="font-semibold text-slate-900 dark:text-slate-100">{{ gameSet.player1_score }}</span>
               </div>
               <div class="flex items-center justify-between gap-3">
                 <span>{{ player2Name }}</span>
-                <span class="font-semibold text-slate-900">{{ gameSet.player2_score }}</span>
+                <span class="font-semibold text-slate-900 dark:text-slate-100">{{ gameSet.player2_score }}</span>
               </div>
             </div>
           </article>
@@ -204,24 +208,20 @@ onMounted(loadGame)
 
       <form
         v-if="!isFinished"
-        class="max-w-xl space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm"
+        class="max-w-xl space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
         @submit.prevent="handleRecordSet"
       >
-        <p class="font-medium text-slate-700">Registrar set</p>
+        <p class="font-medium text-slate-700 dark:text-slate-200">Registrar set</p>
 
-        <div>
-          <label for="set-number" class="mb-1 block font-medium text-slate-700">Número de set</label>
-          <input
-            id="set-number"
-            v-model="form.set_number"
-            type="number"
-            min="1"
-            class="w-full rounded-md border border-slate-300 px-3 py-2"
-          />
+        <div class="rounded-md border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
+          <p class="mb-1 font-medium text-slate-700 dark:text-slate-200">Número de set</p>
+          <p class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            {{ nextSetNumber }} <span class="text-sm font-normal text-slate-500 dark:text-slate-400">(automático)</span>
+          </p>
         </div>
 
         <div>
-          <label for="player1-score" class="mb-1 block font-medium text-slate-700">
+          <label for="player1-score" class="mb-1 block font-medium text-slate-700 dark:text-slate-200">
             Puntos {{ player1Name }}
           </label>
           <input
@@ -229,12 +229,12 @@ onMounted(loadGame)
             v-model="form.player1_score"
             type="number"
             min="0"
-            class="w-full rounded-md border border-slate-300 px-3 py-2"
+            class="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
 
         <div>
-          <label for="player2-score" class="mb-1 block font-medium text-slate-700">
+          <label for="player2-score" class="mb-1 block font-medium text-slate-700 dark:text-slate-200">
             Puntos {{ player2Name }}
           </label>
           <input
@@ -242,7 +242,7 @@ onMounted(loadGame)
             v-model="form.player2_score"
             type="number"
             min="0"
-            class="w-full rounded-md border border-slate-300 px-3 py-2"
+            class="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
 
