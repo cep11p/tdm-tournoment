@@ -48,6 +48,15 @@ onMounted(loadCompetition)
       class="space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm"
     >
       <div>
+        <RouterLink
+          :to="`/competitions/${competition.id}/registrations`"
+          class="inline-flex rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+        >
+          Administrar inscripciones
+        </RouterLink>
+      </div>
+
+      <div>
         <p class="text-slate-500">Nombre</p>
         <p class="font-medium text-slate-900">{{ competition.name }}</p>
       </div>

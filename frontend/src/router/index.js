@@ -7,6 +7,7 @@ import TournamentDetailView from '../tournaments/views/TournamentDetailView.vue'
 import CompetitionListView from '../competitions/views/CompetitionListView.vue'
 import CompetitionCreateView from '../competitions/views/CompetitionCreateView.vue'
 import CompetitionDetailView from '../competitions/views/CompetitionDetailView.vue'
+import RegistrationListView from '../registrations/views/RegistrationListView.vue'
 import PlayerListView from '../players/views/PlayerListView.vue'
 
 const routes = [
@@ -44,6 +45,11 @@ const routes = [
     path: '/competitions/:id',
     name: 'competitions-detail',
     component: CompetitionDetailView,
+  },
+  {
+    path: '/competitions/:id/registrations',
+    name: 'competitions-registrations',
+    component: RegistrationListView,
   },
   {
     path: '/players',
