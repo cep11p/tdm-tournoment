@@ -17,6 +17,11 @@ class Player extends Model
         return $this->hasMany(Registration::class);
     }
 
+    public function groupPlayers(): HasMany
+    {
+        return $this->hasMany(GroupPlayer::class);
+    }
+
     public function gamesAsPlayer1(): HasMany
     {
         return $this->hasMany(Game::class, 'player1_id');
