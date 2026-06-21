@@ -53,15 +53,15 @@ const submit = async () => {
       <h1 class="text-2xl font-bold">Nueva competencia</h1>
     </div>
 
-    <p class="text-sm text-slate-600">Formulario inicial para crear una competencia.</p>
-    <p v-if="errorMessage" class="text-sm text-red-600">{{ errorMessage }}</p>
+    <p class="text-sm text-slate-600 dark:text-slate-300">Formulario inicial para crear una competencia.</p>
+    <p v-if="errorMessage" class="text-sm text-red-600 dark:text-red-400">{{ errorMessage }}</p>
 
     <form
-      class="max-w-xl space-y-4 rounded-md border border-slate-200 bg-white p-4"
+      class="max-w-xl space-y-4 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
       @submit.prevent="submit"
     >
       <div class="space-y-1">
-        <label class="block text-sm font-medium text-slate-700" for="name">Nombre</label>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="name">Nombre</label>
         <input
           id="name"
           v-model="form.name"
@@ -72,7 +72,7 @@ const submit = async () => {
       </div>
 
       <div class="space-y-1">
-        <label class="block text-sm font-medium text-slate-700" for="category">Categoría</label>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="category">Categoría</label>
         <input
           id="category"
           v-model="form.category"
@@ -84,7 +84,7 @@ const submit = async () => {
 
       <div class="grid gap-4 sm:grid-cols-2">
         <div class="space-y-1">
-          <label class="block text-sm font-medium text-slate-700" for="type">Tipo</label>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="type">Tipo</label>
           <select
             id="type"
             v-model="form.type"
@@ -96,7 +96,7 @@ const submit = async () => {
         </div>
 
         <div class="space-y-1">
-          <label class="block text-sm font-medium text-slate-700" for="format">Formato</label>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="format">Formato</label>
           <select
             id="format"
             v-model="form.format"
@@ -110,7 +110,7 @@ const submit = async () => {
 
       <div class="grid gap-4 sm:grid-cols-2">
         <div class="space-y-1">
-          <label class="block text-sm font-medium text-slate-700" for="sets_to_win">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="sets_to_win">
             Sets para ganar
           </label>
           <input
@@ -124,7 +124,7 @@ const submit = async () => {
         </div>
 
         <div class="space-y-1">
-          <label class="block text-sm font-medium text-slate-700" for="points_per_set">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="points_per_set">
             Puntos por set
           </label>
           <input
@@ -139,7 +139,7 @@ const submit = async () => {
       </div>
 
       <div class="space-y-1">
-        <label class="block text-sm font-medium text-slate-700" for="qualified_per_group">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="qualified_per_group">
           Clasificados por grupo
         </label>
         <input
@@ -163,7 +163,7 @@ const submit = async () => {
 
         <RouterLink
           :to="`/tournaments/${tournamentId}/competitions`"
-          class="text-sm font-medium text-slate-700 hover:underline"
+          class="text-sm font-medium text-slate-700 dark:text-slate-200 hover:underline"
         >
           Cancelar
         </RouterLink>

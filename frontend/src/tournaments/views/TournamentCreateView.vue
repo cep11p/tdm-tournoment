@@ -46,15 +46,15 @@ const submit = async () => {
       <h1 class="text-2xl font-bold">Nuevo torneo</h1>
     </div>
 
-    <p class="text-sm text-slate-600">Formulario inicial para crear un torneo.</p>
-    <p v-if="errorMessage" class="text-sm text-red-600">{{ errorMessage }}</p>
+    <p class="text-sm text-slate-600 dark:text-slate-300">Formulario inicial para crear un torneo.</p>
+    <p v-if="errorMessage" class="text-sm text-red-600 dark:text-red-400">{{ errorMessage }}</p>
 
     <form
-      class="max-w-xl space-y-4 rounded-md border border-slate-200 bg-white p-4"
+      class="max-w-xl space-y-4 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
       @submit.prevent="submit"
     >
       <div class="space-y-1">
-        <label class="block text-sm font-medium text-slate-700" for="name">Nombre</label>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="name">Nombre</label>
         <input
           id="name"
           v-model="form.name"
@@ -65,7 +65,7 @@ const submit = async () => {
       </div>
 
       <div class="space-y-1">
-        <label class="block text-sm font-medium text-slate-700" for="location">Ubicación</label>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="location">Ubicación</label>
         <input
           id="location"
           v-model="form.location"
@@ -77,7 +77,7 @@ const submit = async () => {
 
       <div class="grid gap-4 sm:grid-cols-2">
         <div class="space-y-1">
-          <label class="block text-sm font-medium text-slate-700" for="start_date">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="start_date">
             Fecha inicio
           </label>
           <input
@@ -90,7 +90,7 @@ const submit = async () => {
         </div>
 
         <div class="space-y-1">
-          <label class="block text-sm font-medium text-slate-700" for="end_date">Fecha fin</label>
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="end_date">Fecha fin</label>
           <input
             id="end_date"
             v-model="form.end_date"
@@ -101,7 +101,7 @@ const submit = async () => {
       </div>
 
       <div class="space-y-1">
-        <label class="block text-sm font-medium text-slate-700" for="status">Estado</label>
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="status">Estado</label>
         <select
           id="status"
           v-model="form.status"
@@ -122,7 +122,7 @@ const submit = async () => {
           {{ isSubmitting ? 'Guardando...' : 'Guardar' }}
         </button>
 
-        <RouterLink to="/tournaments" class="text-sm font-medium text-slate-700 hover:underline">
+        <RouterLink to="/tournaments" class="text-sm font-medium text-slate-700 hover:underline dark:text-slate-300">
           Cancelar
         </RouterLink>
       </div>

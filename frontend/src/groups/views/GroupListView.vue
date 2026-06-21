@@ -68,20 +68,20 @@ onMounted(loadGroups)
       <h1 class="text-2xl font-bold">Grupos de la competencia</h1>
       <RouterLink
         :to="`/competitions/${competitionId}`"
-        class="text-sm font-medium text-slate-700 hover:underline"
+        class="text-sm font-medium text-slate-700 dark:text-slate-200 hover:underline"
       >
         Volver a competencia
       </RouterLink>
     </div>
 
     <form
-      class="max-w-xl space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm"
+      class="max-w-xl space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
       @submit.prevent="handleCreateGroup"
     >
-      <p class="font-medium text-slate-700">Crear grupo</p>
+      <p class="font-medium text-slate-700 dark:text-slate-200">Crear grupo</p>
 
       <div>
-        <label for="group-name" class="mb-1 block font-medium text-slate-700">Nombre</label>
+        <label for="group-name" class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Nombre</label>
         <input
           id="group-name"
           v-model="form.name"
@@ -122,7 +122,7 @@ onMounted(loadGroups)
 
         <RouterLink
           :to="`/groups/${group.id}?competitionId=${competitionId}&groupName=${encodeURIComponent(group.name)}`"
-          class="text-sm font-medium text-slate-700 hover:underline"
+          class="text-sm font-medium text-slate-700 dark:text-slate-200 hover:underline"
         >
           Ver detalle
         </RouterLink>

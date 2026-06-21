@@ -158,18 +158,18 @@ onMounted(loadCompetition)
     </div>
 
     <form
-      class="max-w-xl space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm"
+      class="max-w-xl space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
       @submit.prevent="handleCreateBracket"
     >
-      <p class="font-medium text-slate-700">Generar bracket</p>
+      <p class="font-medium text-slate-700 dark:text-slate-200">Generar bracket</p>
 
-      <p class="text-slate-600">
+      <p class="text-slate-600 dark:text-slate-300">
         Clasificados por grupo (configuración de la competencia):
-        <span class="font-medium text-slate-900">{{ competition?.qualified_per_group ?? 2 }}</span>
+        <span class="font-medium text-slate-900 dark:text-slate-100">{{ competition?.qualified_per_group ?? 2 }}</span>
       </p>
 
       <div>
-        <label for="bracket-name" class="mb-1 block font-medium text-slate-700">Nombre</label>
+        <label for="bracket-name" class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Nombre</label>
         <input
           id="bracket-name"
           v-model="form.name"

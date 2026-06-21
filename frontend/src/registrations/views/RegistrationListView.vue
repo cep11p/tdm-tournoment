@@ -178,11 +178,11 @@ onMounted(async () => {
 
     <div
       v-if="showRegistrationForm"
-      class="space-y-4 rounded-md border border-slate-200 bg-white p-4 text-sm"
+      class="space-y-4 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
     >
-      <div class="flex items-end gap-2">
+      <form class="flex items-end gap-2" @submit.prevent="handleSearchPlayers">
         <label class="flex-1">
-          <span class="mb-1 block text-sm font-medium text-slate-700">Buscar jugador</span>
+          <span class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">Buscar jugador</span>
           <input
             v-model="searchQuery"
             type="text"
@@ -192,29 +192,28 @@ onMounted(async () => {
         </label>
 
         <button
-          type="button"
+          type="submit"
           class="rounded-md bg-slate-900 px-3 py-2 font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
           :disabled="isSearchingPlayers"
-          @click="handleSearchPlayers"
         >
           {{ isSearchingPlayers ? 'Buscando...' : 'Buscar' }}
         </button>
-      </div>
+      </form>
 
-      <p v-if="playerSearchError" class="text-red-600">{{ playerSearchError }}</p>
+      <p v-if="playerSearchError" class="text-red-600 dark:text-red-400">{{ playerSearchError }}</p>
 
       <div v-if="playerSearchResults.length > 0" class="space-y-2">
-        <p class="font-medium text-slate-700">Seleccioná un jugador existente</p>
+        <p class="font-medium text-slate-700 dark:text-slate-200">Seleccioná un jugador existente</p>
 
         <label
           v-for="player in playerSearchResults"
           :key="player.id"
-          class="flex items-center gap-2 rounded border border-slate-200 p-2"
+          class="flex items-center gap-2 rounded border border-slate-200 p-2 dark:border-slate-700"
         >
           <input v-model="selectedPlayerId" :value="player.id" type="radio" name="selected-player" />
           <span>
             {{ player.first_name }} {{ player.last_name }}
-            <span v-if="player.nickname" class="text-slate-500">({{ player.nickname }})</span>
+            <span v-if="player.nickname" class="text-slate-500 dark:text-slate-400">({{ player.nickname }})</span>
           </span>
         </label>
 
@@ -230,7 +229,7 @@ onMounted(async () => {
 
       <div
         v-else-if="searchedOnce && !isSearchingPlayers"
-        class="rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-700"
+        class="rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
       >
         No se encontraron jugadores con esa búsqueda.
       </div>
@@ -238,7 +237,7 @@ onMounted(async () => {
       <div v-if="searchedOnce && playerSearchResults.length === 0 && !isSearchingPlayers">
         <button
           type="button"
-          class="text-sm font-medium text-slate-700 underline"
+          class="text-sm font-medium text-slate-700 underline dark:text-slate-300"
           @click="showCreatePlayerForm = !showCreatePlayerForm"
         >
           {{ showCreatePlayerForm ? 'Ocultar creación de jugador' : 'Crear jugador' }}
@@ -247,13 +246,13 @@ onMounted(async () => {
 
       <form
         v-if="showCreatePlayerForm"
-        class="space-y-3 rounded-md border border-slate-200 p-3"
+        class="space-y-3 rounded-md border border-slate-200 p-3 dark:border-slate-700"
         @submit.prevent="handleCreateAndRegisterPlayer"
       >
-        <p class="font-medium text-slate-700">Crear jugador</p>
+        <p class="font-medium text-slate-700 dark:text-slate-200">Crear jugador</p>
 
         <div>
-          <label for="first_name" class="mb-1 block font-medium text-slate-700">Nombre</label>
+          <label for="first_name" class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Nombre</label>
           <input
             id="first_name"
             v-model="createPlayerForm.first_name"
@@ -263,7 +262,7 @@ onMounted(async () => {
         </div>
 
         <div>
-          <label for="last_name" class="mb-1 block font-medium text-slate-700">Apellido</label>
+          <label for="last_name" class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Apellido</label>
           <input
             id="last_name"
             v-model="createPlayerForm.last_name"
@@ -273,7 +272,7 @@ onMounted(async () => {
         </div>
 
         <div>
-          <label for="nickname" class="mb-1 block font-medium text-slate-700">Nickname</label>
+          <label for="nickname" class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Nickname</label>
           <input
             id="nickname"
             v-model="createPlayerForm.nickname"
@@ -302,12 +301,12 @@ onMounted(async () => {
 
     <div
       v-else-if="registrations.length === 0"
-      class="rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-600"
+      class="rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
     >
       Esta competencia todavía no tiene inscriptos.
     </div>
 
-    <div v-else class="space-y-2 rounded-md border border-slate-200 bg-white p-4">
+    <div v-else class="space-y-2 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
       <article
         v-for="registration in registrations"
         :key="registration.id"
