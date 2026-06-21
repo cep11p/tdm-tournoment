@@ -16,8 +16,6 @@ import RegistrationService from '../../registrations/services/RegistrationServic
 import StandingService from '../../standings/services/StandingService'
 import CompetitionService from '../services/CompetitionService'
 
-const QUALIFIERS_PER_GROUP = 2
-
 const route = useRoute()
 
 const competition = ref(null)
@@ -30,6 +28,8 @@ const isLoading = ref(false)
 const errorMessage = ref('')
 
 const competitionId = computed(() => route.params.id)
+
+const qualifiedPerGroup = computed(() => competition.value?.qualified_per_group ?? 2)
 
 const fallbackBackRoute = computed(() =>
   competition.value?.tournament_id ? `/tournaments/${competition.value.tournament_id}/competitions` : '/tournaments',
@@ -238,7 +238,7 @@ const qualifiersByGroup = computed(() => {
 
     return {
       group,
-      qualifiers: standings.slice(0, QUALIFIERS_PER_GROUP).map((standing, index) => ({
+      qualifiers: standings.slice(0, qualifiedPerGroup.value).map((standing, index) => ({
         ...standing,
         position: index + 1,
       })),

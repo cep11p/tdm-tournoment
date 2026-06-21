@@ -15,6 +15,10 @@ class Competition extends Model
 
     protected $guarded = [];
 
+    protected $attributes = [
+        'qualified_per_group' => 2,
+    ];
+
     protected function casts(): array
     {
         return [
@@ -22,6 +26,7 @@ class Competition extends Model
             'format' => CompetitionFormat::class,
             'sets_to_win' => 'integer',
             'points_per_set' => 'integer',
+            'qualified_per_group' => 'integer',
         ];
     }
 

@@ -17,6 +17,11 @@ const CompetitionService = {
     const response = await httpClient.post(`/tournaments/${tournamentId}/competitions`, payload)
     return unwrap(response) ?? null
   },
+
+  async update(id, payload) {
+    const response = await httpClient.put(`/competitions/${id}`, payload)
+    return unwrap(response) ?? null
+  },
 }
 
 export default CompetitionService

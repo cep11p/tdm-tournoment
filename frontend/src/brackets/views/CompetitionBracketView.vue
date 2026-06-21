@@ -21,7 +21,6 @@ const nextRoundError = ref('')
 const nextRoundSuccessMessage = ref('')
 
 const form = reactive({
-  qualifiers_per_group: 2,
   name: 'Eliminatoria',
 })
 
@@ -100,14 +99,13 @@ const handleCreateBracket = async () => {
 
   try {
     bracket.value = await BracketService.create(competitionId.value, {
-      qualifiers_per_group: Number(form.qualifiers_per_group),
       name: form.name.trim() || 'Eliminatoria',
     })
 
     createSuccessMessage.value = 'Bracket generado correctamente.'
   } catch (error) {
     createError.value =
-      error?.response?.data?.errors?.qualifiers_per_group?.[0] ||
+      error?.response?.data?.errors?.qualified_per_group?.[0] ||
       error?.response?.data?.errors?.competition?.[0] ||
       error?.response?.data?.errors?.group?.[0] ||
       error?.response?.data?.message ||
@@ -165,18 +163,10 @@ onMounted(loadCompetition)
     >
       <p class="font-medium text-slate-700">Generar bracket</p>
 
-      <div>
-        <label for="qualifiers-per-group" class="mb-1 block font-medium text-slate-700">
-          Clasificados por grupo
-        </label>
-        <input
-          id="qualifiers-per-group"
-          v-model="form.qualifiers_per_group"
-          type="number"
-          min="1"
-          class="w-full rounded-md border border-slate-300 px-3 py-2"
-        />
-      </div>
+      <p class="text-slate-600">
+        Clasificados por grupo (configuración de la competencia):
+        <span class="font-medium text-slate-900">{{ competition?.qualified_per_group ?? 2 }}</span>
+      </p>
 
       <div>
         <label for="bracket-name" class="mb-1 block font-medium text-slate-700">Nombre</label>

@@ -23,7 +23,7 @@ Route::prefix(config('api.version_prefix', 'v1'))
             ->only(['store', 'index']);
 
         Route::apiResource('competitions', CompetitionController::class)
-            ->only(['show']);
+            ->only(['show', 'update']);
 
         Route::get('competitions/{competition}/standings', [CompetitionStandingsController::class, 'index'])
             ->name('competitions.standings.index');

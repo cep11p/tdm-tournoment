@@ -28,6 +28,7 @@ class CompetitionResource extends JsonResource
             'format' => $format,
             'sets_to_win' => $this->sets_to_win,
             'points_per_set' => $this->points_per_set,
+            'qualified_per_group' => $this->qualified_per_group,
             'created_at' => optional($this->created_at)->toISOString(),
             'updated_at' => optional($this->updated_at)->toISOString(),
         ];

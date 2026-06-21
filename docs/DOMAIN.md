@@ -84,8 +84,11 @@ Representa una competencia concreta dentro de un torneo.
 | type            | enum     | `singles` (en MVP solo singles).                    |
 | category        | string   | División (ej: primera, amateur, libre).             |
 | format          | enum     | `manual` (en MVP solo manual).                      |
-| sets_to_win     | int      | Sets que debe ganar un jugador para ganar el game.  |
-| points_per_set  | int      | Puntos necesarios para ganar un set (ej: 11).       |
+| sets_to_win          | int      | Sets que debe ganar un jugador para ganar el game.  |
+| points_per_set       | int      | Puntos necesarios para ganar un set (ej: 11).       |
+| qualified_per_group  | int      | Cuántos jugadores clasifican desde cada grupo hacia la fase eliminatoria (default: 2). |
+
+`qualified_per_group` define cuántos jugadores de cada grupo avanzan al cuadro eliminatorio. El valor se configura al crear o editar la competencia (no puede modificarse una vez generado el bracket).
 
 `sets_to_win` es configurable y define el formato del partido:
 
@@ -172,7 +175,9 @@ Representa el cuadro eliminatorio de una competencia.
 | id                   | bigint | Identificador único.                         |
 | competition_id       | bigint | FK a Competition.                            |
 | name                 | string | Nombre del cuadro (ej: "Eliminatoria").      |
-| qualifiers_per_group | int    | Clasificados por grupo usados para generarlo.|
+| qualifiers_per_group | int    | Snapshot del valor `qualified_per_group` de la competencia al momento de crear el cuadro. |
+
+`Bracket.qualifiers_per_group` registra cuántos clasificados por grupo se usaron al generar el cuadro. La configuración activa vive en `Competition.qualified_per_group`; el campo del bracket es histórico.
 
 Restricción única: `competition_id` (una competencia tiene un solo bracket).
 
@@ -292,10 +297,12 @@ GameSet
 14. Un jugador no puede estar en dos grupos de la misma competencia.
 15. Solo puede existir un bracket por competencia.
 16. Para crear bracket, todos los partidos de grupos deben estar finalizados.
-17. El total de clasificados del bracket debe ser 2, 4 u 8.
-18. La siguiente ronda del bracket se genera con `winner_id` de la ronda actual.
-19. No puede generarse siguiente ronda si la actual está incompleta.
-20. No puede generarse una ronda ya creada ni avanzar cuando el bracket ya terminó.
+17. El bracket usa `Competition.qualified_per_group` para determinar cuántos jugadores clasifican de cada grupo.
+18. El total de clasificados del bracket debe ser 2, 4 u 8 (sin BYEs por ahora). Combinaciones como 10 grupos × 3 clasificados (= 30) se resolverán en un PR posterior con BYEs y brackets de 16/32/64.
+19. No se puede cambiar `qualified_per_group` si la competencia ya tiene un bracket generado.
+20. La siguiente ronda del bracket se genera con `winner_id` de la ronda actual.
+21. No puede generarse siguiente ronda si la actual está incompleta.
+22. No puede generarse una ronda ya creada ni avanzar cuando el bracket ya terminó.
 
 ---
 
@@ -333,7 +340,7 @@ Al registrar un set (`POST /games/{game}/sets`), el sistema:
 7. Generar Round Robin de cada Group
 8. Cargar sets hasta finalizar los games de grupos
 9. Consultar standings de grupos / competencia
-10. Crear Bracket eliminatorio (qualifiers_per_group)
+10. Crear Bracket eliminatorio (usa `Competition.qualified_per_group`; guarda snapshot en `Bracket.qualifiers_per_group`)
 11. Cargar sets de games del bracket
 12. Generar siguiente ronda del bracket
 13. Repetir hasta la final

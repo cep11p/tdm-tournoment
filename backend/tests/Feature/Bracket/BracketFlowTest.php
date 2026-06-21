@@ -13,7 +13,7 @@ class BracketFlowTest extends TestCase
         $context = $this->tournamentContext();
         $setup = $context->createFourQualifierGroupPhase();
 
-        $response = $context->createBracket($setup['competition'], qualifiersPerGroup: 2);
+        $response = $context->createBracket($setup['competition']);
 
         $response
             ->assertCreated()
@@ -32,6 +32,57 @@ class BracketFlowTest extends TestCase
         $this->assertSame($setup['playerTwo']->id, $semifinals[1]->player2_id);
     }
 
+    public function test_uses_competition_qualified_per_group_when_creating_bracket(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $context->createFourQualifierGroupPhase();
+
+        $setup['competition']->update(['qualified_per_group' => 1]);
+        $setup['competition']->refresh();
+
+        $response = $context->createBracket($setup['competition']);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.qualifiers_per_group', 1);
+
+        $bracket = Bracket::query()->where('competition_id', $setup['competition']->id)->sole();
+        $this->assertSame(1, $bracket->qualifiers_per_group);
+
+        $finalGames = $context->bracketGamesForRound($bracket, 1);
+        $this->assertCount(1, $finalGames);
+        $this->assertSame('Final', $finalGames[0]->round);
+    }
+
+    public function test_rejects_bracket_when_total_qualifiers_are_not_allowed(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+        $players = $context->createPlayers(6);
+        $context->registerPlayers($competition, $players);
+
+        $groups = [
+            $context->createGroupWithPlayers($competition, array_slice($players, 0, 2), 'Grupo A'),
+            $context->createGroupWithPlayers($competition, array_slice($players, 2, 2), 'Grupo B'),
+            $context->createGroupWithPlayers($competition, array_slice($players, 4, 2), 'Grupo C'),
+        ];
+
+        foreach ($groups as $index => $group) {
+            $context->generateRoundRobin($group)->assertCreated();
+
+            $game = Game::query()->where('group_id', $group->id)->sole();
+            $context->finishGame($game, $players[$index * 2])->assertOk();
+        }
+
+        $response = $context->createBracket($competition);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['qualified_per_group']);
+
+        $this->assertDatabaseCount('brackets', 0);
+    }
+
     public function test_rejects_bracket_when_group_games_are_pending(): void
     {
         $context = $this->tournamentContext();
@@ -40,7 +91,7 @@ class BracketFlowTest extends TestCase
         $groupAGame = Game::query()->where('group_id', $setup['groupA']->id)->sole();
         $context->finishGame($groupAGame, $setup['playerOne'])->assertOk();
 
-        $response = $context->createBracket($setup['competition'], qualifiersPerGroup: 2);
+        $response = $context->createBracket($setup['competition']);
 
         $response
             ->assertUnprocessable()
@@ -54,10 +105,10 @@ class BracketFlowTest extends TestCase
         $context = $this->tournamentContext();
         $setup = $context->createFourQualifierGroupPhase();
 
-        $context->createBracket($setup['competition'], qualifiersPerGroup: 2)
+        $context->createBracket($setup['competition'])
             ->assertCreated();
 
-        $response = $context->createBracket($setup['competition'], qualifiersPerGroup: 2);
+        $response = $context->createBracket($setup['competition']);
 
         $response
             ->assertUnprocessable()
@@ -71,7 +122,7 @@ class BracketFlowTest extends TestCase
         $context = $this->tournamentContext();
         $setup = $context->createFourQualifierGroupPhase();
 
-        $context->createBracket($setup['competition'], qualifiersPerGroup: 2)
+        $context->createBracket($setup['competition'])
             ->assertCreated();
 
         $bracket = Bracket::query()->where('competition_id', $setup['competition']->id)->sole();
@@ -98,7 +149,7 @@ class BracketFlowTest extends TestCase
         $context = $this->tournamentContext();
         $setup = $context->createFourQualifierGroupPhase();
 
-        $context->createBracket($setup['competition'], qualifiersPerGroup: 2)
+        $context->createBracket($setup['competition'])
             ->assertCreated();
 
         $bracket = Bracket::query()->where('competition_id', $setup['competition']->id)->sole();
@@ -120,7 +171,7 @@ class BracketFlowTest extends TestCase
         $context = $this->tournamentContext();
         $setup = $context->createFourQualifierGroupPhase();
 
-        $context->createBracket($setup['competition'], qualifiersPerGroup: 2)
+        $context->createBracket($setup['competition'])
             ->assertCreated();
 
         $bracket = Bracket::query()->where('competition_id', $setup['competition']->id)->sole();
@@ -145,7 +196,7 @@ class BracketFlowTest extends TestCase
         $context = $this->tournamentContext();
         $setup = $context->createFourQualifierGroupPhase();
 
-        $context->createBracket($setup['competition'], qualifiersPerGroup: 2)
+        $context->createBracket($setup['competition'])
             ->assertCreated();
 
         $bracket = Bracket::query()->where('competition_id', $setup['competition']->id)->sole();

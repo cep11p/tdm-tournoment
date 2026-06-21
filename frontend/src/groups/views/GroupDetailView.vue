@@ -9,14 +9,14 @@ import RegistrationService from '../../registrations/services/RegistrationServic
 import StandingService from '../../standings/services/StandingService'
 import GroupService from '../services/GroupService'
 
-const QUALIFIERS_PER_GROUP = 2
-
 const route = useRoute()
 
 const groupId = computed(() => route.params.id)
 const competitionId = computed(() => route.query.competitionId || '')
 const groupName = computed(() => route.query.groupName || `Grupo #${groupId.value}`)
 const competition = ref(null)
+
+const qualifiedPerGroup = computed(() => competition.value?.qualified_per_group ?? 2)
 
 const groupPlayers = ref([])
 const isLoadingGroupPlayers = ref(false)
@@ -113,7 +113,7 @@ const displayedGroupPlayers = computed(() => {
       return {
         groupPlayer,
         position,
-        isQualified: position <= QUALIFIERS_PER_GROUP,
+        isQualified: position <= qualifiedPerGroup.value,
       }
     })
     .filter(Boolean)
@@ -337,7 +337,7 @@ onMounted(async () => {
             v-if="!isLoadingGroupPlayers && !isLoadingStandings && standings.length > 0"
             class="mt-1 text-xs text-slate-500 dark:text-slate-400"
           >
-            Ordenados por posición actual · clasifican los primeros {{ QUALIFIERS_PER_GROUP }}
+            Ordenados por posición actual · clasifican los primeros {{ qualifiedPerGroup }}
           </p>
         </div>
 

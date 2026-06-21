@@ -18,6 +18,7 @@ const form = reactive({
   format: 'manual',
   sets_to_win: 2,
   points_per_set: 11,
+  qualified_per_group: 2,
 })
 
 const submit = async () => {
@@ -31,6 +32,7 @@ const submit = async () => {
     format: form.format,
     sets_to_win: Number(form.sets_to_win),
     points_per_set: Number(form.points_per_set),
+    qualified_per_group: Number(form.qualified_per_group),
   }
 
   try {
@@ -134,6 +136,20 @@ const submit = async () => {
             class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
           />
         </div>
+      </div>
+
+      <div class="space-y-1">
+        <label class="block text-sm font-medium text-slate-700" for="qualified_per_group">
+          Clasificados por grupo
+        </label>
+        <input
+          id="qualified_per_group"
+          v-model.number="form.qualified_per_group"
+          type="number"
+          min="1"
+          required
+          class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+        />
       </div>
 
       <div class="flex items-center gap-3">

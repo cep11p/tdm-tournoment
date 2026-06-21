@@ -34,7 +34,7 @@ final class CreateBracketKnockoutAction
             ]);
         }
 
-        $qualifiersPerGroup = (int) $payload['qualifiers_per_group'];
+        $qualifiersPerGroup = (int) $competition->qualified_per_group;
         $qualifiers = collect();
 
         foreach ($groups as $group) {
@@ -54,9 +54,9 @@ final class CreateBracketKnockoutAction
 
         if (! in_array($qualifierCount, [2, 4, 8], true)) {
             throw ValidationException::withMessages([
-                'qualifiers_per_group' => [
+                'qualified_per_group' => [
                     sprintf(
-                        'Se requieren 2, 4 u 8 clasificados en total. La configuración actual produce %d.',
+                        'Se requieren 2, 4 u 8 clasificados en total según la configuración de la competencia. La configuración actual produce %d.',
                         $qualifierCount
                     ),
                 ],
@@ -193,7 +193,7 @@ final class CreateBracketKnockoutAction
                 && $lastQualifier->lost === $firstExcluded->lost
             ) {
                 throw ValidationException::withMessages([
-                    'qualifiers_per_group' => [
+                    'qualified_per_group' => [
                         sprintf('Hay empate en la clasificación del grupo "%s".', $group->name),
                     ],
                 ]);

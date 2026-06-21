@@ -14,7 +14,6 @@ class StoreBracketRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'qualifiers_per_group' => ['required', 'integer', 'min:1'],
             'name' => ['sometimes', 'string', 'max:255'],
         ];
     }

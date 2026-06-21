@@ -24,6 +24,7 @@ class StoreCompetitionRequest extends FormRequest
             'format' => ['required', Rule::enum(CompetitionFormat::class)],
             'sets_to_win' => ['required', 'integer', 'min:1'],
             'points_per_set' => ['required', 'integer', 'min:1'],
+            'qualified_per_group' => ['nullable', 'integer', 'min:1'],
         ];
     }
 

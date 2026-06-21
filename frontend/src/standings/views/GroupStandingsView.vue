@@ -7,14 +7,14 @@ import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import CompetitionService from '../../competitions/services/CompetitionService'
 import StandingService from '../services/StandingService'
 
-const QUALIFIERS_PER_GROUP = 2
-
 const route = useRoute()
 
 const groupId = computed(() => route.params.id)
 const competitionId = computed(() => route.query.competitionId || '')
 const groupName = computed(() => route.query.groupName || `Grupo #${groupId.value}`)
 const competition = ref(null)
+
+const qualifiedPerGroup = computed(() => competition.value?.qualified_per_group ?? 2)
 
 const standings = ref([])
 const isLoading = ref(false)
@@ -43,7 +43,7 @@ const completedMatches = computed(() => {
   return Number.isInteger(matches) ? matches : '-'
 })
 
-const isQualified = (position) => position <= QUALIFIERS_PER_GROUP
+const isQualified = (position) => position <= qualifiedPerGroup.value
 
 const positionBadgeClasses = (position) => {
   if (position === 1) {
@@ -160,7 +160,7 @@ onMounted(async () => {
 
           <div>
             <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Clasifican</dt>
-            <dd class="mt-1 font-medium text-slate-900 dark:text-slate-100">{{ QUALIFIERS_PER_GROUP }}</dd>
+            <dd class="mt-1 font-medium text-slate-900 dark:text-slate-100">{{ qualifiedPerGroup }}</dd>
           </div>
 
           <div>

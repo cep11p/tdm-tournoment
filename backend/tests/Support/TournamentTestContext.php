@@ -197,11 +197,34 @@ final class TournamentTestContext
         return $this->test->postJson($this->apiUrl("groups/{$group->id}/round-robin-games"));
     }
 
-    public function createBracket(Competition $competition, int $qualifiersPerGroup = 2): TestResponse
+    public function createBracket(Competition $competition, ?int $qualifiedPerGroup = null): TestResponse
     {
-        return $this->test->postJson($this->apiUrl("competitions/{$competition->id}/bracket"), [
-            'qualifiers_per_group' => $qualifiersPerGroup,
+        if ($qualifiedPerGroup !== null) {
+            $competition->update(['qualified_per_group' => $qualifiedPerGroup]);
+            $competition->refresh();
+        }
+
+        return $this->test->postJson($this->apiUrl("competitions/{$competition->id}/bracket"), []);
+    }
+
+    public function createCompetitionViaApi(
+        int $tournamentId,
+        array $overrides = [],
+    ): TestResponse {
+        return $this->test->postJson($this->apiUrl("tournaments/{$tournamentId}/competitions"), [
+            'name' => 'Singles Test',
+            'category' => 'primera',
+            'type' => 'singles',
+            'format' => 'manual',
+            'sets_to_win' => 1,
+            'points_per_set' => 11,
+            ...$overrides,
         ]);
+    }
+
+    public function updateCompetitionViaApi(Competition $competition, array $payload): TestResponse
+    {
+        return $this->test->putJson($this->apiUrl("competitions/{$competition->id}"), $payload);
     }
 
     public function generateBracketNextRound(Bracket $bracket): TestResponse
