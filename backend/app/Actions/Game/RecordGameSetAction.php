@@ -18,6 +18,12 @@ final class RecordGameSetAction
                 ->lockForUpdate()
                 ->findOrFail($game->id);
 
+            if ($game->is_bye) {
+                throw ValidationException::withMessages([
+                    'game' => ['No se pueden registrar sets en un partido con BYE.'],
+                ]);
+            }
+
             if ($game->status === GameStatus::Finished) {
                 throw ValidationException::withMessages([
                     'game' => ['El partido ya finalizó.'],

@@ -19,47 +19,91 @@ class DemoPendingByesSeeder extends Seeder
                 groups: [
                     [
                         'name' => 'Grupo A',
-                        'players' => ['Club A1', 'Club A2', 'Club A3', 'Club A4', 'Club A5'],
+                        'players' => [
+                            'Oscar Ruiz',
+                            'Patricio Campos',
+                            'Ramón Delgado',
+                            'Rubén Espinoza',
+                            'Sebastián Fuentes',
+                        ],
                     ],
                     [
                         'name' => 'Grupo B',
-                        'players' => ['Club B1', 'Club B2', 'Club B3', 'Club B4'],
+                        'players' => [
+                            'Ulises Galván',
+                            'Valentín Huerta',
+                            'Walter Ibáñez',
+                            'Álvaro Jiménez',
+                        ],
                     ],
                     [
                         'name' => 'Grupo C',
-                        'players' => ['Club C1', 'Club C2', 'Club C3', 'Club C4'],
+                        'players' => [
+                            'Benjamín Lara',
+                            'César Mendoza',
+                            'Darío Ochoa',
+                            'Eduardo Paredes',
+                        ],
                     ],
                     [
                         'name' => 'Grupo D',
-                        'players' => ['Club D1', 'Club D2', 'Club D3'],
+                        'players' => [
+                            'Fabián Quiroga',
+                            'Gonzalo Reyna',
+                            'Hugo Salazar',
+                        ],
                     ],
                     [
                         'name' => 'Grupo E',
-                        'players' => ['Club E1', 'Club E2', 'Club E3'],
+                        'players' => [
+                            'Ignacio Tamayo',
+                            'Julio Ubilla',
+                            'Leonel Valdés',
+                        ],
                     ],
                     [
                         'name' => 'Grupo F',
-                        'players' => ['Club F1', 'Club F2', 'Club F3'],
+                        'players' => [
+                            'Manuel Velasco',
+                            'Norberto Yáñez',
+                            'Octavio Zárate',
+                        ],
                     ],
                     [
                         'name' => 'Grupo G',
-                        'players' => ['Club G1', 'Club G2', 'Club G3'],
+                        'players' => [
+                            'Ricardo Abreu',
+                            'Salvador Bracco',
+                            'Tristán Cáceres',
+                        ],
                     ],
                     [
                         'name' => 'Grupo H',
-                        'players' => ['Club H1', 'Club H2', 'Club H3'],
+                        'players' => [
+                            'Uriel Domínguez',
+                            'Vicente Errázuriz',
+                            'Wenceslao Farías',
+                        ],
                     ],
                     [
                         'name' => 'Grupo I',
-                        'players' => ['Club I1', 'Club I2', 'Club I3'],
+                        'players' => [
+                            'Adrián Giménez',
+                            'Bernardo Holler',
+                            'Carlos Ibarra',
+                        ],
                     ],
                     [
                         'name' => 'Grupo J',
-                        'players' => ['Club J1', 'Club J2', 'Club J3'],
+                        'players' => [
+                            'Danilo Jara',
+                            'Enzo Keller',
+                            'Felipe Latorre',
+                        ],
                     ],
                 ],
-                bracketShouldSucceed: false,
-                bracketNote: '30 clasificados → falla hoy; futuro: bracket de 32 con 2 BYEs',
+                bracketShouldSucceed: true,
+                bracketNote: '30 clasificados → bracket de 32 con 2 BYEs',
             ),
             $this->command
         );

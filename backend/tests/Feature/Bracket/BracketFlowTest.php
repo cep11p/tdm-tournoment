@@ -32,6 +32,31 @@ class BracketFlowTest extends TestCase
         $this->assertSame($setup['playerTwo']->id, $semifinals[1]->player2_id);
     }
 
+    public function test_shows_existing_bracket_for_competition(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $context->createFourQualifierGroupPhase();
+
+        $context->createBracket($setup['competition'])->assertCreated();
+
+        $response = $context->showBracket($setup['competition']);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.qualifiers_per_group', 2)
+            ->assertJsonCount(2, 'data.games');
+    }
+
+    public function test_returns_not_found_when_competition_has_no_bracket(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+
+        $response = $context->showBracket($competition);
+
+        $response->assertNotFound();
+    }
+
     public function test_uses_competition_qualified_per_group_when_creating_bracket(): void
     {
         $context = $this->tournamentContext();
@@ -54,7 +79,31 @@ class BracketFlowTest extends TestCase
         $this->assertSame('Final', $finalGames[0]->round);
     }
 
-    public function test_rejects_bracket_when_total_qualifiers_are_not_allowed(): void
+    public function test_rejects_bracket_when_fewer_than_two_qualifiers(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+        $players = $context->createPlayers(2);
+        $context->registerPlayers($competition, $players);
+        $competition->update(['qualified_per_group' => 1]);
+        $competition->refresh();
+
+        $group = $context->createGroupWithPlayers($competition, $players, 'Grupo A');
+        $context->generateRoundRobin($group)->assertCreated();
+
+        $game = Game::query()->where('group_id', $group->id)->sole();
+        $context->finishGame($game, $players[0])->assertOk();
+
+        $response = $context->createBracket($competition);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['qualified_per_group']);
+
+        $this->assertDatabaseCount('brackets', 0);
+    }
+
+    public function test_creates_bracket_of_eight_for_six_qualifiers(): void
     {
         $context = $this->tournamentContext();
         $competition = $context->createCompetition();
@@ -77,10 +126,11 @@ class BracketFlowTest extends TestCase
         $response = $context->createBracket($competition);
 
         $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['qualified_per_group']);
+            ->assertCreated()
+            ->assertJsonPath('data.bracket_size', 8)
+            ->assertJsonPath('data.byes_count', 2);
 
-        $this->assertDatabaseCount('brackets', 0);
+        $this->assertDatabaseCount('brackets', 1);
     }
 
     public function test_rejects_bracket_when_group_games_are_pending(): void

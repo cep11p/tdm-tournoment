@@ -12,6 +12,34 @@ use Illuminate\Http\Response;
 
 class CompetitionBracketController extends Controller
 {
+    /**
+     * @return array<int, string>
+     */
+    private function bracketRelations(): array
+    {
+        return [
+            'games.player1:id,first_name,last_name,nickname',
+            'games.player2:id,first_name,last_name,nickname',
+            'games.winner:id,first_name,last_name,nickname',
+            'games.sets',
+        ];
+    }
+
+    public function show(Competition $competition): JsonResponse
+    {
+        $bracket = $competition->brackets()
+            ->with($this->bracketRelations())
+            ->first();
+
+        if ($bracket === null) {
+            return response()->json([
+                'message' => 'La competencia no tiene un cuadro eliminatorio.',
+            ], Response::HTTP_NOT_FOUND);
+        }
+
+        return (new BracketResource($bracket))->response();
+    }
+
     public function store(
         StoreBracketRequest $request,
         Competition $competition,

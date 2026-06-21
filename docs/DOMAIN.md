@@ -176,6 +176,8 @@ Representa el cuadro eliminatorio de una competencia.
 | competition_id       | bigint | FK a Competition.                            |
 | name                 | string | Nombre del cuadro (ej: "Eliminatoria").      |
 | qualifiers_per_group | int    | Snapshot del valor `qualified_per_group` de la competencia al momento de crear el cuadro. |
+| bracket_size         | int    | Tamaño de la llave (siguiente potencia de 2 ≥ clasificados).                             |
+| byes_count           | int    | Cantidad de BYEs incluidos al completar la llave.                                        |
 
 `Bracket.qualifiers_per_group` registra cuántos clasificados por grupo se usaron al generar el cuadro. La configuración activa vive en `Competition.qualified_per_group`; el campo del bracket es histórico.
 
@@ -194,9 +196,10 @@ Representa un partido entre dos jugadores dentro de una competencia.
 | group_id       | bigint     | FK a Group (nullable).                             |
 | bracket_id     | bigint     | FK a Bracket (nullable).                           |
 | player1_id     | bigint     | FK a Player.                                       |
-| player2_id     | bigint     | FK a Player.                                       |
+| player2_id     | bigint     | FK a Player (nullable en partidos BYE).            |
 | winner_id      | bigint     | FK a Player (nullable, se completa al terminar).   |
 | status         | enum       | `pending`, `in_progress`, `finished`.              |
+| is_bye         | boolean    | `true` si el partido es avance automático (BYE).   |
 | finished_at    | timestamp  | Momento de cierre (nullable).                      |
 | round          | string     | Ronda descriptiva (ej: "Semifinal", "Final").      |
 | bracket_round  | int        | Número de ronda en bracket (nullable).             |
@@ -298,11 +301,13 @@ GameSet
 15. Solo puede existir un bracket por competencia.
 16. Para crear bracket, todos los partidos de grupos deben estar finalizados.
 17. El bracket usa `Competition.qualified_per_group` para determinar cuántos jugadores clasifican de cada grupo.
-18. El total de clasificados del bracket debe ser 2, 4 u 8 (sin BYEs por ahora). Combinaciones como 10 grupos × 3 clasificados (= 30) se resolverán en un PR posterior con BYEs y brackets de 16/32/64.
-19. No se puede cambiar `qualified_per_group` si la competencia ya tiene un bracket generado.
-20. La siguiente ronda del bracket se genera con `winner_id` de la ronda actual.
-21. No puede generarse siguiente ronda si la actual está incompleta.
-22. No puede generarse una ronda ya creada ni avanzar cuando el bracket ya terminó.
+18. El total de clasificados ya no necesita ser exactamente 2, 4 u 8. Si no es potencia de 2, el sistema calcula la siguiente potencia de 2 y completa la llave con BYEs (hasta 64 clasificados).
+19. Los BYEs favorecen a los mejores seeds: se emparejan contra `player2_id = null`, quedan finalizados con `is_bye = true` y sin sets.
+20. `Game.is_bye` indica avance automático. Ejemplo: 30 clasificados → bracket de 32 → 2 BYEs.
+21. No se puede cambiar `qualified_per_group` si la competencia ya tiene un bracket generado.
+22. La siguiente ronda del bracket se genera con `winner_id` de la ronda actual (incluye ganadores de partidos BYE).
+23. No puede generarse siguiente ronda si la actual está incompleta.
+24. No puede generarse una ronda ya creada ni avanzar cuando el bracket ya terminó.
 
 ---
 

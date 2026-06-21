@@ -8,6 +8,7 @@ use App\Enums\GameStatus;
 use App\Models\Bracket;
 use App\Models\Competition;
 use App\Models\Group;
+use App\Support\Bracket\BracketSupport;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -52,24 +53,38 @@ final class CreateBracketKnockoutAction
 
         $qualifierCount = $seededQualifiers->count();
 
-        if (! in_array($qualifierCount, [2, 4, 8], true)) {
+        if ($qualifierCount < 2) {
+            throw ValidationException::withMessages([
+                'qualified_per_group' => [
+                    'Se requieren al menos 2 clasificados para generar el cuadro eliminatorio.',
+                ],
+            ]);
+        }
+
+        $bracketSize = BracketSupport::nextPowerOfTwo($qualifierCount);
+
+        if ($bracketSize > BracketSupport::MAX_BRACKET_SIZE) {
             throw ValidationException::withMessages([
                 'qualified_per_group' => [
                     sprintf(
-                        'Se requieren 2, 4 u 8 clasificados en total según la configuración de la competencia. La configuración actual produce %d.',
+                        'El cuadro eliminatorio admite hasta %d clasificados. La configuración actual produce %d.',
+                        BracketSupport::MAX_BRACKET_SIZE,
                         $qualifierCount
                     ),
                 ],
             ]);
         }
 
-        $roundLabel = $this->roundLabelFor($qualifierCount);
+        $byesCount = $bracketSize - $qualifierCount;
+        $roundLabel = BracketSupport::roundLabelFor($bracketSize);
         $name = $payload['name'] ?? 'Eliminatoria';
 
         return DB::transaction(function () use (
             $competition,
             $seededQualifiers,
             $qualifierCount,
+            $bracketSize,
+            $byesCount,
             $roundLabel,
             $name,
             $qualifiersPerGroup
@@ -78,6 +93,8 @@ final class CreateBracketKnockoutAction
                 'competition_id' => $competition->id,
                 'name' => $name,
                 'qualifiers_per_group' => $qualifiersPerGroup,
+                'bracket_size' => $bracketSize,
+                'byes_count' => $byesCount,
             ]);
 
             $playerIds = $seededQualifiers
@@ -85,17 +102,43 @@ final class CreateBracketKnockoutAction
                 ->map(fn (int $playerId) => $playerId)
                 ->all();
 
-            $matchCount = (int) ($qualifierCount / 2);
+            $matchCount = (int) ($bracketSize / 2);
 
             for ($matchIndex = 0; $matchIndex < $matchCount; $matchIndex++) {
+                $topSeed = $matchIndex + 1;
+                $bottomSeed = $bracketSize - $matchIndex;
+                $topPlayerId = $playerIds[$topSeed - 1];
+                $bottomPlayerId = $bottomSeed <= $qualifierCount
+                    ? $playerIds[$bottomSeed - 1]
+                    : null;
+
+                if ($bottomPlayerId === null) {
+                    ($this->createGame)([
+                        'competition_id' => $competition->id,
+                        'bracket_id' => $bracket->id,
+                        'player1_id' => $topPlayerId,
+                        'player2_id' => null,
+                        'winner_id' => $topPlayerId,
+                        'status' => GameStatus::Finished,
+                        'finished_at' => now(),
+                        'is_bye' => true,
+                        'round' => $roundLabel,
+                        'bracket_round' => 1,
+                        'bracket_match' => $matchIndex + 1,
+                    ]);
+
+                    continue;
+                }
+
                 ($this->createGame)([
                     'competition_id' => $competition->id,
                     'bracket_id' => $bracket->id,
-                    'player1_id' => $playerIds[$matchIndex],
-                    'player2_id' => $playerIds[$qualifierCount - 1 - $matchIndex],
+                    'player1_id' => $topPlayerId,
+                    'player2_id' => $bottomPlayerId,
                     'round' => $roundLabel,
                     'bracket_round' => 1,
                     'bracket_match' => $matchIndex + 1,
+                    'is_bye' => false,
                 ]);
             }
 
@@ -218,14 +261,5 @@ final class CreateBracketKnockoutAction
         }
 
         return $stats;
-    }
-
-    private function roundLabelFor(int $qualifierCount): string
-    {
-        return match ($qualifierCount) {
-            2 => 'Final',
-            4 => 'Semifinal',
-            8 => 'Cuartos de final',
-        };
     }
 }

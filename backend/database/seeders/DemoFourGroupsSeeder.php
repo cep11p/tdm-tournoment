@@ -19,19 +19,37 @@ class DemoFourGroupsSeeder extends Seeder
                 groups: [
                     [
                         'name' => 'Grupo A',
-                        'players' => ['Four A1', 'Four A2', 'Four A3', 'Four A4'],
+                        'players' => [
+                            'Andrés Sosa',
+                            'Bruno Castillo',
+                            'Cristian Vega',
+                            'Damián Arias',
+                        ],
                     ],
                     [
                         'name' => 'Grupo B',
-                        'players' => ['Four B1', 'Four B2', 'Four B3', 'Four B4'],
+                        'players' => [
+                            'Esteban Núñez',
+                            'Federico Molina',
+                            'Gabriel Ortiz',
+                            'Hernán Suárez',
+                        ],
                     ],
                     [
                         'name' => 'Grupo C',
-                        'players' => ['Four C1', 'Four C2', 'Four C3'],
+                        'players' => [
+                            'Iván Rojas',
+                            'Javier Medina',
+                            'Kevin Duarte',
+                        ],
                     ],
                     [
                         'name' => 'Grupo D',
-                        'players' => ['Four D1', 'Four D2', 'Four D3'],
+                        'players' => [
+                            'Lautaro Gómez',
+                            'Mauro Benítez',
+                            'Nahuel Peralta',
+                        ],
                     ],
                 ],
                 bracketShouldSucceed: true,

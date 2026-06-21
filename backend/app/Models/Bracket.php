@@ -17,6 +17,8 @@ class Bracket extends Model
     {
         return [
             'qualifiers_per_group' => 'integer',
+            'bracket_size' => 'integer',
+            'byes_count' => 'integer',
         ];
     }
 

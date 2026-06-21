@@ -10,6 +10,7 @@ import { RouterLink, useRoute } from 'vue-router'
 
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
+import BracketService from '../../brackets/services/BracketService'
 import GameService from '../../games/services/GameService'
 import GroupService from '../../groups/services/GroupService'
 import RegistrationService from '../../registrations/services/RegistrationService'
@@ -19,6 +20,7 @@ import CompetitionService from '../services/CompetitionService'
 const route = useRoute()
 
 const competition = ref(null)
+const bracket = ref(null)
 const registrations = ref(null)
 const groups = ref(null)
 const games = ref(null)
@@ -68,6 +70,30 @@ const bracketGames = computed(() => {
 
   return games.value.filter((game) => game.bracket_id)
 })
+
+const hasBracket = computed(() => Boolean(bracket.value?.id))
+
+const bracketGameCount = computed(() => bracket.value?.games?.length ?? bracketGames.value.length)
+
+const bracketStatus = computed(() => {
+  const bracketGameList = bracket.value?.games?.length ? bracket.value.games : bracketGames.value
+
+  if (!hasBracket.value || bracketGameList.length === 0) {
+    return null
+  }
+
+  if (bracketGameList.every((game) => game.status === 'finished')) {
+    return 'Completo'
+  }
+
+  if (bracketGameList.some((game) => game.status === 'in_progress' || game.status === 'finished')) {
+    return 'En curso'
+  }
+
+  return 'Pendiente'
+})
+
+const bracketRoute = computed(() => `/competitions/${competitionId.value}/bracket`)
 
 const playerDisplayName = (player) => {
   if (!player?.id) {
@@ -333,9 +359,11 @@ const actionLinks = computed(() => [
     icon: ViewColumnsIcon,
   },
   {
-    to: `/competitions/${competitionId.value}/bracket`,
-    label: 'Bracket',
-    description: 'Eliminatoria y cuadro final',
+    to: bracketRoute.value,
+    label: hasBracket.value ? 'Ver llave eliminatoria' : 'Generar bracket',
+    description: hasBracket.value
+      ? 'Consultar rondas y partidos eliminatorios'
+      : 'Crear la llave eliminatoria',
     icon: TrophyIcon,
   },
 ])
@@ -345,14 +373,16 @@ const loadCompetitionSummary = async () => {
   errorMessage.value = ''
 
   try {
-    const [competitionData, registrationsData, groupsData, gamesData] = await Promise.all([
+    const [competitionData, registrationsData, groupsData, gamesData, bracketData] = await Promise.all([
       CompetitionService.show(competitionId.value),
       RegistrationService.listByCompetition(competitionId.value).catch(() => null),
       GroupService.listByCompetition(competitionId.value).catch(() => null),
       GameService.listByCompetition(competitionId.value).catch(() => null),
+      BracketService.show(competitionId.value).catch(() => null),
     ])
 
     competition.value = competitionData
+    bracket.value = bracketData
     registrations.value = registrationsData
     groups.value = groupsData
     games.value = gamesData
@@ -588,6 +618,58 @@ onMounted(loadCompetitionSummary)
             </template>
           </div>
         </div>
+      </div>
+
+      <div
+        class="rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
+      >
+        <p class="font-medium text-slate-700 dark:text-slate-200">Llave eliminatoria</p>
+
+        <template v-if="!hasBracket">
+          <p class="mt-3 text-slate-600 dark:text-slate-300">
+            Todavía no se generó la llave eliminatoria.
+          </p>
+
+          <RouterLink
+            :to="bracketRoute"
+            class="mt-4 inline-flex rounded-md bg-slate-900 px-3 py-2 font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+          >
+            Generar bracket
+          </RouterLink>
+        </template>
+
+        <template v-else>
+          <dl class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Nombre</dt>
+              <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ bracket.name }}</dd>
+            </div>
+
+            <div>
+              <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Clasifican por grupo</dt>
+              <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">
+                {{ bracket.qualifiers_per_group }}
+              </dd>
+            </div>
+
+            <div>
+              <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Partidos</dt>
+              <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ bracketGameCount }}</dd>
+            </div>
+
+            <div v-if="bracketStatus">
+              <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Estado</dt>
+              <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ bracketStatus }}</dd>
+            </div>
+          </dl>
+
+          <RouterLink
+            :to="bracketRoute"
+            class="mt-4 inline-flex rounded-md bg-slate-900 px-3 py-2 font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+          >
+            Ver llave eliminatoria
+          </RouterLink>
+        </template>
       </div>
 
       <div>

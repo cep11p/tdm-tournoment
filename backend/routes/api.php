@@ -28,6 +28,9 @@ Route::prefix(config('api.version_prefix', 'v1'))
         Route::get('competitions/{competition}/standings', [CompetitionStandingsController::class, 'index'])
             ->name('competitions.standings.index');
 
+        Route::get('competitions/{competition}/bracket', [CompetitionBracketController::class, 'show'])
+            ->name('competitions.bracket.show');
+
         Route::post('competitions/{competition}/bracket', [CompetitionBracketController::class, 'store'])
             ->name('competitions.bracket.store');
 

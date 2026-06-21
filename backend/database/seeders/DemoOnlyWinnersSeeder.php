@@ -19,11 +19,21 @@ class DemoOnlyWinnersSeeder extends Seeder
                 groups: [
                     [
                         'name' => 'Grupo A',
-                        'players' => ['Win A1', 'Win A2', 'Win A3', 'Win A4'],
+                        'players' => [
+                            'Santiago Molina',
+                            'Pablo Navarro',
+                            'Rodrigo Silva',
+                            'Agustín Romero',
+                        ],
                     ],
                     [
                         'name' => 'Grupo B',
-                        'players' => ['Win B1', 'Win B2', 'Win B3', 'Win B4'],
+                        'players' => [
+                            'Emiliano Vargas',
+                            'Facundo Luna',
+                            'Joaquín Morales',
+                            'Martín Cabrera',
+                        ],
                     ],
                 ],
                 bracketShouldSucceed: true,

@@ -5,6 +5,7 @@ namespace App\Actions\Bracket;
 use App\Actions\Game\CreateGameAction;
 use App\Enums\GameStatus;
 use App\Models\Bracket;
+use App\Support\Bracket\BracketSupport;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -73,7 +74,7 @@ final class GenerateBracketNextRoundAction
             ->values()
             ->all();
 
-        $roundLabel = $this->roundLabelFor(count($winners));
+        $roundLabel = BracketSupport::roundLabelFor(count($winners));
         $matchCount = (int) (count($winners) / 2);
         $competitionId = (int) $bracket->competition_id;
 
@@ -94,6 +95,7 @@ final class GenerateBracketNextRoundAction
                     'round' => $roundLabel,
                     'bracket_round' => $nextRound,
                     'bracket_match' => $matchIndex + 1,
+                    'is_bye' => false,
                 ]);
             }
 
@@ -104,17 +106,5 @@ final class GenerateBracketNextRoundAction
                 'games.sets',
             ]);
         });
-    }
-
-    private function roundLabelFor(int $playerCount): string
-    {
-        return match ($playerCount) {
-            2 => 'Final',
-            4 => 'Semifinal',
-            8 => 'Cuartos de final',
-            default => throw ValidationException::withMessages([
-                'bracket' => [sprintf('Cantidad de ganadores inválida para avanzar: %d.', $playerCount)],
-            ]),
-        };
     }
 }

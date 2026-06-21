@@ -15,6 +15,8 @@ class BracketResource extends JsonResource
             'competition_id' => $this->competition_id,
             'name' => $this->name,
             'qualifiers_per_group' => $this->qualifiers_per_group,
+            'bracket_size' => $this->bracket_size,
+            'byes_count' => $this->byes_count,
             'games' => GameResource::collection($this->whenLoaded('games')),
             'created_at' => optional($this->created_at)->toISOString(),
             'updated_at' => optional($this->updated_at)->toISOString(),

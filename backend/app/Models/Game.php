@@ -23,6 +23,7 @@ class Game extends Model
             'bracket_round' => 'integer',
             'bracket_match' => 'integer',
             'finished_at' => 'datetime',
+            'is_bye' => 'boolean',
         ];
     }
 

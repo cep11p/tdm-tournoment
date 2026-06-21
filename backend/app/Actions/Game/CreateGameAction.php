@@ -11,6 +11,7 @@ final class CreateGameAction
     {
         $payload['status'] ??= GameStatus::Pending;
         $payload['winner_id'] ??= null;
+        $payload['is_bye'] ??= false;
 
         return Game::query()->create($payload);
     }

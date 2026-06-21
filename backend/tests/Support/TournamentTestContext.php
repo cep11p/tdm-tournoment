@@ -207,6 +207,11 @@ final class TournamentTestContext
         return $this->test->postJson($this->apiUrl("competitions/{$competition->id}/bracket"), []);
     }
 
+    public function showBracket(Competition $competition): TestResponse
+    {
+        return $this->test->getJson($this->apiUrl("competitions/{$competition->id}/bracket"));
+    }
+
     public function createCompetitionViaApi(
         int $tournamentId,
         array $overrides = [],

@@ -41,6 +41,7 @@ class GameResource extends JsonResource
             ],
             'winner_id' => $this->winner_id,
             'status' => $status,
+            'is_bye' => (bool) $this->is_bye,
             'finished_at' => optional($this->finished_at)->toISOString(),
             'round' => $this->round,
             'table_number' => $this->table_number,

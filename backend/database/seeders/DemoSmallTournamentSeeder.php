@@ -19,11 +19,21 @@ class DemoSmallTournamentSeeder extends Seeder
                 groups: [
                     [
                         'name' => 'Grupo A',
-                        'players' => ['Small A1', 'Small A2', 'Small A3', 'Small A4'],
+                        'players' => [
+                            'Juan Pérez',
+                            'Marcos Ríos',
+                            'Diego Fernández',
+                            'Tomás Acosta',
+                        ],
                     ],
                     [
                         'name' => 'Grupo B',
-                        'players' => ['Small B1', 'Small B2', 'Small B3', 'Small B4'],
+                        'players' => [
+                            'Luciano Torres',
+                            'Nicolás Herrera',
+                            'Franco Medina',
+                            'Matías Castro',
+                        ],
                     ],
                 ],
                 bracketShouldSucceed: true,

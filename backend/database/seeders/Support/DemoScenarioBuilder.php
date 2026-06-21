@@ -250,6 +250,12 @@ final class DemoScenarioBuilder
                     'nickname' => $nickname,
                 ]);
                 $createdCount++;
+            } elseif ($player->first_name !== $firstName || $player->last_name !== $lastName) {
+                $player->update([
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                ]);
+                $player->refresh();
             }
 
             $playersByName[$playerName] = $player;
@@ -468,7 +474,7 @@ final class DemoScenarioBuilder
             ->count();
 
         $bracketStatus = $config->bracketShouldSucceed
-            ? 'Bracket válido (2, 4 u 8 clasificados)'
+            ? 'Bracket válido (potencia de 2 con BYEs si aplica)'
             : 'Bracket debe fallar hasta PR2 (BYEs)';
 
         if ($config->bracketNote !== null) {
