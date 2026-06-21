@@ -11,6 +11,17 @@ use Illuminate\Validation\Validator;
 
 class UpdateCompetitionRequest extends FormRequest
 {
+    /**
+     * @var array<int, string>
+     */
+    private const FORMAT_FIELDS = [
+        'sets_to_win',
+        'group_stage_best_of',
+        'knockout_stage_best_of',
+        'semifinal_best_of',
+        'final_best_of',
+    ];
+
     public function authorize(): bool
     {
         return true;
@@ -26,34 +37,54 @@ class UpdateCompetitionRequest extends FormRequest
             'sets_to_win' => ['sometimes', 'integer', 'min:1'],
             'points_per_set' => ['sometimes', 'integer', 'min:1'],
             'qualified_per_group' => ['sometimes', 'integer', 'min:1'],
+            'group_stage_best_of' => ['sometimes', 'integer', Rule::in([1, 3, 5, 7])],
+            'knockout_stage_best_of' => ['sometimes', 'integer', Rule::in([1, 3, 5, 7])],
+            'semifinal_best_of' => ['sometimes', 'integer', Rule::in([1, 3, 5, 7])],
+            'final_best_of' => ['sometimes', 'integer', Rule::in([1, 3, 5, 7])],
         ];
     }
 
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
-            if (! $this->has('qualified_per_group')) {
-                return;
-            }
-
             $competition = $this->route('competition');
 
             if (! $competition instanceof Competition) {
                 return;
             }
 
-            if (! $competition->brackets()->exists()) {
+            if ($this->has('qualified_per_group')) {
+                if ($competition->brackets()->exists()) {
+                    $newValue = (int) $this->input('qualified_per_group');
+                    $currentValue = (int) $competition->qualified_per_group;
+
+                    if ($newValue !== $currentValue) {
+                        $validator->errors()->add(
+                            'qualified_per_group',
+                            'No se puede cambiar la cantidad de clasificados por grupo porque ya existe un cuadro eliminatorio.'
+                        );
+                    }
+                }
+            }
+
+            if (! $competition->games()->exists()) {
                 return;
             }
 
-            $newValue = (int) $this->input('qualified_per_group');
-            $currentValue = (int) $competition->qualified_per_group;
+            foreach (self::FORMAT_FIELDS as $field) {
+                if (! $this->has($field)) {
+                    continue;
+                }
 
-            if ($newValue !== $currentValue) {
-                $validator->errors()->add(
-                    'qualified_per_group',
-                    'No se puede cambiar la cantidad de clasificados por grupo porque ya existe un cuadro eliminatorio.'
-                );
+                $newValue = (int) $this->input($field);
+                $currentValue = (int) $competition->{$field};
+
+                if ($newValue !== $currentValue) {
+                    $validator->errors()->add(
+                        $field,
+                        'No se puede cambiar el formato de sets porque ya existen partidos generados.'
+                    );
+                }
             }
         });
     }

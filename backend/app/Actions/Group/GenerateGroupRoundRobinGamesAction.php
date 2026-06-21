@@ -5,6 +5,7 @@ namespace App\Actions\Group;
 use App\Actions\Game\CreateGameAction;
 use App\Models\Game;
 use App\Models\Group;
+use App\Support\Game\GameFormatResolver;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -41,8 +42,10 @@ final class GenerateGroupRoundRobinGamesAction
 
         $round = sprintf('Round Robin - %s', $group->name);
         $competitionId = (int) $group->competition_id;
+        $group->loadMissing('competition');
+        $matchFormat = GameFormatResolver::resolveForGroup($group->competition);
 
-        return DB::transaction(function () use ($group, $playerIds, $round, $competitionId): Collection {
+        return DB::transaction(function () use ($group, $playerIds, $round, $competitionId, $matchFormat): Collection {
             $created = collect();
             $playerCount = count($playerIds);
 
@@ -61,6 +64,8 @@ final class GenerateGroupRoundRobinGamesAction
                         'player1_id' => $player1Id,
                         'player2_id' => $player2Id,
                         'round' => $round,
+                        'best_of' => $matchFormat['best_of'],
+                        'sets_to_win' => $matchFormat['sets_to_win'],
                     ]));
                 }
             }

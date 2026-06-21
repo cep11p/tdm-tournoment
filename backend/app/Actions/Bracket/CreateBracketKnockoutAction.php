@@ -9,6 +9,7 @@ use App\Models\Bracket;
 use App\Models\Competition;
 use App\Models\Group;
 use App\Support\Bracket\BracketSupport;
+use App\Support\Game\GameFormatResolver;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -77,6 +78,7 @@ final class CreateBracketKnockoutAction
 
         $byesCount = $bracketSize - $qualifierCount;
         $roundLabel = BracketSupport::roundLabelFor($bracketSize);
+        $matchFormat = GameFormatResolver::resolveForBracketRound($competition, $roundLabel);
         $name = $payload['name'] ?? 'Eliminatoria';
 
         return DB::transaction(function () use (
@@ -86,6 +88,7 @@ final class CreateBracketKnockoutAction
             $bracketSize,
             $byesCount,
             $roundLabel,
+            $matchFormat,
             $name,
             $qualifiersPerGroup
         ): Bracket {
@@ -139,6 +142,8 @@ final class CreateBracketKnockoutAction
                     'bracket_round' => 1,
                     'bracket_match' => $matchIndex + 1,
                     'is_bye' => false,
+                    'best_of' => $matchFormat['best_of'],
+                    'sets_to_win' => $matchFormat['sets_to_win'],
                 ]);
             }
 

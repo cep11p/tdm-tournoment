@@ -33,6 +33,8 @@ final class TournamentTestContext
         int $setsToWin = 1,
         int $pointsPerSet = 11,
     ): Competition {
+        $bestOf = max(1, ($setsToWin * 2) - 1);
+
         $tournament = Tournament::query()->create([
             'name' => 'Torneo Test',
             'location' => 'Club Test',
@@ -48,6 +50,10 @@ final class TournamentTestContext
             'format' => CompetitionFormat::Manual,
             'sets_to_win' => $setsToWin,
             'points_per_set' => $pointsPerSet,
+            'group_stage_best_of' => $bestOf,
+            'knockout_stage_best_of' => $bestOf,
+            'semifinal_best_of' => $bestOf,
+            'final_best_of' => $bestOf,
         ]);
     }
 
@@ -181,14 +187,27 @@ final class TournamentTestContext
     {
         $game->loadMissing('competition');
         $pointsPerSet ??= (int) $game->competition->points_per_set;
+        $setsToWin = (int) ($game->sets_to_win ?? $game->competition->sets_to_win);
 
-        $player1Score = (int) $game->player1_id === $winner->id ? $pointsPerSet : 0;
-        $player2Score = (int) $game->player2_id === $winner->id ? $pointsPerSet : 0;
+        $response = null;
 
-        return $this->test->postJson($this->apiUrl("games/{$game->id}/sets"), [
+        for ($setNumber = 1; $setNumber <= $setsToWin; $setNumber++) {
+            $game->refresh();
+
+            $player1Score = (int) $game->player1_id === $winner->id ? $pointsPerSet : 0;
+            $player2Score = (int) $game->player2_id === $winner->id ? $pointsPerSet : 0;
+
+            $response = $this->test->postJson($this->apiUrl("games/{$game->id}/sets"), [
+                'set_number' => $setNumber,
+                'player1_score' => $player1Score,
+                'player2_score' => $player2Score,
+            ]);
+        }
+
+        return $response ?? $this->test->postJson($this->apiUrl("games/{$game->id}/sets"), [
             'set_number' => 1,
-            'player1_score' => $player1Score,
-            'player2_score' => $player2Score,
+            'player1_score' => $pointsPerSet,
+            'player2_score' => 0,
         ]);
     }
 

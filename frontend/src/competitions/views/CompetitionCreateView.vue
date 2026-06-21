@@ -19,7 +19,13 @@ const form = reactive({
   sets_to_win: 2,
   points_per_set: 11,
   qualified_per_group: 2,
+  group_stage_best_of: 5,
+  knockout_stage_best_of: 5,
+  semifinal_best_of: 7,
+  final_best_of: 7,
 })
+
+const bestOfOptions = [1, 3, 5, 7]
 
 const submit = async () => {
   isSubmitting.value = true
@@ -33,6 +39,10 @@ const submit = async () => {
     sets_to_win: Number(form.sets_to_win),
     points_per_set: Number(form.points_per_set),
     qualified_per_group: Number(form.qualified_per_group),
+    group_stage_best_of: Number(form.group_stage_best_of),
+    knockout_stage_best_of: Number(form.knockout_stage_best_of),
+    semifinal_best_of: Number(form.semifinal_best_of),
+    final_best_of: Number(form.final_best_of),
   }
 
   try {
@@ -151,6 +161,76 @@ const submit = async () => {
           class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
         />
       </div>
+
+      <fieldset class="space-y-3 rounded-md border border-slate-200 p-3 dark:border-slate-700">
+        <legend class="px-1 text-sm font-medium text-slate-700 dark:text-slate-200">Formato de partidos</legend>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div class="space-y-1">
+            <label class="block text-sm text-slate-600 dark:text-slate-300" for="group_stage_best_of">
+              Fase de grupos: mejor de
+            </label>
+            <select
+              id="group_stage_best_of"
+              v-model.number="form.group_stage_best_of"
+              required
+              class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+            >
+              <option v-for="option in bestOfOptions" :key="`group-${option}`" :value="option">
+                {{ option }}
+              </option>
+            </select>
+          </div>
+
+          <div class="space-y-1">
+            <label class="block text-sm text-slate-600 dark:text-slate-300" for="knockout_stage_best_of">
+              Eliminatorias tempranas: mejor de
+            </label>
+            <select
+              id="knockout_stage_best_of"
+              v-model.number="form.knockout_stage_best_of"
+              required
+              class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+            >
+              <option v-for="option in bestOfOptions" :key="`knockout-${option}`" :value="option">
+                {{ option }}
+              </option>
+            </select>
+          </div>
+
+          <div class="space-y-1">
+            <label class="block text-sm text-slate-600 dark:text-slate-300" for="semifinal_best_of">
+              Semifinal: mejor de
+            </label>
+            <select
+              id="semifinal_best_of"
+              v-model.number="form.semifinal_best_of"
+              required
+              class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+            >
+              <option v-for="option in bestOfOptions" :key="`semifinal-${option}`" :value="option">
+                {{ option }}
+              </option>
+            </select>
+          </div>
+
+          <div class="space-y-1">
+            <label class="block text-sm text-slate-600 dark:text-slate-300" for="final_best_of">
+              Final: mejor de
+            </label>
+            <select
+              id="final_best_of"
+              v-model.number="form.final_best_of"
+              required
+              class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+            >
+              <option v-for="option in bestOfOptions" :key="`final-${option}`" :value="option">
+                {{ option }}
+              </option>
+            </select>
+          </div>
+        </div>
+      </fieldset>
 
       <div class="flex items-center gap-3">
         <button

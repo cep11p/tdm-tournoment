@@ -6,6 +6,7 @@ use App\Actions\Game\CreateGameAction;
 use App\Enums\GameStatus;
 use App\Models\Bracket;
 use App\Support\Bracket\BracketSupport;
+use App\Support\Game\GameFormatResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -77,6 +78,8 @@ final class GenerateBracketNextRoundAction
         $roundLabel = BracketSupport::roundLabelFor(count($winners));
         $matchCount = (int) (count($winners) / 2);
         $competitionId = (int) $bracket->competition_id;
+        $competition = $bracket->competition()->firstOrFail();
+        $matchFormat = GameFormatResolver::resolveForBracketRound($competition, $roundLabel);
 
         return DB::transaction(function () use (
             $bracket,
@@ -84,7 +87,8 @@ final class GenerateBracketNextRoundAction
             $nextRound,
             $roundLabel,
             $matchCount,
-            $competitionId
+            $competitionId,
+            $matchFormat
         ): Bracket {
             for ($matchIndex = 0; $matchIndex < $matchCount; $matchIndex++) {
                 ($this->createGame)([
@@ -96,6 +100,8 @@ final class GenerateBracketNextRoundAction
                     'bracket_round' => $nextRound,
                     'bracket_match' => $matchIndex + 1,
                     'is_bye' => false,
+                    'best_of' => $matchFormat['best_of'],
+                    'sets_to_win' => $matchFormat['sets_to_win'],
                 ]);
             }
 

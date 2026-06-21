@@ -31,10 +31,21 @@ final class RecordGameSetAction
             }
 
             $competition = $game->competition;
+            $setsToWin = (int) ($game->sets_to_win ?? $competition->sets_to_win);
+            $setNumber = (int) $payload['set_number'];
+
+            if ($game->best_of !== null && $setNumber > $game->best_of) {
+                throw ValidationException::withMessages([
+                    'set_number' => [
+                        sprintf('El partido es a mejor de %d y no admite más sets.', $game->best_of),
+                    ],
+                ]);
+            }
+
             $setsWon = $game->setsWonCount($game->sets);
 
-            if ($setsWon['player1'] >= $competition->sets_to_win
-                || $setsWon['player2'] >= $competition->sets_to_win) {
+            if ($setsWon['player1'] >= $setsToWin
+                || $setsWon['player2'] >= $setsToWin) {
                 throw ValidationException::withMessages([
                     'game' => ['El partido ya tiene un ganador definido.'],
                 ]);
@@ -73,7 +84,7 @@ final class RecordGameSetAction
 
             try {
                 $game->sets()->create([
-                    'set_number' => (int) $payload['set_number'],
+                    'set_number' => $setNumber,
                     'player1_score' => $player1Score,
                     'player2_score' => $player2Score,
                 ]);
@@ -90,11 +101,11 @@ final class RecordGameSetAction
             $game->load('sets');
             $setsWon = $game->setsWonCount($game->sets);
 
-            if ($setsWon['player1'] >= $competition->sets_to_win) {
+            if ($setsWon['player1'] >= $setsToWin) {
                 $game->winner_id = $game->player1_id;
                 $game->status = GameStatus::Finished;
                 $game->finished_at = now();
-            } elseif ($setsWon['player2'] >= $competition->sets_to_win) {
+            } elseif ($setsWon['player2'] >= $setsToWin) {
                 $game->winner_id = $game->player2_id;
                 $game->status = GameStatus::Finished;
                 $game->finished_at = now();

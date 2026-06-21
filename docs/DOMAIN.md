@@ -84,22 +84,41 @@ Representa una competencia concreta dentro de un torneo.
 | type            | enum     | `singles` (en MVP solo singles).                    |
 | category        | string   | División (ej: primera, amateur, libre).             |
 | format          | enum     | `manual` (en MVP solo manual).                      |
-| sets_to_win          | int      | Sets que debe ganar un jugador para ganar el game.  |
-| points_per_set       | int      | Puntos necesarios para ganar un set (ej: 11).       |
-| qualified_per_group  | int      | Cuántos jugadores clasifican desde cada grupo hacia la fase eliminatoria (default: 2). |
+| sets_to_win              | int      | **Legacy/deprecated.** Sets para ganar (valor histórico). |
+| points_per_set           | int      | Puntos necesarios para ganar un set (ej: 11).       |
+| qualified_per_group      | int      | Cuántos jugadores clasifican desde cada grupo hacia la fase eliminatoria (default: 2). |
+| group_stage_best_of      | int      | Mejor de N en fase de grupos (default: 5).          |
+| knockout_stage_best_of   | int      | Mejor de N en rondas eliminatorias tempranas (default: 5). |
+| semifinal_best_of        | int      | Mejor de N en semifinal (default: 7).               |
+| final_best_of            | int      | Mejor de N en final (default: 7).                     |
 
 `qualified_per_group` define cuántos jugadores de cada grupo avanzan al cuadro eliminatorio. El valor se configura al crear o editar la competencia (no puede modificarse una vez generado el bracket).
 
-`sets_to_win` es configurable y define el formato del partido:
+La **configuración de formato por fase** vive en los campos `*_best_of`. Al crear partidos, el sistema congela en cada `Game` un snapshot con `best_of` y `sets_to_win` calculado:
 
-| sets_to_win | Formato habitual |
-|-------------|------------------|
-| 1           | Mejor de 1       |
-| 2           | Mejor de 3       |
-| 3           | Mejor de 5       |
-| 4           | Mejor de 7       |
+```
+sets_to_win = intdiv(best_of, 2) + 1
+```
 
-La lógica del sistema siempre utiliza el valor configurado en la Competition para determinar cuándo un jugador gana el Game.
+| best_of | sets_to_win | Ejemplo |
+|---------|-------------|---------|
+| 1       | 1           | Mejor de 1 → gana con 1 set |
+| 3       | 2           | Mejor de 3 → gana con 2 sets |
+| 5       | 3           | Mejor de 5 → gana con 3 sets |
+| 7       | 4           | Mejor de 7 → gana con 4 sets |
+
+Mapeo de ronda eliminatoria → campo de competencia:
+
+| Ronda | Campo |
+|-------|-------|
+| Fase de grupos | `group_stage_best_of` |
+| 16avos / 8vos / Cuartos | `knockout_stage_best_of` |
+| Semifinal | `semifinal_best_of` |
+| Final | `final_best_of` |
+
+`sets_to_win` a nivel competencia queda como **legacy/deprecated** por compatibilidad con datos antiguos. Los partidos nuevos usan el snapshot de `Game`.
+
+No se puede cambiar el formato por fase si la competencia ya tiene partidos generados.
 
 Los jugadores **no** se inscriben al torneo en general, sino a cada competencia concreta.
 
@@ -200,6 +219,8 @@ Representa un partido entre dos jugadores dentro de una competencia.
 | winner_id      | bigint     | FK a Player (nullable, se completa al terminar).   |
 | status         | enum       | `pending`, `in_progress`, `finished`.              |
 | is_bye         | boolean    | `true` si el partido es avance automático (BYE).   |
+| best_of        | int        | Snapshot: mejor de N (nullable en BYE).            |
+| sets_to_win    | int        | Snapshot: sets necesarios para ganar (nullable en BYE). |
 | finished_at    | timestamp  | Momento de cierre (nullable).                      |
 | round          | string     | Ronda descriptiva (ej: "Semifinal", "Final").      |
 | bracket_round  | int        | Número de ronda en bracket (nullable).             |
@@ -207,6 +228,8 @@ Representa un partido entre dos jugadores dentro de una competencia.
 | table_number   | int        | Número de mesa (nullable, sin scheduling automático). |
 
 Un partido puede pertenecer al flujo manual, a grupos o a bracket.
+
+Al crearse, cada partido real (no BYE) guarda `best_of` y `sets_to_win` según la fase/ronda vigente en la competencia. Ese snapshot no cambia aunque se edite la competencia después. Los partidos BYE mantienen ambos campos en `null` y no admiten sets.
 
 ---
 
@@ -287,7 +310,7 @@ GameSet
 3. Un partido pertenece a una competencia y tiene exactamente dos jugadores distintos.
 4. Los jugadores de un Game deben estar previamente inscriptos en la Competition.
 5. El ganador del partido se calcula a partir de los GameSets cargados.
-6. Un jugador gana el partido cuando acumula `sets_to_win` sets ganados.
+6. Un jugador gana el partido cuando acumula el `sets_to_win` del **Game** (snapshot). Si el partido no tiene snapshot (datos legacy), se usa `Competition.sets_to_win`.
 7. No se pueden registrar sets en un partido ya finalizado.
 8. No se puede registrar un set empatado.
 9. El ganador del set debe alcanzar al menos `points_per_set`.
@@ -308,6 +331,7 @@ GameSet
 22. La siguiente ronda del bracket se genera con `winner_id` de la ronda actual (incluye ganadores de partidos BYE).
 23. No puede generarse siguiente ronda si la actual está incompleta.
 24. No puede generarse una ronda ya creada ni avanzar cuando el bracket ya terminó.
+25. No se puede cambiar el formato por fase (`*_best_of`) si la competencia ya tiene partidos generados.
 
 ---
 
@@ -315,18 +339,20 @@ GameSet
 
 Al registrar un set (`POST /games/{game}/sets`), el sistema:
 
-1. Valida `set_number` y scores.
-2. Rechaza set empatado.
-3. Rechaza score ganador por debajo de `points_per_set`.
-4. Rechaza marcadores que no representen un cierre válido del set (ver regla 10).
-5. Rechaza duplicado de `set_number` en el mismo game.
-6. Persiste el set (append-only).
-7. Recalcula sets ganados por cada jugador.
-8. Si un jugador alcanza `sets_to_win`:
+1. Valida `set_number` y scores (rechaza `set_number` mayor a `Game.best_of` cuando está definido).
+2. Rechaza sets en partidos BYE o ya finalizados.
+3. Rechaza set empatado.
+4. Rechaza score ganador por debajo de `points_per_set` (desde `Competition`).
+5. Rechaza marcadores que no representen un cierre válido del set (ver regla 10).
+6. Rechaza duplicado de `set_number` en el mismo game.
+7. Persiste el set (append-only).
+8. Recalcula sets ganados por cada jugador.
+9. Usa `Game.sets_to_win` (fallback: `Competition.sets_to_win` legacy).
+10. Si un jugador alcanza ese umbral:
    - setea `winner_id`,
    - setea `status = finished`,
    - setea `finished_at = now()`.
-9. Si nadie alcanza `sets_to_win`:
+11. Si nadie lo alcanza:
    - mantiene `winner_id = null`,
    - setea `status = in_progress`,
    - mantiene `finished_at = null`.

@@ -410,6 +410,13 @@ onMounted(loadData)
                   </span>
 
                   <span
+                    v-if="!isByeGame(game) && game.best_of"
+                    class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                  >
+                    Mejor de {{ game.best_of }}
+                  </span>
+
+                  <span
                     class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
                     :class="statusBadgeClasses(game)"
                   >

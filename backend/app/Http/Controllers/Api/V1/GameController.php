@@ -11,6 +11,7 @@ use App\Http\Requests\Game\StoreGameSetRequest;
 use App\Http\Resources\Game\GameResource;
 use App\Models\Competition;
 use App\Models\Game;
+use App\Support\Game\GameFormatResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
@@ -46,9 +47,13 @@ class GameController extends Controller
         Competition $competition,
         CreateGameAction $createGame
     ): JsonResponse {
+        $matchFormat = GameFormatResolver::resolveForGroup($competition);
+
         $game = $createGame([
             ...$request->validated(),
             'competition_id' => $competition->id,
+            'best_of' => $matchFormat['best_of'],
+            'sets_to_win' => $matchFormat['sets_to_win'],
         ])->load(self::GAME_RELATIONS);
 
         return (new GameResource($game))

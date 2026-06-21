@@ -25,6 +25,10 @@ class StoreCompetitionRequest extends FormRequest
             'sets_to_win' => ['required', 'integer', 'min:1'],
             'points_per_set' => ['required', 'integer', 'min:1'],
             'qualified_per_group' => ['nullable', 'integer', 'min:1'],
+            'group_stage_best_of' => ['nullable', 'integer', Rule::in([1, 3, 5, 7])],
+            'knockout_stage_best_of' => ['nullable', 'integer', Rule::in([1, 3, 5, 7])],
+            'semifinal_best_of' => ['nullable', 'integer', Rule::in([1, 3, 5, 7])],
+            'final_best_of' => ['nullable', 'integer', Rule::in([1, 3, 5, 7])],
         ];
     }
 

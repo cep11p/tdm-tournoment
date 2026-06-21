@@ -24,6 +24,8 @@ class Game extends Model
             'bracket_match' => 'integer',
             'finished_at' => 'datetime',
             'is_bye' => 'boolean',
+            'best_of' => 'integer',
+            'sets_to_win' => 'integer',
         ];
     }
 

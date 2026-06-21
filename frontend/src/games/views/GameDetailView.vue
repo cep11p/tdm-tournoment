@@ -74,6 +74,18 @@ const setsSummary = computed(() => {
   }
 })
 
+const matchFormatLabel = computed(() => {
+  if (game.value?.is_bye) {
+    return 'Avance automático por BYE'
+  }
+
+  if (game.value?.best_of && game.value?.sets_to_win) {
+    return `Mejor de ${game.value.best_of} · gana con ${game.value.sets_to_win} sets`
+  }
+
+  return null
+})
+
 const loadGame = async () => {
   isLoading.value = true
   errorMessage.value = ''
@@ -151,6 +163,10 @@ onMounted(loadGame)
     <p v-else-if="errorMessage" class="text-sm text-red-600">{{ errorMessage }}</p>
 
     <template v-else-if="game">
+      <p v-if="matchFormatLabel" class="text-sm text-slate-600 dark:text-slate-300">
+        {{ matchFormatLabel }}
+      </p>
+
       <div
         class="space-y-2 rounded-md border p-4 text-sm"
         :class="

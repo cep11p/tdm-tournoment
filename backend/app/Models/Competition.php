@@ -17,6 +17,10 @@ class Competition extends Model
 
     protected $attributes = [
         'qualified_per_group' => 2,
+        'group_stage_best_of' => 5,
+        'knockout_stage_best_of' => 5,
+        'semifinal_best_of' => 7,
+        'final_best_of' => 7,
     ];
 
     protected function casts(): array
@@ -27,6 +31,10 @@ class Competition extends Model
             'sets_to_win' => 'integer',
             'points_per_set' => 'integer',
             'qualified_per_group' => 'integer',
+            'group_stage_best_of' => 'integer',
+            'knockout_stage_best_of' => 'integer',
+            'semifinal_best_of' => 'integer',
+            'final_best_of' => 'integer',
         ];
     }
 
