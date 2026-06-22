@@ -5,6 +5,8 @@ import { RouterLink, useRoute } from 'vue-router'
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import CompetitionService from '../../competitions/services/CompetitionService'
+import GameResultModal from '../../games/components/GameResultModal.vue'
+import GameService from '../../games/services/GameService'
 import RegistrationService from '../../registrations/services/RegistrationService'
 import StandingService from '../../standings/services/StandingService'
 import GroupService from '../services/GroupService'
@@ -222,6 +224,180 @@ const handleAssignPlayer = async () => {
   }
 }
 
+const games = ref([])
+const isLoadingGames = ref(false)
+const gamesError = ref('')
+const selectedGame = ref(null)
+const resultSuccessMessage = ref('')
+
+const loadGroupGames = async () => {
+  if (!competitionId.value || !groupId.value) {
+    games.value = []
+    return
+  }
+
+  isLoadingGames.value = true
+  gamesError.value = ''
+
+  try {
+    const allGames = await GameService.listByCompetition(competitionId.value)
+
+    games.value = allGames.filter(
+      (game) => Number(game.group_id) === Number(groupId.value),
+    )
+  } catch (error) {
+    games.value = []
+    gamesError.value =
+      error?.response?.data?.message || 'No se pudo cargar los partidos del grupo.'
+  } finally {
+    isLoadingGames.value = false
+  }
+}
+
+const groupGames = computed(() => games.value)
+
+const playerName = (player) => {
+  if (!player?.id) {
+    return 'Jugador no asignado'
+  }
+
+  return `${player.first_name} ${player.last_name}`.trim()
+}
+
+const isByeGame = (game) => game?.is_bye === true || !game?.player2?.id
+
+const matchFormatLabel = (game) => {
+  if (isByeGame(game)) {
+    return null
+  }
+
+  if (game?.best_of && game?.sets_to_win) {
+    return `Mejor de ${game.best_of} · gana con ${game.sets_to_win} sets`
+  }
+
+  if (game?.best_of) {
+    return `Mejor de ${game.best_of}`
+  }
+
+  return null
+}
+
+const canLoadResult = (game) =>
+  !isByeGame(game) && (game?.status === 'pending' || game?.status === 'in_progress')
+
+const isFinishedGame = (game) => !isByeGame(game) && game?.status === 'finished'
+
+const statusLabel = (game) => {
+  if (isByeGame(game)) {
+    return 'Avance automático'
+  }
+
+  if (game?.status === 'finished') {
+    return 'Finalizado'
+  }
+
+  if (game?.status === 'in_progress') {
+    return 'En curso'
+  }
+
+  if (game?.status === 'pending') {
+    return 'Pendiente'
+  }
+
+  return game?.status || 'Sin estado'
+}
+
+const winnerName = (game) => {
+  if (isByeGame(game)) {
+    return playerName(game.player1)
+  }
+
+  if (!game?.winner_id) {
+    return '-'
+  }
+
+  if (game.winner_id === game.player1?.id) {
+    return playerName(game.player1)
+  }
+
+  if (game.winner_id === game.player2?.id) {
+    return playerName(game.player2)
+  }
+
+  return `Jugador #${game.winner_id}`
+}
+
+const statusBadgeClasses = (game) => {
+  if (isByeGame(game) || game?.status === 'finished') {
+    return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
+  }
+
+  if (game?.status === 'in_progress') {
+    return 'bg-sky-100 text-sky-800 dark:bg-sky-900/60 dark:text-sky-200'
+  }
+
+  return 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200'
+}
+
+const setsResult = (game) => {
+  if (isByeGame(game)) {
+    return null
+  }
+
+  const player1Sets = game?.sets_won?.player1
+  const player2Sets = game?.sets_won?.player2
+
+  if (typeof player1Sets === 'number' && typeof player2Sets === 'number') {
+    return `${player1Sets} - ${player2Sets}`
+  }
+
+  if (!Array.isArray(game?.sets) || game.sets.length === 0) {
+    return null
+  }
+
+  let player1Wins = 0
+  let player2Wins = 0
+
+  for (const currentSet of game.sets) {
+    if (currentSet.player1_score > currentSet.player2_score) {
+      player1Wins++
+    } else if (currentSet.player2_score > currentSet.player1_score) {
+      player2Wins++
+    }
+  }
+
+  return `${player1Wins} - ${player2Wins}`
+}
+
+const setScoresDetail = (game) => {
+  if (isByeGame(game)) {
+    return []
+  }
+
+  if (!Array.isArray(game?.sets) || game.sets.length === 0) {
+    return []
+  }
+
+  return [...game.sets]
+    .sort((left, right) => left.set_number - right.set_number)
+    .map((currentSet) => `${currentSet.player1_score}-${currentSet.player2_score}`)
+}
+
+const openResultModal = (game) => {
+  selectedGame.value = game
+  resultSuccessMessage.value = ''
+}
+
+const closeResultModal = () => {
+  selectedGame.value = null
+}
+
+const handleResultSaved = async () => {
+  closeResultModal()
+  await Promise.all([loadGroupGames(), loadStandings()])
+  resultSuccessMessage.value = 'Resultado registrado correctamente.'
+}
+
 const handleGenerateRoundRobin = async () => {
   isGeneratingRoundRobin.value = true
   roundRobinError.value = ''
@@ -230,6 +406,7 @@ const handleGenerateRoundRobin = async () => {
   try {
     const createdGames = await GroupService.generateRoundRobin(groupId.value)
     roundRobinSuccessMessage.value = `Round robin generado. Partidos creados: ${createdGames.length}.`
+    await Promise.all([loadGroupGames(), loadStandings()])
   } catch (error) {
     roundRobinError.value =
       error?.response?.data?.errors?.group?.[0] ||
@@ -246,6 +423,7 @@ onMounted(async () => {
     loadRegisteredPlayers(),
     loadCompetition(),
     loadStandings(),
+    loadGroupGames(),
   ])
 })
 </script>
@@ -404,5 +582,102 @@ onMounted(async () => {
         </article>
       </div>
     </div>
+
+    <div
+      class="space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
+    >
+      <p class="font-medium text-slate-700 dark:text-slate-200">Partidos del grupo</p>
+
+      <p v-if="resultSuccessMessage" class="text-emerald-700 dark:text-emerald-300">
+        {{ resultSuccessMessage }}
+      </p>
+
+      <p v-if="isLoadingGames" class="text-slate-600 dark:text-slate-300">Cargando partidos...</p>
+      <p v-else-if="gamesError" class="text-red-600 dark:text-red-400">{{ gamesError }}</p>
+
+      <div
+        v-else-if="groupGames.length === 0"
+        class="rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
+      >
+        Todavía no hay partidos generados para este grupo.
+      </div>
+
+      <ul v-else class="space-y-2">
+        <li
+          v-for="game in groupGames"
+          :key="game.id"
+          class="space-y-1 rounded-md border border-slate-200 p-3 dark:border-slate-700 dark:bg-slate-950/30"
+        >
+          <p class="font-medium text-slate-900 dark:text-slate-100">
+            {{ playerName(game.player1) }} vs {{ playerName(game.player2) }}
+          </p>
+
+          <p v-if="matchFormatLabel(game)" class="text-slate-600 dark:text-slate-300">
+            {{ matchFormatLabel(game) }}
+          </p>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <span
+              v-if="isByeGame(game)"
+              class="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900/60 dark:text-violet-200"
+            >
+              BYE
+            </span>
+
+            <span
+              class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+              :class="statusBadgeClasses(game)"
+            >
+              {{ statusLabel(game) }}
+            </span>
+
+            <span v-if="setsResult(game)" class="text-slate-600 dark:text-slate-300">
+              Resultado: {{ setsResult(game) }}
+            </span>
+          </div>
+
+          <p v-if="setScoresDetail(game).length > 0" class="text-slate-600 dark:text-slate-300">
+            Detalle: {{ setScoresDetail(game).join(', ') }}
+          </p>
+
+          <p v-if="isFinishedGame(game)" class="text-slate-600 dark:text-slate-300">
+            Ganador: {{ winnerName(game) }}
+          </p>
+
+          <div v-if="canLoadResult(game)" class="pt-1">
+            <button
+              type="button"
+              class="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-600"
+              @click="openResultModal(game)"
+            >
+              Cargar resultado
+            </button>
+          </div>
+
+          <div v-else-if="isFinishedGame(game)" class="pt-1">
+            <RouterLink
+              :to="{
+                path: `/games/${game.id}`,
+                query: {
+                  competitionId,
+                  competitionName: competition?.name,
+                  tournamentId: competition?.tournament_id,
+                },
+              }"
+              class="text-xs font-medium text-slate-700 hover:underline dark:text-slate-300"
+            >
+              Ver detalle
+            </RouterLink>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <GameResultModal
+      :show="Boolean(selectedGame)"
+      :game="selectedGame"
+      @close="closeResultModal"
+      @saved="handleResultSaved"
+    />
   </section>
 </template>
