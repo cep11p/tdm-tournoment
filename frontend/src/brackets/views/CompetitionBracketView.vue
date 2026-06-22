@@ -248,6 +248,143 @@ const groupedRounds = computed(() => {
   return [...roundsMap.values()].sort((left, right) => left.roundNumber - right.roundNumber)
 })
 
+const MATCH_CARD_HEIGHT = 120
+const MATCH_GAP = 20
+const MATCH_SLOT_HEIGHT = MATCH_CARD_HEIGHT + MATCH_GAP
+
+const roundSlotHeight = (roundIndex) => MATCH_SLOT_HEIGHT * Math.pow(2, roundIndex)
+const pairConnectorHeight = (roundIndex) => roundSlotHeight(roundIndex)
+const isEvenMatchIndex = (gameIndex) => gameIndex % 2 === 0
+const hasNextRound = (roundIndex) => roundIndex < groupedRounds.value.length - 1
+
+const isWinnerPlayer = (game, player) => {
+  if (isByeGame(game) && player?.id === game.player1?.id) {
+    return true
+  }
+
+  return Boolean(game?.winner_id && player?.id && game.winner_id === player.id)
+}
+
+const participantSetsWon = (game, playerNumber) => {
+  if (isByeGame(game)) {
+    return null
+  }
+
+  const key = playerNumber === 1 ? 'player1' : 'player2'
+  const fromResource = game?.sets_won?.[key]
+
+  if (typeof fromResource === 'number') {
+    return fromResource
+  }
+
+  if (!Array.isArray(game?.sets) || game.sets.length === 0) {
+    return null
+  }
+
+  let wins = 0
+
+  for (const currentSet of game.sets) {
+    if (playerNumber === 1 && currentSet.player1_score > currentSet.player2_score) {
+      wins++
+    } else if (playerNumber === 2 && currentSet.player2_score > currentSet.player1_score) {
+      wins++
+    }
+  }
+
+  return wins
+}
+
+const hasScoreData = (game) => {
+  if (isByeGame(game)) {
+    return false
+  }
+
+  if (typeof game?.sets_won?.player1 === 'number' && typeof game?.sets_won?.player2 === 'number') {
+    return true
+  }
+
+  return Array.isArray(game?.sets) && game.sets.length > 0
+}
+
+const participantScoreLabel = (game, playerNumber) => {
+  if (isByeGame(game)) {
+    return playerNumber === 1 ? '✓' : '-'
+  }
+
+  if (!hasScoreData(game)) {
+    return '-'
+  }
+
+  const sets = participantSetsWon(game, playerNumber)
+
+  if (sets === null) {
+    return '-'
+  }
+
+  return String(sets)
+}
+
+const compactPlayerRowClasses = (game, player) => {
+  if (isByeGame(game) && !player?.id) {
+    return 'italic text-slate-400 dark:text-slate-500'
+  }
+
+  if (isWinnerPlayer(game, player)) {
+    return 'bg-emerald-50 font-semibold text-slate-900 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-900/30 dark:text-slate-100 dark:ring-emerald-700/50'
+  }
+
+  return 'text-slate-900 dark:text-slate-100'
+}
+
+const isFinalRound = (roundLabel) => roundLabel === 'Final'
+
+const roundColumnClasses = () => 'w-[280px] shrink-0'
+
+const roundHeaderClasses = (roundLabel) => {
+  if (!isFinalRound(roundLabel)) {
+    return 'mb-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400'
+  }
+
+  return 'mb-3 text-center text-sm font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300'
+}
+
+const gameCardClasses = (round) => {
+  if (isFinalRound(round.roundLabel)) {
+    return 'border-amber-500/70 bg-amber-50/60 dark:border-amber-600 dark:bg-amber-950/20'
+  }
+
+  return 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950'
+}
+
+const finalGame = computed(() => {
+  const games = bracket.value?.games
+
+  if (!games?.length) {
+    return null
+  }
+
+  return games.find((game) => game.round === 'Final') ?? null
+})
+
+const finalResult = computed(() => {
+  const game = finalGame.value
+
+  if (!game || game.status !== 'finished' || !game.winner_id) {
+    return null
+  }
+
+  const champion = winnerName(game)
+  let runnerUp = '-'
+
+  if (game.winner_id === game.player1?.id) {
+    runnerUp = playerName(game.player2)
+  } else if (game.winner_id === game.player2?.id) {
+    runnerUp = playerName(game.player1)
+  }
+
+  return { champion, runnerUp }
+})
+
 const handleCreateBracket = async () => {
   isCreatingBracket.value = true
   createError.value = ''
@@ -425,84 +562,237 @@ onMounted(loadData)
           La llave no tiene partidos para mostrar.
         </div>
 
-        <div v-else class="space-y-4">
-          <section
-            v-for="round in groupedRounds"
-            :key="`${round.roundNumber}-${round.roundLabel}`"
-            class="space-y-2 rounded-md border border-slate-200 p-3 dark:border-slate-700"
+        <div v-else>
+          <div
+            v-if="finalResult"
+            class="mb-4 rounded-md border border-amber-300/80 bg-amber-50/50 p-4 dark:border-amber-600/50 dark:bg-amber-950/30"
           >
-            <h2 class="font-semibold text-slate-900 dark:text-slate-100">
-              {{ round.roundLabel }}
-            </h2>
+            <p class="text-sm font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-200">
+              Resultado final
+            </p>
+            <dl class="mt-2 space-y-1 text-sm">
+              <div class="flex flex-wrap gap-x-2">
+                <dt class="font-medium text-slate-700 dark:text-slate-300">Campeón:</dt>
+                <dd class="font-semibold text-slate-900 dark:text-slate-100">{{ finalResult.champion }}</dd>
+              </div>
+              <div class="flex flex-wrap gap-x-2">
+                <dt class="font-medium text-slate-700 dark:text-slate-300">Subcampeón:</dt>
+                <dd class="text-slate-900 dark:text-slate-100">{{ finalResult.runnerUp }}</dd>
+              </div>
+            </dl>
+          </div>
 
-            <ul class="space-y-2">
-              <li
-                v-for="game in round.games"
-                :key="game.id"
-                class="space-y-1 rounded-md border border-slate-200 p-3 dark:border-slate-700 dark:bg-slate-950/30"
+          <p class="mb-3 font-medium text-slate-700 dark:text-slate-200">Vista de llave</p>
+
+          <div class="overflow-x-auto pb-2">
+            <div class="flex min-w-max items-start gap-8">
+              <section
+                v-for="(round, roundIndex) in groupedRounds"
+                :key="`${round.roundNumber}-${round.roundLabel}`"
+                :class="roundColumnClasses()"
               >
-                <p class="font-medium text-slate-900 dark:text-slate-100">
-                  {{ playerName(game.player1) }} vs {{ opponentLabel(game, game.player2) }}
-                </p>
+                <h2 :class="roundHeaderClasses(round.roundLabel)">
+                  {{ round.roundLabel }}
+                </h2>
 
-                <p v-if="matchFormatLabel(game)" class="text-slate-600 dark:text-slate-300">
-                  {{ matchFormatLabel(game) }}
-                </p>
-
-                <div class="flex flex-wrap items-center gap-2">
-                  <span
-                    v-if="isByeGame(game)"
-                    class="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900/60 dark:text-violet-200"
+                <ul class="space-y-0">
+                  <li
+                    v-for="(game, gameIndex) in round.games"
+                    :key="game.id"
+                    class="relative"
+                    :style="{ height: `${roundSlotHeight(roundIndex)}px` }"
                   >
-                    BYE
-                  </span>
+                    <article
+                      class="absolute inset-x-0 top-1/2 -translate-y-1/2 rounded-md border p-2"
+                      :class="gameCardClasses(round)"
+                      :style="{ minHeight: `${MATCH_CARD_HEIGHT}px` }"
+                    >
+                      <span
+                        v-if="isByeGame(game)"
+                        class="mb-1.5 inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900/60 dark:text-violet-200"
+                      >
+                        BYE
+                      </span>
 
-                  <span
-                    class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
-                    :class="statusBadgeClasses(game)"
+                      <div
+                        class="overflow-hidden rounded border border-slate-200 dark:border-slate-700"
+                      >
+                        <div
+                          class="flex items-center justify-between gap-2 px-2 py-1.5"
+                          :class="compactPlayerRowClasses(game, game.player1)"
+                        >
+                          <span class="truncate text-sm">{{ playerName(game.player1) }}</span>
+                          <span class="shrink-0 tabular-nums text-sm">{{ participantScoreLabel(game, 1) }}</span>
+                        </div>
+                        <div
+                          class="flex items-center justify-between gap-2 border-t border-slate-200 px-2 py-1.5 dark:border-slate-700"
+                          :class="compactPlayerRowClasses(game, game.player2)"
+                        >
+                          <span class="truncate text-sm">{{ opponentLabel(game, game.player2) }}</span>
+                          <span class="shrink-0 tabular-nums text-sm">{{ participantScoreLabel(game, 2) }}</span>
+                        </div>
+                      </div>
+
+                      <div v-if="canLoadResult(game)" class="mt-2">
+                        <button
+                          type="button"
+                          class="w-full rounded-md bg-emerald-700 px-2 py-1.5 text-xs font-medium text-white hover:bg-emerald-600"
+                          @click="openResultModal(game)"
+                        >
+                          Cargar resultado
+                        </button>
+                      </div>
+
+                      <details class="mt-1.5">
+                        <summary
+                          class="cursor-pointer text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                        >
+                          Detalle
+                        </summary>
+                        <div class="mt-1.5 space-y-0.5 text-xs text-slate-500 dark:text-slate-400">
+                          <p v-if="matchFormatLabel(game)">
+                            Formato: {{ matchFormatLabel(game) }}
+                          </p>
+                          <p>Estado: {{ statusLabel(game) }}</p>
+                          <p v-if="setScoresDetail(game).length > 0">
+                            Sets: {{ setScoresDetail(game).join(', ') }}
+                          </p>
+                          <p v-if="isByeGame(game) || game?.status === 'finished'">
+                            Ganador: {{ winnerName(game) }}
+                          </p>
+                          <div v-if="isFinishedGame(game)" class="pt-0.5">
+                            <RouterLink
+                              :to="{
+                                path: `/games/${game.id}`,
+                                query: {
+                                  competitionId,
+                                  competitionName: competition?.name,
+                                  tournamentId: competition?.tournament_id,
+                                },
+                              }"
+                              class="font-medium text-slate-700 hover:underline dark:text-slate-300"
+                            >
+                              Ver detalle
+                            </RouterLink>
+                          </div>
+                        </div>
+                      </details>
+                    </article>
+
+                    <span
+                      v-if="hasNextRound(roundIndex)"
+                      class="absolute -right-4 top-1/2 hidden h-px w-4 border-t border-slate-300 dark:border-slate-600 sm:block"
+                      aria-hidden="true"
+                    />
+
+                    <span
+                      v-if="hasNextRound(roundIndex) && isEvenMatchIndex(gameIndex) && round.games[gameIndex + 1]"
+                      class="pointer-events-none absolute hidden w-4 sm:block"
+                      :style="{
+                        right: '-16px',
+                        top: '50%',
+                        height: `${pairConnectorHeight(roundIndex)}px`,
+                      }"
+                      aria-hidden="true"
+                    >
+                      <span class="absolute right-0 top-0 h-full border-l border-slate-300 dark:border-slate-600" />
+                      <span
+                        class="absolute right-0 top-1/2 h-px w-4 translate-x-full border-t border-slate-300 dark:border-slate-600"
+                      />
+                    </span>
+                  </li>
+                </ul>
+              </section>
+            </div>
+          </div>
+
+          <details class="mt-6">
+            <summary
+              class="cursor-pointer text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+            >
+              Detalle por rondas
+            </summary>
+
+            <div class="mt-3 space-y-4">
+              <section
+                v-for="round in groupedRounds"
+                :key="`detail-${round.roundNumber}-${round.roundLabel}`"
+                class="space-y-2 rounded-md border border-slate-200 p-3 dark:border-slate-700 dark:bg-slate-950/40"
+              >
+                <h2 class="font-semibold text-slate-900 dark:text-slate-100">
+                  {{ round.roundLabel }}
+                </h2>
+
+                <ul class="space-y-2">
+                  <li
+                    v-for="game in round.games"
+                    :key="`detail-${game.id}`"
+                    class="space-y-1 rounded-md border border-slate-200 p-3 dark:border-slate-700 dark:bg-slate-950/30"
                   >
-                    {{ statusLabel(game) }}
-                  </span>
+                    <p class="font-medium text-slate-900 dark:text-slate-100">
+                      {{ playerName(game.player1) }} vs {{ opponentLabel(game, game.player2) }}
+                    </p>
 
-                  <span v-if="setsResult(game)" class="text-slate-600 dark:text-slate-300">
-                    Sets: {{ setsResult(game) }}
-                  </span>
-                </div>
+                    <p v-if="matchFormatLabel(game)" class="text-slate-600 dark:text-slate-300">
+                      {{ matchFormatLabel(game) }}
+                    </p>
 
-                <p v-if="setScoresDetail(game).length > 0" class="text-slate-600 dark:text-slate-300">
-                  Detalle: {{ setScoresDetail(game).join(', ') }}
-                </p>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span
+                        v-if="isByeGame(game)"
+                        class="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900/60 dark:text-violet-200"
+                      >
+                        BYE
+                      </span>
 
-                <p class="text-slate-600 dark:text-slate-300">Ganador: {{ winnerName(game) }}</p>
+                      <span
+                        class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+                        :class="statusBadgeClasses(game)"
+                      >
+                        {{ statusLabel(game) }}
+                      </span>
 
-                <div v-if="canLoadResult(game)" class="pt-1">
-                  <button
-                    type="button"
-                    class="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-600"
-                    @click="openResultModal(game)"
-                  >
-                    Cargar resultado
-                  </button>
-                </div>
+                      <span v-if="setsResult(game)" class="text-slate-600 dark:text-slate-300">
+                        Sets: {{ setsResult(game) }}
+                      </span>
+                    </div>
 
-                <div v-else-if="isFinishedGame(game)" class="pt-1">
-                  <RouterLink
-                    :to="{
-                      path: `/games/${game.id}`,
-                      query: {
-                        competitionId,
-                        competitionName: competition?.name,
-                        tournamentId: competition?.tournament_id,
-                      },
-                    }"
-                    class="text-xs font-medium text-slate-700 hover:underline dark:text-slate-300"
-                  >
-                    Ver detalle
-                  </RouterLink>
-                </div>
-              </li>
-            </ul>
-          </section>
+                    <p v-if="setScoresDetail(game).length > 0" class="text-slate-600 dark:text-slate-300">
+                      Detalle: {{ setScoresDetail(game).join(', ') }}
+                    </p>
+
+                    <p class="text-slate-600 dark:text-slate-300">Ganador: {{ winnerName(game) }}</p>
+
+                    <div v-if="canLoadResult(game)" class="pt-1">
+                      <button
+                        type="button"
+                        class="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-600"
+                        @click="openResultModal(game)"
+                      >
+                        Cargar resultado
+                      </button>
+                    </div>
+
+                    <div v-else-if="isFinishedGame(game)" class="pt-1">
+                      <RouterLink
+                        :to="{
+                          path: `/games/${game.id}`,
+                          query: {
+                            competitionId,
+                            competitionName: competition?.name,
+                            tournamentId: competition?.tournament_id,
+                          },
+                        }"
+                        class="text-xs font-medium text-slate-700 hover:underline dark:text-slate-300"
+                      >
+                        Ver detalle
+                      </RouterLink>
+                    </div>
+                  </li>
+                </ul>
+              </section>
+            </div>
+          </details>
         </div>
       </div>
 
