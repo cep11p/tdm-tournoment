@@ -16,7 +16,6 @@ const form = reactive({
   category: '',
   type: 'singles',
   format: 'manual',
-  sets_to_win: 2,
   points_per_set: 11,
   qualified_per_group: 2,
   group_stage_best_of: 5,
@@ -36,7 +35,6 @@ const submit = async () => {
     category: form.category,
     type: form.type,
     format: form.format,
-    sets_to_win: Number(form.sets_to_win),
     points_per_set: Number(form.points_per_set),
     qualified_per_group: Number(form.qualified_per_group),
     group_stage_best_of: Number(form.group_stage_best_of),
@@ -118,34 +116,18 @@ const submit = async () => {
         </div>
       </div>
 
-      <div class="grid gap-4 sm:grid-cols-2">
-        <div class="space-y-1">
-          <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="sets_to_win">
-            Sets para ganar
-          </label>
-          <input
-            id="sets_to_win"
-            v-model.number="form.sets_to_win"
-            type="number"
-            min="1"
-            required
-            class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
-          />
-        </div>
-
-        <div class="space-y-1">
-          <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="points_per_set">
-            Puntos por set
-          </label>
-          <input
-            id="points_per_set"
-            v-model.number="form.points_per_set"
-            type="number"
-            min="1"
-            required
-            class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
-          />
-        </div>
+      <div class="space-y-1">
+        <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="points_per_set">
+          Puntos por set
+        </label>
+        <input
+          id="points_per_set"
+          v-model.number="form.points_per_set"
+          type="number"
+          min="1"
+          required
+          class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
+        />
       </div>
 
       <div class="space-y-1">

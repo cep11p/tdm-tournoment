@@ -15,7 +15,6 @@ class UpdateCompetitionRequest extends FormRequest
      * @var array<int, string>
      */
     private const FORMAT_FIELDS = [
-        'sets_to_win',
         'group_stage_best_of',
         'knockout_stage_best_of',
         'semifinal_best_of',
@@ -34,7 +33,6 @@ class UpdateCompetitionRequest extends FormRequest
             'category' => ['sometimes', 'required', 'string', 'max:255'],
             'type' => ['sometimes', Rule::enum(CompetitionType::class)],
             'format' => ['sometimes', Rule::enum(CompetitionFormat::class)],
-            'sets_to_win' => ['sometimes', 'integer', 'min:1'],
             'points_per_set' => ['sometimes', 'integer', 'min:1'],
             'qualified_per_group' => ['sometimes', 'integer', 'min:1'],
             'group_stage_best_of' => ['sometimes', 'integer', Rule::in([1, 3, 5, 7])],

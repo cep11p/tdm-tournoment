@@ -31,6 +31,7 @@ final class RecordGameSetAction
             }
 
             $competition = $game->competition;
+            // Fallback legacy: partidos sin snapshot (pre-PR3 o migración incompleta).
             $setsToWin = (int) ($game->sets_to_win ?? $competition->sets_to_win);
             $setNumber = (int) $payload['set_number'];
 

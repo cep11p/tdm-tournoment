@@ -240,7 +240,6 @@ final class TournamentTestContext
             'category' => 'primera',
             'type' => 'singles',
             'format' => 'manual',
-            'sets_to_win' => 1,
             'points_per_set' => 11,
             ...$overrides,
         ]);

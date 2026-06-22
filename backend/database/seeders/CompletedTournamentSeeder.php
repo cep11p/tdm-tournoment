@@ -218,7 +218,6 @@ class CompletedTournamentSeeder extends Seeder
                 'type' => CompetitionType::Singles,
                 'category' => Str::lower(self::COMPETITION_NAME),
                 'format' => CompetitionFormat::Manual,
-                'sets_to_win' => 2,
                 'points_per_set' => 11,
                 'group_stage_best_of' => 3,
                 'knockout_stage_best_of' => 3,

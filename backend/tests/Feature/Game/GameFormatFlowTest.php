@@ -26,10 +26,54 @@ class GameFormatFlowTest extends TestCase
 
         $response
             ->assertCreated()
+            ->assertJsonMissingPath('data.sets_to_win')
             ->assertJsonPath('data.group_stage_best_of', 5)
             ->assertJsonPath('data.knockout_stage_best_of', 5)
             ->assertJsonPath('data.semifinal_best_of', 7)
             ->assertJsonPath('data.final_best_of', 7);
+    }
+
+    public function test_competition_can_be_created_without_sets_to_win_payload(): void
+    {
+        $context = $this->tournamentContext();
+        $tournament = Tournament::query()->create([
+            'name' => 'Torneo Sin Legacy',
+            'location' => 'Club Test',
+            'start_date' => Carbon::today()->toDateString(),
+            'status' => TournamentStatus::Draft,
+        ]);
+
+        $response = $context->createCompetitionViaApi($tournament->id, [
+            'group_stage_best_of' => 5,
+            'knockout_stage_best_of' => 5,
+            'semifinal_best_of' => 7,
+            'final_best_of' => 7,
+        ]);
+
+        $response->assertCreated();
+
+        $competition = Competition::query()->findOrFail((int) $response->json('data.id'));
+
+        $this->assertSame(3, $competition->sets_to_win);
+        $this->assertSame(5, $competition->group_stage_best_of);
+    }
+
+    public function test_legacy_game_without_snapshot_uses_competition_sets_to_win_fallback(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $context->createPendingSinglesGame(setsToWin: 1);
+
+        $setup['game']->update([
+            'best_of' => null,
+            'sets_to_win' => null,
+        ]);
+
+        $response = $context->recordSet($setup['game'], setNumber: 1, player1Score: 11, player2Score: 7);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.status', GameStatus::Finished->value)
+            ->assertJsonPath('data.sets_won.player1', 1);
     }
 
     public function test_round_robin_games_store_group_stage_format_snapshot(): void

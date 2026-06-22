@@ -195,7 +195,6 @@ final class DemoScenarioBuilder
                 'type' => CompetitionType::Singles,
                 'category' => Str::slug($config->competitionName),
                 'format' => CompetitionFormat::Manual,
-                'sets_to_win' => 2,
                 'points_per_set' => 11,
                 'group_stage_best_of' => 3,
                 'knockout_stage_best_of' => 3,

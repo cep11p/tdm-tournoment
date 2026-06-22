@@ -719,11 +719,6 @@ onMounted(loadCompetitionSummary)
           <p class="font-medium text-slate-900 dark:text-slate-100">{{ competition.format }}</p>
         </div>
 
-        <div>
-          <p class="text-slate-500 dark:text-slate-400">Sets para ganar (legacy)</p>
-          <p class="font-medium text-slate-900 dark:text-slate-100">{{ competition.sets_to_win }}</p>
-        </div>
-
         <div class="space-y-1 border-t border-slate-200 pt-3 dark:border-slate-700">
           <p class="font-medium text-slate-700 dark:text-slate-200">Formato de partidos</p>
           <p class="text-slate-600 dark:text-slate-300">

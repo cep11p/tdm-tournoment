@@ -84,7 +84,7 @@ Representa una competencia concreta dentro de un torneo.
 | type            | enum     | `singles` (en MVP solo singles).                    |
 | category        | string   | División (ej: primera, amateur, libre).             |
 | format          | enum     | `manual` (en MVP solo manual).                      |
-| sets_to_win              | int      | **Legacy/deprecated.** Sets para ganar (valor histórico). |
+| sets_to_win              | int      | **Legacy (columna DB).** No se expone ni configura por API. Se rellena al crear desde `group_stage_best_of` solo por compatibilidad de esquema. |
 | points_per_set           | int      | Puntos necesarios para ganar un set (ej: 11).       |
 | qualified_per_group      | int      | Cuántos jugadores clasifican desde cada grupo hacia la fase eliminatoria (default: 2). |
 | group_stage_best_of      | int      | Mejor de N en fase de grupos (default: 5).          |
@@ -116,7 +116,7 @@ Mapeo de ronda eliminatoria → campo de competencia:
 | Semifinal | `semifinal_best_of` |
 | Final | `final_best_of` |
 
-`sets_to_win` a nivel competencia queda como **legacy/deprecated** por compatibilidad con datos antiguos. Los partidos nuevos usan el snapshot de `Game`.
+`sets_to_win` a nivel competencia es **legacy**: la columna permanece en base de datos (NOT NULL) pero no forma parte de la API ni del formulario. Al crear una competencia, el sistema la rellena internamente como `intdiv(group_stage_best_of, 2) + 1`. La regla efectiva del partido vive en el snapshot de `Game` (`best_of`, `sets_to_win`). Solo `RecordGameSetAction` consulta `Competition.sets_to_win` como fallback para partidos legacy sin snapshot.
 
 No se puede cambiar el formato por fase si la competencia ya tiene partidos generados.
 

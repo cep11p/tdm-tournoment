@@ -22,7 +22,6 @@ class StoreCompetitionRequest extends FormRequest
             'category' => ['required', 'string', 'max:255'],
             'type' => ['required', Rule::enum(CompetitionType::class)],
             'format' => ['required', Rule::enum(CompetitionFormat::class)],
-            'sets_to_win' => ['required', 'integer', 'min:1'],
             'points_per_set' => ['required', 'integer', 'min:1'],
             'qualified_per_group' => ['nullable', 'integer', 'min:1'],
             'group_stage_best_of' => ['nullable', 'integer', Rule::in([1, 3, 5, 7])],

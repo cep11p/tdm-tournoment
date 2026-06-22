@@ -26,7 +26,6 @@ class CompetitionResource extends JsonResource
             'category' => $this->category,
             'type' => $type,
             'format' => $format,
-            'sets_to_win' => $this->sets_to_win,
             'points_per_set' => $this->points_per_set,
             'group_stage_best_of' => $this->group_stage_best_of,
             'knockout_stage_best_of' => $this->knockout_stage_best_of,

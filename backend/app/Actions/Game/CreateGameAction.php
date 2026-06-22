@@ -38,7 +38,7 @@ final class CreateGameAction
             return $payload;
         }
 
-        $format = GameFormatResolver::fromLegacySetsToWin((int) $competition->sets_to_win);
+        $format = GameFormatResolver::resolveForGroup($competition);
 
         $payload['best_of'] ??= $format['best_of'];
         $payload['sets_to_win'] ??= $format['sets_to_win'];
