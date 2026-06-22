@@ -17,6 +17,16 @@ const GameService = {
     const response = await httpClient.post(`/games/${gameId}/sets`, payload)
     return unwrap(response) ?? null
   },
+
+  async recordSets(gameId, sets) {
+    let lastGame = null
+
+    for (const payload of sets) {
+      lastGame = await this.recordSet(gameId, payload)
+    }
+
+    return lastGame
+  },
 }
 
 export default GameService
