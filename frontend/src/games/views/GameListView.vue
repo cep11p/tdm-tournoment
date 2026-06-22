@@ -121,7 +121,7 @@ onMounted(loadGames)
 <template>
   <section class="space-y-4">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Partidos de la competencia</h1>
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">Partidos de la competencia</h1>
       <RouterLink
         :to="`/competitions/${competitionId}`"
         class="text-sm font-medium text-slate-700 hover:underline dark:text-slate-300"

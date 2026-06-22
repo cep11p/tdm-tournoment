@@ -58,7 +58,7 @@ const submit = async () => {
 <template>
   <section class="space-y-4">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Nueva competencia</h1>
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">Nueva competencia</h1>
     </div>
 
     <p class="text-sm text-slate-600 dark:text-slate-300">Formulario inicial para crear una competencia.</p>
@@ -218,7 +218,7 @@ const submit = async () => {
         <button
           type="submit"
           :disabled="isSubmitting"
-          class="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
+          class="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
         >
           {{ isSubmitting ? 'Guardando...' : 'Guardar' }}
         </button>

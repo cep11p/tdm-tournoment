@@ -150,7 +150,7 @@ onMounted(loadGame)
     />
 
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
         {{ game ? `${playerName(game.player1)} vs ${playerName(game.player2)}` : `Partido #${gameId}` }}
       </h1>
       <AppBackButton
@@ -160,7 +160,7 @@ onMounted(loadGame)
     </div>
 
     <p v-if="isLoading" class="text-sm text-slate-600 dark:text-slate-300">Cargando partido...</p>
-    <p v-else-if="errorMessage" class="text-sm text-red-600">{{ errorMessage }}</p>
+    <p v-else-if="errorMessage" class="text-sm text-red-600 dark:text-red-400">{{ errorMessage }}</p>
 
     <template v-else-if="game">
       <p v-if="matchFormatLabel" class="text-sm text-slate-600 dark:text-slate-300">
@@ -265,8 +265,8 @@ onMounted(loadGame)
           />
         </div>
 
-        <p v-if="setError" class="text-red-600">{{ setError }}</p>
-        <p v-if="setSuccessMessage" class="text-emerald-700">{{ setSuccessMessage }}</p>
+        <p v-if="setError" class="text-red-600 dark:text-red-400">{{ setError }}</p>
+        <p v-if="setSuccessMessage" class="text-emerald-700 dark:text-emerald-300">{{ setSuccessMessage }}</p>
 
         <button
           type="submit"

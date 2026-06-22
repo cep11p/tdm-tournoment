@@ -161,7 +161,9 @@ onMounted(async () => {
     />
 
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Inscriptos - {{ competition?.name || `Competencia #${competitionId}` }}</h1>
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
+        Inscriptos - {{ competition?.name || `Competencia #${competitionId}` }}
+      </h1>
 
       <AppBackButton :fallback-to="`/competitions/${competitionId}`" />
     </div>
@@ -169,7 +171,7 @@ onMounted(async () => {
     <div>
       <button
         type="button"
-        class="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700"
+        class="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
         @click="showRegistrationForm = !showRegistrationForm"
       >
         Inscribir jugador
@@ -208,7 +210,7 @@ onMounted(async () => {
         <label
           v-for="player in playerSearchResults"
           :key="player.id"
-          class="flex items-center gap-2 rounded border border-slate-200 p-2 dark:border-slate-700"
+          class="flex items-center gap-2 rounded border border-slate-200 p-2 text-slate-900 dark:border-slate-700 dark:text-slate-100"
         >
           <input v-model="selectedPlayerId" :value="player.id" type="radio" name="selected-player" />
           <span>
@@ -281,7 +283,7 @@ onMounted(async () => {
           />
         </div>
 
-        <p v-if="createPlayerError" class="text-red-600">{{ createPlayerError }}</p>
+        <p v-if="createPlayerError" class="text-red-600 dark:text-red-400">{{ createPlayerError }}</p>
 
         <button
           type="submit"
@@ -292,12 +294,14 @@ onMounted(async () => {
         </button>
       </form>
 
-      <p v-if="registrationSubmitError" class="text-red-600">{{ registrationSubmitError }}</p>
-      <p v-if="registrationSuccessMessage" class="text-emerald-700">{{ registrationSuccessMessage }}</p>
+      <p v-if="registrationSubmitError" class="text-red-600 dark:text-red-400">{{ registrationSubmitError }}</p>
+      <p v-if="registrationSuccessMessage" class="text-emerald-700 dark:text-emerald-300">
+        {{ registrationSuccessMessage }}
+      </p>
     </div>
 
-    <p v-if="isLoadingRegistrations" class="text-sm text-slate-600">Cargando inscriptos...</p>
-    <p v-else-if="registrationListError" class="text-sm text-red-600">{{ registrationListError }}</p>
+    <p v-if="isLoadingRegistrations" class="text-sm text-slate-600 dark:text-slate-300">Cargando inscriptos...</p>
+    <p v-else-if="registrationListError" class="text-sm text-red-600 dark:text-red-400">{{ registrationListError }}</p>
 
     <div
       v-else-if="registrations.length === 0"
@@ -306,16 +310,19 @@ onMounted(async () => {
       Esta competencia todavía no tiene inscriptos.
     </div>
 
-    <div v-else class="space-y-2 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+    <div
+      v-else
+      class="space-y-2 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
+    >
       <article
         v-for="registration in registrations"
         :key="registration.id"
-        class="rounded border border-slate-200 p-3 text-sm"
+        class="rounded border border-slate-200 p-3 text-sm dark:border-slate-700 dark:bg-slate-950/30"
       >
-        <p class="font-medium text-slate-900">
+        <p class="font-medium text-slate-900 dark:text-slate-100">
           {{ registration.player.first_name }} {{ registration.player.last_name }}
         </p>
-        <p class="text-slate-600">Nickname: {{ registration.player.nickname || '-' }}</p>
+        <p class="text-slate-600 dark:text-slate-400">Nickname: {{ registration.player.nickname || '-' }}</p>
       </article>
     </div>
   </section>
