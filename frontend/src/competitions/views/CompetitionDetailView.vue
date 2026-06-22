@@ -194,57 +194,60 @@ const finalResults = computed(() => {
 
 const showFinalResults = computed(() => finalResults.value !== null)
 
-const statusSteps = computed(() => {
-  const steps = []
+const statusSummary = computed(() => competition.value?.status_summary ?? null)
 
-  if (registrations.value !== null) {
-    steps.push({
-      done: registrations.value.length > 0,
-      label:
-        registrations.value.length > 0 ? 'Inscripciones completas' : 'Sin inscripciones registradas',
-    })
+const statusBadgeClasses = (code) => {
+  switch (code) {
+    case 'no_groups':
+      return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200'
+    case 'group_stage_pending':
+      return 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200'
+    case 'group_stage_in_progress':
+      return 'bg-sky-100 text-sky-800 dark:bg-sky-900/60 dark:text-sky-200'
+    case 'ready_for_bracket':
+      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
+    case 'knockout_in_progress':
+      return 'bg-violet-100 text-violet-800 dark:bg-violet-900/60 dark:text-violet-200'
+    case 'completed':
+      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
+    default:
+      return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200'
+  }
+}
+
+const statusActionLink = computed(() => {
+  const code = statusSummary.value?.code
+
+  if (!code) {
+    return null
   }
 
-  if (groups.value !== null) {
-    steps.push({
-      done: groups.value.length > 0,
-      label: groups.value.length > 0 ? 'Grupos creados' : 'Grupos pendientes',
-    })
+  switch (code) {
+    case 'no_groups':
+    case 'group_stage_pending':
+      return {
+        to: `/competitions/${competitionId.value}/groups`,
+        label: 'Gestionar grupos',
+      }
+    case 'group_stage_in_progress':
+      return {
+        to: `/competitions/${competitionId.value}/groups`,
+        label: 'Ver grupos',
+      }
+    case 'ready_for_bracket':
+      return {
+        to: bracketRoute.value,
+        label: hasBracket.value ? 'Ver llave' : 'Generar llave',
+      }
+    case 'knockout_in_progress':
+    case 'completed':
+      return {
+        to: bracketRoute.value,
+        label: 'Ver llave',
+      }
+    default:
+      return null
   }
-
-  if (games.value !== null) {
-    if (games.value.length > 0) {
-      steps.push({
-        done: true,
-        label: 'Partidos generados',
-      })
-    } else {
-      steps.push({
-        done: false,
-        label: 'Partidos pendientes',
-      })
-    }
-  }
-
-  if (games.value !== null && games.value.length > 0) {
-    const groupPhaseGames = groupGames.value
-    const relevantGames = groupPhaseGames.length > 0 ? groupPhaseGames : games.value
-    const allFinished = relevantGames.every((game) => game.status === 'finished')
-
-    if (allFinished) {
-      steps.push({
-        done: true,
-        label: 'Fase de grupos completada',
-      })
-    } else {
-      steps.push({
-        done: false,
-        label: 'Competencia en curso',
-      })
-    }
-  }
-
-  return steps
 })
 
 const qualifiersByGroup = computed(() => {
@@ -331,13 +334,6 @@ const positionBadgeClasses = (position) => {
 
   return 'bg-slate-100 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700'
 }
-
-const statusStepClasses = (step) =>
-  step.done
-    ? 'text-emerald-800 dark:text-emerald-300'
-    : 'text-amber-800 dark:text-amber-300'
-
-const statusStepIcon = (step) => (step.done ? '✓' : '⏳')
 
 const actionLinks = computed(() => [
   {
@@ -481,6 +477,39 @@ onMounted(loadCompetitionSummary)
       </div>
 
       <div
+        v-if="statusSummary"
+        class="rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
+      >
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="space-y-2">
+            <p class="font-medium text-slate-700 dark:text-slate-200">Estado de la competencia</p>
+
+            <span
+              class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
+              :class="statusBadgeClasses(statusSummary.code)"
+            >
+              {{ statusSummary.label }}
+            </span>
+
+            <p class="text-slate-600 dark:text-slate-300">{{ statusSummary.description }}</p>
+
+            <p class="text-slate-700 dark:text-slate-200">
+              Próxima acción:
+              <span class="font-medium text-slate-900 dark:text-slate-100">{{ statusSummary.next_action }}</span>
+            </p>
+          </div>
+
+          <RouterLink
+            v-if="statusActionLink"
+            :to="statusActionLink.to"
+            class="inline-flex shrink-0 rounded-md bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+          >
+            {{ statusActionLink.label }}
+          </RouterLink>
+        </div>
+      </div>
+
+      <div
         v-if="showFinalResults"
         class="rounded-md border border-amber-200 bg-gradient-to-b from-amber-50 to-white p-4 text-sm dark:border-amber-900 dark:from-amber-950/30 dark:to-slate-900"
       >
@@ -533,25 +562,6 @@ onMounted(loadCompetitionSummary)
             </ul>
           </article>
         </div>
-      </div>
-
-      <div
-        v-if="statusSteps.length > 0"
-        class="rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
-      >
-        <p class="font-medium text-slate-700 dark:text-slate-200">Estado de la competencia</p>
-
-        <ul class="mt-3 space-y-2">
-          <li
-            v-for="step in statusSteps"
-            :key="step.label"
-            class="flex items-center gap-2 font-medium"
-            :class="statusStepClasses(step)"
-          >
-            <span aria-hidden="true">{{ statusStepIcon(step) }}</span>
-            {{ step.label }}
-          </li>
-        </ul>
       </div>
 
       <div

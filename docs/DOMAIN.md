@@ -122,6 +122,41 @@ No se puede cambiar el formato por fase si la competencia ya tiene partidos gene
 
 Los jugadores **no** se inscriben al torneo en general, sino a cada competencia concreta.
 
+#### Estado calculado de competencia
+
+La API expone `status_summary` en `CompetitionResource`. Es un **estado calculado** (no persistido en BD) que orienta la UI sobre el avance de la competencia y la próxima acción sugerida.
+
+Se calcula en `CompetitionStatusResolver` a partir de:
+
+- existencia de grupos
+- partidos de grupo (`group_id` not null, `bracket_id` null)
+- existencia de bracket
+- partidos eliminatorios y final (`round = 'Final'`)
+
+**No reemplaza** las validaciones de las Actions (generar bracket, cargar sets, etc.). Solo informa.
+
+Códigos disponibles:
+
+| code | Significado |
+|------|-------------|
+| `no_groups` | Sin grupos configurados |
+| `group_stage_pending` | Hay grupos pero no partidos de grupo |
+| `group_stage_in_progress` | Partidos de grupo pendientes o en curso |
+| `ready_for_bracket` | Grupos finalizados, sin llave |
+| `knockout_in_progress` | Llave generada, eliminatoria en curso |
+| `completed` | Final disputada con ganador |
+
+Estructura expuesta:
+
+```json
+{
+  "code": "ready_for_bracket",
+  "label": "Lista para generar llave",
+  "description": "...",
+  "next_action": "Generar llave eliminatoria"
+}
+```
+
 ---
 
 ### Player

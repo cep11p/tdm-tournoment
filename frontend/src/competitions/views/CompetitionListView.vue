@@ -64,6 +64,9 @@ onMounted(loadCompetitions)
             <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">
               Formato
             </th>
+            <th class="px-4 py-3 text-left text-xs font-semibold uppercase text-slate-600">
+              Estado
+            </th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-200">
@@ -83,6 +86,15 @@ onMounted(loadCompetitions)
             <td class="px-4 py-3 text-sm text-slate-700">{{ competition.category }}</td>
             <td class="px-4 py-3 text-sm text-slate-700">{{ competition.type }}</td>
             <td class="px-4 py-3 text-sm text-slate-700">{{ competition.format }}</td>
+            <td class="px-4 py-3 text-sm">
+              <span
+                v-if="competition.status_summary?.label"
+                class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700"
+              >
+                {{ competition.status_summary.label }}
+              </span>
+              <span v-else class="text-slate-400">-</span>
+            </td>
           </tr>
         </tbody>
       </table>
