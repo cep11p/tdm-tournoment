@@ -228,7 +228,7 @@ Representa el cuadro eliminatorio de una competencia.
 |----------------------|--------|----------------------------------------------|
 | id                   | bigint | Identificador único.                         |
 | competition_id       | bigint | FK a Competition.                            |
-| name                 | string | Nombre del cuadro (ej: "Eliminatoria").      |
+| name                 | string | Nombre del cuadro. Se genera automáticamente como `Llave - {nombre de competencia}` si no se envía uno custom. |
 | qualifiers_per_group | int    | Snapshot del valor `qualified_per_group` de la competencia al momento de crear el cuadro. |
 | bracket_size         | int    | Tamaño de la llave (siguiente potencia de 2 ≥ clasificados).                             |
 | byes_count           | int    | Cantidad de BYEs incluidos al completar la llave.                                        |
@@ -236,6 +236,16 @@ Representa el cuadro eliminatorio de una competencia.
 `Bracket.qualifiers_per_group` registra cuántos clasificados por grupo se usaron al generar el cuadro. La configuración activa vive en `Competition.qualified_per_group`; el campo del bracket es histórico.
 
 Restricción única: `competition_id` (una competencia tiene un solo bracket).
+
+El nombre del bracket **no representa la ronda inicial**. La ronda inicial se deriva de `bracket_size` y de los partidos generados (campo `round` del primer `bracket_round`).
+
+Ejemplo:
+
+```text
+name = Llave - Singles Club
+bracket_size = 32
+ronda inicial = 16avos de final
+```
 
 ---
 

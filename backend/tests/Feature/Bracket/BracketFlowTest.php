@@ -8,6 +8,48 @@ use Tests\TestCase;
 
 class BracketFlowTest extends TestCase
 {
+    public function test_creates_bracket_with_automatic_name_when_name_is_omitted(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $context->createFourQualifierGroupPhase();
+
+        $response = $context->createBracket($setup['competition']);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.name', 'Llave - Singles Test');
+    }
+
+    public function test_creates_bracket_with_automatic_name_when_name_is_empty(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $context->createFourQualifierGroupPhase();
+
+        $response = $this->postJson(
+            $context->apiUrl("competitions/{$setup['competition']->id}/bracket"),
+            ['name' => '   ']
+        );
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.name', 'Llave - Singles Test');
+    }
+
+    public function test_respects_explicit_custom_name_when_provided(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $context->createFourQualifierGroupPhase();
+
+        $response = $this->postJson(
+            $context->apiUrl("competitions/{$setup['competition']->id}/bracket"),
+            ['name' => 'Mi llave custom']
+        );
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.name', 'Mi llave custom');
+    }
+
     public function test_creates_bracket_from_finished_groups_with_correct_seeding(): void
     {
         $context = $this->tournamentContext();

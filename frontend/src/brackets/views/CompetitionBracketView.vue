@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import AppBackButton from '../../components/AppBackButton.vue'
@@ -27,11 +27,19 @@ const nextRoundSuccessMessage = ref('')
 const selectedGame = ref(null)
 const resultSuccessMessage = ref('')
 
-const form = reactive({
-  name: 'Eliminatoria',
-})
-
 const hasBracket = computed(() => Boolean(bracket.value?.id))
+
+const initialRoundLabel = computed(() => {
+  const games = bracket.value?.games
+  if (!games?.length) {
+    return null
+  }
+
+  const firstRound = Math.min(...games.map((game) => game.bracket_round || 1))
+  const firstGame = games.find((game) => (game.bracket_round || 1) === firstRound)
+
+  return firstGame?.round ?? null
+})
 
 const refreshBracket = async () => {
   bracket.value = await BracketService.show(competitionId.value)
@@ -49,10 +57,6 @@ const loadData = async () => {
 
     competition.value = competitionData
     bracket.value = bracketData
-
-    if (bracketData?.name) {
-      form.name = bracketData.name
-    }
   } catch (error) {
     loadError.value = error?.response?.data?.message || 'No se pudo cargar la llave eliminatoria.'
   } finally {
@@ -252,9 +256,7 @@ const handleCreateBracket = async () => {
   nextRoundSuccessMessage.value = ''
 
   try {
-    bracket.value = await BracketService.create(competitionId.value, {
-      name: form.name.trim() || 'Eliminatoria',
-    })
+    bracket.value = await BracketService.create(competitionId.value, {})
 
     createSuccessMessage.value = 'Llave eliminatoria generada correctamente.'
   } catch (error) {
@@ -333,16 +335,6 @@ onMounted(loadData)
           <span class="font-medium text-slate-900 dark:text-slate-100">{{ competition?.qualified_per_group ?? 2 }}</span>
         </p>
 
-        <div>
-          <label for="bracket-name" class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Nombre</label>
-          <input
-            id="bracket-name"
-            v-model="form.name"
-            type="text"
-            class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
-          />
-        </div>
-
         <p v-if="createError" class="text-red-600 dark:text-red-400">{{ createError }}</p>
         <p v-if="createSuccessMessage" class="text-emerald-700 dark:text-emerald-300">{{ createSuccessMessage }}</p>
 
@@ -351,7 +343,7 @@ onMounted(loadData)
           class="rounded-md bg-slate-900 px-3 py-2 font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
           :disabled="isCreatingBracket"
         >
-          {{ isCreatingBracket ? 'Generando...' : 'Generar bracket' }}
+          {{ isCreatingBracket ? 'Generando...' : 'Generar llave eliminatoria' }}
         </button>
       </form>
 
@@ -380,6 +372,11 @@ onMounted(loadData)
           <div>
             <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">BYEs</dt>
             <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ bracket.byes_count ?? 0 }}</dd>
+          </div>
+
+          <div v-if="initialRoundLabel">
+            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Ronda inicial</dt>
+            <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ initialRoundLabel }}</dd>
           </div>
 
           <div>

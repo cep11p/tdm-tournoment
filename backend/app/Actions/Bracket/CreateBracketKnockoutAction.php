@@ -79,7 +79,11 @@ final class CreateBracketKnockoutAction
         $byesCount = $bracketSize - $qualifierCount;
         $roundLabel = BracketSupport::roundLabelFor($bracketSize);
         $matchFormat = GameFormatResolver::resolveForBracketRound($competition, $roundLabel);
-        $name = $payload['name'] ?? 'Eliminatoria';
+        $name = trim($payload['name'] ?? '');
+
+        if ($name === '') {
+            $name = 'Llave - ' . $competition->name;
+        }
 
         return DB::transaction(function () use (
             $competition,
