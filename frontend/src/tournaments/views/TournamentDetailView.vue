@@ -40,7 +40,7 @@ onMounted(loadTournament)
       <AppBackButton fallback-to="/tournaments" />
     </div>
 
-    <p v-if="isLoading" class="text-sm text-slate-600 dark:text-slate-300">Cargando torneo...</p>
+    <p v-if="isLoading" class="text-sm text-slate-600 dark:text-slate-400">Cargando torneo...</p>
     <p v-else-if="errorMessage" class="text-sm text-red-600 dark:text-red-400">{{ errorMessage }}</p>
 
     <div

@@ -65,7 +65,7 @@ onMounted(loadGroups)
 <template>
   <section class="space-y-4">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">Grupos de la competencia</h1>
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">Grupos de la competencia</h1>
       <RouterLink
         :to="`/competitions/${competitionId}`"
         class="text-sm font-medium text-slate-700 dark:text-slate-200 hover:underline"
@@ -86,39 +86,39 @@ onMounted(loadGroups)
           id="group-name"
           v-model="form.name"
           type="text"
-          class="w-full rounded-md border border-slate-300 px-3 py-2"
+          class="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         />
       </div>
 
-      <p v-if="createError" class="text-red-600">{{ createError }}</p>
-      <p v-if="createSuccessMessage" class="text-emerald-700">{{ createSuccessMessage }}</p>
+      <p v-if="createError" class="text-red-600 dark:text-red-400">{{ createError }}</p>
+      <p v-if="createSuccessMessage" class="text-emerald-700 dark:text-emerald-300">{{ createSuccessMessage }}</p>
 
       <button
         type="submit"
-        class="rounded-md bg-slate-900 px-3 py-2 font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
+        class="rounded-md bg-slate-900 px-3 py-2 font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
         :disabled="isCreating"
       >
         {{ isCreating ? 'Creando...' : 'Crear grupo' }}
       </button>
     </form>
 
-    <p v-if="isLoading" class="text-sm text-slate-600">Cargando grupos...</p>
-    <p v-else-if="listError" class="text-sm text-red-600">{{ listError }}</p>
+    <p v-if="isLoading" class="text-sm text-slate-600 dark:text-slate-400">Cargando grupos...</p>
+    <p v-else-if="listError" class="text-sm text-red-600 dark:text-red-400">{{ listError }}</p>
 
     <div
       v-else-if="groups.length === 0"
-      class="rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-600"
+      class="rounded-md border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-400"
     >
       Esta competencia todavía no tiene grupos.
     </div>
 
-    <div v-else class="space-y-2 rounded-md border border-slate-200 bg-white p-4">
+    <div v-else class="space-y-2 rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
       <article
         v-for="group in groups"
         :key="group.id"
-        class="flex items-center justify-between rounded border border-slate-200 p-3 text-sm"
+        class="flex items-center justify-between rounded border border-slate-200 p-3 text-sm hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40 dark:hover:bg-slate-800/70"
       >
-        <p class="font-medium text-slate-900">{{ group.name }}</p>
+        <p class="font-medium text-slate-900 dark:text-slate-100">{{ group.name }}</p>
 
         <RouterLink
           :to="`/groups/${group.id}?competitionId=${competitionId}&groupName=${encodeURIComponent(group.name)}`"
