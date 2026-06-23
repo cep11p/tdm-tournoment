@@ -157,6 +157,21 @@ Estructura expuesta:
 }
 ```
 
+#### Resultado calculado de competencia
+
+La API expone `result_summary` en `CompetitionResource`. Es un resultado calculado, no persistido en BD.
+
+Se calcula en `CompetitionResultResolver` desde la final terminada del bracket:
+
+- `round = 'Final'`
+- `status = finished`
+- `winner_id` definido
+
+El campeón es el `winner_id` de la final.
+El subcampeón es el otro jugador de la final.
+
+Si la competencia no está finalizada, falta final, falta ganador o falta rival, `result_summary` devuelve `null`.
+
 ---
 
 ### Player

@@ -97,6 +97,12 @@ onMounted(loadCompetitions)
               >
                 {{ competition.name }}
               </RouterLink>
+              <p
+                v-if="competition.result_summary?.champion?.name"
+                class="mt-0.5 text-xs text-emerald-700 dark:text-emerald-400"
+              >
+                Campeón: {{ competition.result_summary.champion.name }}
+              </p>
             </td>
             <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">{{ competition.category }}</td>
             <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">{{ competition.type }}</td>

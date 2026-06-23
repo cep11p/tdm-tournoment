@@ -4,6 +4,7 @@ namespace App\Http\Resources\Competition;
 
 use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
+use App\Support\Competition\CompetitionResultResolver;
 use App\Support\Competition\CompetitionStatusResolver;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -34,6 +35,7 @@ class CompetitionResource extends JsonResource
             'final_best_of' => $this->final_best_of,
             'qualified_per_group' => $this->qualified_per_group,
             'status_summary' => CompetitionStatusResolver::resolve($this->resource),
+            'result_summary' => CompetitionResultResolver::resolve($this->resource),
             'created_at' => optional($this->created_at)->toISOString(),
             'updated_at' => optional($this->updated_at)->toISOString(),
         ];

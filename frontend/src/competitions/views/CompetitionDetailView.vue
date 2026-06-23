@@ -95,104 +95,7 @@ const bracketStatus = computed(() => {
 
 const bracketRoute = computed(() => `/competitions/${competitionId.value}/bracket`)
 
-const playerDisplayName = (player) => {
-  if (!player?.id) {
-    return null
-  }
-
-  return `${player.first_name} ${player.last_name}`.trim()
-}
-
-const winnerPlayer = (game) => {
-  if (!game?.winner_id) {
-    return null
-  }
-
-  const winner = game.winner_id === game.player1?.id ? game.player1 : game.player2
-
-  if (!winner?.id) {
-    return null
-  }
-
-  return {
-    id: winner.id,
-    name: playerDisplayName(winner),
-  }
-}
-
-const loserPlayer = (game) => {
-  if (!game?.winner_id) {
-    return null
-  }
-
-  const loser = game.winner_id === game.player1?.id ? game.player2 : game.player1
-
-  if (!loser?.id) {
-    return null
-  }
-
-  return {
-    id: loser.id,
-    name: playerDisplayName(loser),
-  }
-}
-
-const finalResults = computed(() => {
-  if (bracketGames.value.length === 0) {
-    return null
-  }
-
-  const maxRound = Math.max(...bracketGames.value.map((game) => Number(game.bracket_round) || 0))
-
-  if (maxRound === 0) {
-    return null
-  }
-
-  const finalGames = bracketGames.value.filter((game) => Number(game.bracket_round) === maxRound)
-
-  if (finalGames.length !== 1) {
-    return null
-  }
-
-  const finalGame = finalGames[0]
-
-  if (finalGame.status !== 'finished' || !finalGame.winner_id) {
-    return null
-  }
-
-  const champion = winnerPlayer(finalGame)
-  const runnerUp = loserPlayer(finalGame)
-
-  if (!champion?.name || !runnerUp?.name) {
-    return null
-  }
-
-  const semifinalRound = maxRound - 1
-  let semifinalists = []
-
-  if (semifinalRound >= 1) {
-    semifinalists = bracketGames.value
-      .filter(
-        (game) =>
-          Number(game.bracket_round) === semifinalRound &&
-          game.status === 'finished' &&
-          game.winner_id,
-      )
-      .map((game) => loserPlayer(game))
-      .filter(
-        (player) =>
-          player?.name && player.id !== champion.id && player.id !== runnerUp.id,
-      )
-  }
-
-  return {
-    champion,
-    runnerUp,
-    semifinalists,
-  }
-})
-
-const showFinalResults = computed(() => finalResults.value !== null)
+const resultSummary = computed(() => competition.value?.result_summary ?? null)
 
 const statusSummary = computed(() => competition.value?.status_summary ?? null)
 
@@ -510,56 +413,48 @@ onMounted(loadCompetitionSummary)
       </div>
 
       <div
-        v-if="showFinalResults"
-        class="rounded-md border border-amber-200 bg-gradient-to-b from-amber-50 to-white p-4 text-sm dark:border-amber-900 dark:from-amber-950/30 dark:to-slate-900"
+        v-if="resultSummary"
+        class="rounded-md border border-emerald-200 bg-gradient-to-b from-emerald-50 to-white p-4 text-sm dark:border-emerald-900 dark:from-emerald-950/30 dark:to-slate-900"
       >
-        <div class="flex items-center gap-2">
-          <TrophyIcon class="h-6 w-6 text-amber-600 dark:text-amber-400" />
-          <p class="text-lg font-semibold text-slate-900 dark:text-slate-100">Resultados finales</p>
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+              Resultado final
+            </p>
+            <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              La competencia ya tiene campeón y subcampeón definidos.
+            </p>
+          </div>
+
+          <RouterLink
+            :to="bracketRoute"
+            class="inline-flex shrink-0 rounded-md bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+          >
+            Ver llave
+          </RouterLink>
         </div>
 
-        <div
-          class="mt-4 grid gap-3"
-          :class="finalResults.semifinalists.length > 0 ? 'lg:grid-cols-3' : 'sm:grid-cols-2'"
-        >
+        <div class="mt-4 grid gap-3 sm:grid-cols-2">
           <article
-            class="rounded-md border border-amber-300 bg-amber-50 p-4 shadow-sm dark:border-amber-800 dark:bg-amber-950/40"
+            class="rounded-md border border-emerald-300 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950/40"
           >
-            <p class="text-xs font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300">
-              Campeón
+            <p class="text-xs font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
+              🏆 Campeón
             </p>
             <p class="mt-2 text-xl font-bold text-slate-900 dark:text-slate-100">
-              {{ finalResults.champion.name }}
+              {{ resultSummary.champion.name }}
             </p>
           </article>
 
           <article
-            class="rounded-md border border-slate-300 bg-slate-50 p-4 shadow-sm dark:border-slate-600 dark:bg-slate-800/60"
+            class="rounded-md border border-slate-300 bg-slate-50 p-4 dark:border-slate-600 dark:bg-slate-800/60"
           >
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">
               Subcampeón
             </p>
             <p class="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {{ finalResults.runnerUp.name }}
+              {{ resultSummary.runner_up.name }}
             </p>
-          </article>
-
-          <article
-            v-if="finalResults.semifinalists.length > 0"
-            class="rounded-md border border-orange-200 bg-orange-50/70 p-4 shadow-sm dark:border-orange-900 dark:bg-orange-950/30"
-          >
-            <p class="text-xs font-semibold uppercase tracking-wide text-orange-800 dark:text-orange-300">
-              Semifinalistas
-            </p>
-            <ul class="mt-2 space-y-1">
-              <li
-                v-for="semifinalist in finalResults.semifinalists"
-                :key="semifinalist.id"
-                class="font-medium text-slate-900 dark:text-slate-100"
-              >
-                {{ semifinalist.name }}
-              </li>
-            </ul>
           </article>
         </div>
       </div>
