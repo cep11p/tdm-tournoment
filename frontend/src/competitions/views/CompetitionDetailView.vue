@@ -15,6 +15,7 @@ import GameService from '../../games/services/GameService'
 import GroupService from '../../groups/services/GroupService'
 import RegistrationService from '../../registrations/services/RegistrationService'
 import StandingService from '../../standings/services/StandingService'
+import { buildGroupPhaseAlert } from '../utils/buildGroupPhaseAlert'
 import CompetitionService from '../services/CompetitionService'
 
 const route = useRoute()
@@ -24,7 +25,8 @@ const bracket = ref(null)
 const registrations = ref(null)
 const groups = ref(null)
 const games = ref(null)
-const groupStandings = ref({})
+const groupStandingsByGroupId = ref({})
+const groupStandingsMetaByGroupId = ref({})
 
 const isLoading = ref(false)
 const errorMessage = ref('')
@@ -159,7 +161,7 @@ const qualifiersByGroup = computed(() => {
   }
 
   return groups.value.map((group) => {
-    const standings = groupStandings.value[group.id]
+    const standings = groupStandingsByGroupId.value[group.id]
 
     if (!standings?.length) {
       return {
@@ -168,15 +170,94 @@ const qualifiersByGroup = computed(() => {
       }
     }
 
+    const eligibleQualifiers = standings
+      .filter((standing) => standing.eligible_for_qualification !== false)
+      .slice(0, qualifiedPerGroup.value)
+
     return {
       group,
-      qualifiers: standings.slice(0, qualifiedPerGroup.value).map((standing, index) => ({
+      qualifiers: eligibleQualifiers.map((standing, index) => ({
         ...standing,
         position: index + 1,
       })),
     }
   })
 })
+
+const groupPhaseSummaries = computed(() =>
+  (groups.value ?? []).map((group) =>
+    buildGroupPhaseAlert({
+      group,
+      standings: groupStandingsByGroupId.value[group.id] ?? [],
+      meta: groupStandingsMetaByGroupId.value[group.id] ?? {},
+      games: games.value?.filter((game) => Number(game.group_id) === Number(group.id)) ?? [],
+    }),
+  ),
+)
+
+const groupsNeedingAttention = computed(() =>
+  groupPhaseSummaries.value.filter((summary) => summary.needsAttention),
+)
+
+const groupDetailRoute = (group) => ({
+  path: `/groups/${group.id}`,
+  query: {
+    competitionId: competitionId.value,
+    groupName: group.name,
+  },
+})
+
+const groupStandingsRoute = (group) => ({
+  path: `/groups/${group.id}/standings`,
+  query: {
+    competitionId: competitionId.value,
+    groupName: group.name,
+  },
+})
+
+const groupPhasePrimaryBadgeClasses = (type) => {
+  switch (type) {
+    case 'warning':
+      return 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200'
+    case 'info':
+      return 'bg-sky-100 text-sky-800 dark:bg-sky-900/60 dark:text-sky-200'
+    case 'success':
+      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
+    case 'muted':
+      return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+    default:
+      return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200'
+  }
+}
+
+const groupPhaseAlertChipClasses = (type) => {
+  switch (type) {
+    case 'warning':
+      return 'bg-amber-50 text-amber-900 ring-1 ring-amber-200 dark:bg-amber-950/30 dark:text-amber-100 dark:ring-amber-800'
+    case 'info':
+      return 'bg-sky-50 text-sky-900 ring-1 ring-sky-200 dark:bg-sky-950/30 dark:text-sky-100 dark:ring-sky-800'
+    case 'muted':
+      return 'bg-slate-50 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:ring-slate-700'
+    default:
+      return 'bg-slate-50 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:ring-slate-700'
+  }
+}
+
+const groupPhaseCardClasses = (summary) => {
+  if (summary.primaryType === 'warning') {
+    return 'border-amber-200 bg-amber-50/30 dark:border-amber-900 dark:bg-amber-950/10'
+  }
+
+  if (summary.primaryType === 'info' && summary.needsAttention) {
+    return 'border-sky-200 bg-sky-50/30 dark:border-sky-900 dark:bg-sky-950/10'
+  }
+
+  if (summary.primaryType === 'success') {
+    return 'border-emerald-200 bg-emerald-50/30 dark:border-emerald-900 dark:bg-emerald-950/10'
+  }
+
+  return 'border-slate-200 bg-slate-50/40 dark:border-slate-700 dark:bg-slate-900/40'
+}
 
 const hasQualifiersData = computed(() =>
   qualifiersByGroup.value.some((entry) => entry.qualifiers?.length > 0),
@@ -290,17 +371,29 @@ const loadCompetitionSummary = async () => {
       const standingsEntries = await Promise.all(
         groupsData.map(async (group) => {
           try {
-            const { standings } = await StandingService.listByGroup(group.id)
-            return [group.id, standings]
+            const { standings, meta } = await StandingService.listByGroup(group.id)
+            return [group.id, { standings, meta }]
           } catch {
             return [group.id, null]
           }
         }),
       )
 
-      groupStandings.value = Object.fromEntries(standingsEntries)
+      const standingsByGroupId = {}
+      const metaByGroupId = {}
+
+      for (const [groupId, payload] of standingsEntries) {
+        if (payload) {
+          standingsByGroupId[groupId] = payload.standings
+          metaByGroupId[groupId] = payload.meta
+        }
+      }
+
+      groupStandingsByGroupId.value = standingsByGroupId
+      groupStandingsMetaByGroupId.value = metaByGroupId
     } else {
-      groupStandings.value = {}
+      groupStandingsByGroupId.value = {}
+      groupStandingsMetaByGroupId.value = {}
     }
   } catch (error) {
     errorMessage.value = error?.response?.data?.message || 'No se pudo cargar la competencia.'
@@ -409,6 +502,85 @@ onMounted(loadCompetitionSummary)
           >
             {{ statusActionLink.label }}
           </RouterLink>
+        </div>
+      </div>
+
+      <div
+        v-if="groups !== null && groups.length > 0"
+        class="rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
+      >
+        <p class="font-medium text-slate-700 dark:text-slate-200">Estado de la fase de grupos</p>
+
+        <p
+          class="mt-2 rounded-md px-3 py-2 text-xs font-medium"
+          :class="
+            groupsNeedingAttention.length > 0
+              ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100'
+              : 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100'
+          "
+        >
+          {{
+            groupsNeedingAttention.length > 0
+              ? `${groupsNeedingAttention.length} grupo${groupsNeedingAttention.length === 1 ? '' : 's'} requieren atención`
+              : 'Fase de grupos en orden'
+          }}
+        </p>
+
+        <div class="mt-3 space-y-3">
+          <article
+            v-for="summary in groupPhaseSummaries"
+            :key="summary.group.id"
+            class="rounded-md border p-3"
+            :class="groupPhaseCardClasses(summary)"
+          >
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <p class="font-medium text-slate-900 dark:text-slate-100">{{ summary.group.name }}</p>
+
+              <span
+                class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+                :class="groupPhasePrimaryBadgeClasses(summary.primaryType)"
+              >
+                {{ summary.primaryLabel }}
+              </span>
+            </div>
+
+            <div v-if="summary.alerts.length > 0" class="mt-2 flex flex-wrap gap-2">
+              <span
+                v-for="(alert, alertIndex) in summary.alerts"
+                :key="`${summary.group.id}-alert-${alertIndex}`"
+                class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+                :class="groupPhaseAlertChipClasses(alert.type)"
+              >
+                {{ alert.label }}
+              </span>
+            </div>
+
+            <div class="mt-3 flex flex-wrap gap-2">
+              <RouterLink
+                :to="groupStandingsRoute(summary.group)"
+                class="inline-flex rounded-md px-3 py-1.5 text-xs font-medium"
+                :class="
+                  summary.highlightLink === 'standings'
+                    ? 'bg-slate-900 text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200'
+                    : 'border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800'
+                "
+              >
+                Ver posiciones
+              </RouterLink>
+
+              <RouterLink
+                :to="groupDetailRoute(summary.group)"
+                class="inline-flex rounded-md px-3 py-1.5 text-xs font-medium"
+                :class="
+                  summary.highlightLink === 'group'
+                    ? 'bg-slate-900 text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200'
+                    : 'border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800'
+                "
+              >
+                Ver grupo
+              </RouterLink>
+            </div>
+          </article>
         </div>
       </div>
 
