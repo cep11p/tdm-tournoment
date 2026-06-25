@@ -459,6 +459,57 @@ onMounted(loadCompetitionSummary)
         </div>
       </div>
 
+      <details
+        class="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
+      >
+        <summary class="cursor-pointer text-sm font-semibold text-slate-900 dark:text-slate-100">
+          Configuración de la competencia
+        </summary>
+
+        <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Nombre</p>
+            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">{{ competition.name }}</p>
+          </div>
+
+          <div>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Categoría</p>
+            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">{{ competition.category }}</p>
+          </div>
+
+          <div>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Tipo</p>
+            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">{{ competition.type }}</p>
+          </div>
+
+          <div>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Formato</p>
+            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">{{ competition.format }}</p>
+          </div>
+
+          <div class="space-y-1 border-t border-slate-200 pt-3 dark:border-slate-700 sm:col-span-2 lg:col-span-4">
+            <p class="text-sm font-medium text-slate-700 dark:text-slate-200">Formato de partidos</p>
+            <p class="text-sm text-slate-600 dark:text-slate-400">
+              Grupos: mejor de {{ formatCount(competition.group_stage_best_of) }}
+            </p>
+            <p class="text-sm text-slate-600 dark:text-slate-400">
+              Eliminatorias: mejor de {{ formatCount(competition.knockout_stage_best_of) }}
+            </p>
+            <p class="text-sm text-slate-600 dark:text-slate-400">
+              Semifinal: mejor de {{ formatCount(competition.semifinal_best_of) }}
+            </p>
+            <p class="text-sm text-slate-600 dark:text-slate-400">
+              Final: mejor de {{ formatCount(competition.final_best_of) }}
+            </p>
+          </div>
+
+          <div>
+            <p class="text-sm text-slate-500 dark:text-slate-400">Puntos por set</p>
+            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">{{ competition.points_per_set }}</p>
+          </div>
+        </div>
+      </details>
+
       <div
         class="rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
       >
@@ -596,53 +647,6 @@ onMounted(loadCompetitionSummary)
               <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ action.description }}</p>
             </div>
           </RouterLink>
-        </div>
-      </div>
-
-      <div
-        class="space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
-      >
-        <p class="font-medium text-slate-700 dark:text-slate-200">Detalle de la competencia</p>
-
-        <div>
-          <p class="text-slate-500 dark:text-slate-400">Nombre</p>
-          <p class="font-medium text-slate-900 dark:text-slate-100">{{ competition.name }}</p>
-        </div>
-
-        <div>
-          <p class="text-slate-500 dark:text-slate-400">Categoría</p>
-          <p class="font-medium text-slate-900 dark:text-slate-100">{{ competition.category }}</p>
-        </div>
-
-        <div>
-          <p class="text-slate-500 dark:text-slate-400">Tipo</p>
-          <p class="font-medium text-slate-900 dark:text-slate-100">{{ competition.type }}</p>
-        </div>
-
-        <div>
-          <p class="text-slate-500 dark:text-slate-400">Formato</p>
-          <p class="font-medium text-slate-900 dark:text-slate-100">{{ competition.format }}</p>
-        </div>
-
-        <div class="space-y-1 border-t border-slate-200 pt-3 dark:border-slate-700">
-          <p class="font-medium text-slate-700 dark:text-slate-200">Formato de partidos</p>
-          <p class="text-slate-600 dark:text-slate-300">
-            Grupos: mejor de {{ formatCount(competition.group_stage_best_of) }}
-          </p>
-          <p class="text-slate-600 dark:text-slate-300">
-            Eliminatorias: mejor de {{ formatCount(competition.knockout_stage_best_of) }}
-          </p>
-          <p class="text-slate-600 dark:text-slate-300">
-            Semifinal: mejor de {{ formatCount(competition.semifinal_best_of) }}
-          </p>
-          <p class="text-slate-600 dark:text-slate-300">
-            Final: mejor de {{ formatCount(competition.final_best_of) }}
-          </p>
-        </div>
-
-        <div>
-          <p class="text-slate-500 dark:text-slate-400">Puntos por set</p>
-          <p class="font-medium text-slate-900 dark:text-slate-100">{{ competition.points_per_set }}</p>
         </div>
       </div>
     </template>
