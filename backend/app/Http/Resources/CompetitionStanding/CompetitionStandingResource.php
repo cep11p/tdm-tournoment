@@ -16,6 +16,8 @@ class CompetitionStandingResource extends JsonResource
             'won' => $this->won,
             'lost' => $this->lost,
             'requires_manual_tiebreak' => (bool) ($this->requiresManualTiebreak ?? false),
+            'manual_tiebreak_applied' => (bool) ($this->manualTiebreakApplied ?? false),
+            'manual_position' => $this->manualPosition,
         ];
     }
 }

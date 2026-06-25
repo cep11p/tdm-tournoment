@@ -6,10 +6,37 @@ use App\Data\Competition\CompetitionStandingData;
 use App\Enums\GameStatus;
 use App\Models\Game;
 use App\Models\Group;
+use App\Models\GroupManualTiebreak;
 
 final class GroupStandingsCalculator
 {
     public function calculate(Group $group): GroupStandingsResult
+    {
+        $automatic = $this->calculateAutomatic($group);
+
+        return $this->applyPersistedManualTiebreaks($group, $automatic);
+    }
+
+    public function calculateAutomaticOnly(Group $group): GroupStandingsResult
+    {
+        $automatic = $this->calculateAutomatic($group);
+
+        return $this->buildStandingsResult(
+            automatic: $automatic,
+            appliedManualTiebreaks: [],
+            staleManualTiebreaks: [],
+        );
+    }
+
+    /**
+     * @return array{
+     *     stats_by_player: array<int, array{won: int, lost: int}>,
+     *     player_name_by_id: array<int, string>,
+     *     ordered_player_ids: array<int, int>,
+     *     manual_tie_groups: array<int, array<int, int>>
+     * }
+     */
+    private function calculateAutomatic(Group $group): array
     {
         $groupPlayers = $group->groupPlayers()
             ->with('player:id,first_name,last_name')
@@ -91,6 +118,108 @@ final class GroupStandingsCalculator
             $manualTieGroups = [...$manualTieGroups, ...$resolvedTie['manual_groups']];
         }
 
+        return [
+            'stats_by_player' => $statsByPlayer,
+            'player_name_by_id' => $playerNameById,
+            'ordered_player_ids' => $orderedPlayerIds,
+            'manual_tie_groups' => $manualTieGroups,
+        ];
+    }
+
+    /**
+     * @param  array{
+     *     stats_by_player: array<int, array{won: int, lost: int}>,
+     *     player_name_by_id: array<int, string>,
+     *     ordered_player_ids: array<int, int>,
+     *     manual_tie_groups: array<int, array<int, int>>
+     * }  $automatic
+     */
+    private function applyPersistedManualTiebreaks(Group $group, array $automatic): GroupStandingsResult
+    {
+        $orderedPlayerIds = $automatic['ordered_player_ids'];
+        $pendingManualGroups = $automatic['manual_tie_groups'];
+        $playerNameById = $automatic['player_name_by_id'];
+
+        $persistedTiebreaks = $group->manualTiebreaks()
+            ->with(['players.player:id,first_name,last_name'])
+            ->orderBy('id')
+            ->get();
+
+        $appliedManualTiebreaks = [];
+        $staleManualTiebreaks = [];
+        $manualPositionByPlayerId = [];
+        $appliedPlayerFlags = [];
+
+        $remainingPendingGroups = [];
+
+        foreach ($pendingManualGroups as $pendingGroup) {
+            $matchingTiebreak = $this->findMatchingTiebreak($persistedTiebreaks, $pendingGroup);
+
+            if ($matchingTiebreak === null) {
+                $remainingPendingGroups[] = $pendingGroup;
+
+                continue;
+            }
+
+            $manualOrder = $matchingTiebreak->orderedPlayerIds();
+            $orderedPlayerIds = $this->replaceContiguousBlock(
+                orderedIds: $orderedPlayerIds,
+                blockPlayerIds: $pendingGroup,
+                manualOrder: $manualOrder,
+            );
+
+            foreach ($manualOrder as $index => $playerId) {
+                $manualPositionByPlayerId[$playerId] = $index + 1;
+                $appliedPlayerFlags[$playerId] = true;
+            }
+
+            $appliedManualTiebreaks[] = $this->formatTiebreakRecord($matchingTiebreak, $playerNameById);
+            $persistedTiebreaks = $persistedTiebreaks->reject(
+                fn (GroupManualTiebreak $tiebreak): bool => $tiebreak->id === $matchingTiebreak->id
+            );
+        }
+
+        foreach ($persistedTiebreaks as $staleTiebreak) {
+            $staleManualTiebreaks[] = $this->formatTiebreakRecord($staleTiebreak, $playerNameById);
+        }
+
+        return $this->buildStandingsResult(
+            automatic: [
+                ...$automatic,
+                'ordered_player_ids' => $orderedPlayerIds,
+                'manual_tie_groups' => $remainingPendingGroups,
+            ],
+            appliedManualTiebreaks: $appliedManualTiebreaks,
+            staleManualTiebreaks: $staleManualTiebreaks,
+            manualPositionByPlayerId: $manualPositionByPlayerId,
+            appliedPlayerFlags: $appliedPlayerFlags,
+        );
+    }
+
+    /**
+     * @param  array{
+     *     stats_by_player: array<int, array{won: int, lost: int}>,
+     *     player_name_by_id: array<int, string>,
+     *     ordered_player_ids: array<int, int>,
+     *     manual_tie_groups: array<int, array<int, int>>
+     * }  $automatic
+     * @param  array<int, array{id: int, player_ids: array<int, int>, player_names: array<int, string>, reason: string, notes: ?string, applied_at: string}>  $appliedManualTiebreaks
+     * @param  array<int, array{id: int, player_ids: array<int, int>, player_names: array<int, string>, reason: string, notes: ?string, applied_at: string}>  $staleManualTiebreaks
+     * @param  array<int, int>  $manualPositionByPlayerId
+     * @param  array<int, bool>  $appliedPlayerFlags
+     */
+    private function buildStandingsResult(
+        array $automatic,
+        array $appliedManualTiebreaks,
+        array $staleManualTiebreaks,
+        array $manualPositionByPlayerId = [],
+        array $appliedPlayerFlags = [],
+    ): GroupStandingsResult {
+        $statsByPlayer = $automatic['stats_by_player'];
+        $playerNameById = $automatic['player_name_by_id'];
+        $orderedPlayerIds = $automatic['ordered_player_ids'];
+        $manualTieGroups = $automatic['manual_tie_groups'];
+
         $manualPlayerFlags = [];
 
         foreach ($manualTieGroups as $manualTieGroup) {
@@ -100,7 +229,13 @@ final class GroupStandingsCalculator
         }
 
         $standings = collect($orderedPlayerIds)
-            ->map(function (int $playerId) use ($playerNameById, $statsByPlayer, $manualPlayerFlags): CompetitionStandingData {
+            ->map(function (int $playerId) use (
+                $playerNameById,
+                $statsByPlayer,
+                $manualPlayerFlags,
+                $appliedPlayerFlags,
+                $manualPositionByPlayerId,
+            ): CompetitionStandingData {
                 $stats = $statsByPlayer[$playerId] ?? ['won' => 0, 'lost' => 0];
 
                 return new CompetitionStandingData(
@@ -109,6 +244,10 @@ final class GroupStandingsCalculator
                     won: (int) $stats['won'],
                     lost: (int) $stats['lost'],
                     requiresManualTiebreak: (bool) ($manualPlayerFlags[$playerId] ?? false),
+                    manualTiebreakApplied: (bool) ($appliedPlayerFlags[$playerId] ?? false),
+                    manualPosition: $appliedPlayerFlags[$playerId] ?? false
+                        ? ($manualPositionByPlayerId[$playerId] ?? null)
+                        : null,
                 );
             })
             ->values();
@@ -129,7 +268,105 @@ final class GroupStandingsCalculator
         return new GroupStandingsResult(
             standings: $standings,
             manualTiebreakGroups: $manualTiebreakGroups,
+            appliedManualTiebreaks: $appliedManualTiebreaks,
+            staleManualTiebreaks: $staleManualTiebreaks,
         );
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, GroupManualTiebreak>  $persistedTiebreaks
+     * @param  array<int, int>  $pendingGroup
+     */
+    private function findMatchingTiebreak($persistedTiebreaks, array $pendingGroup): ?GroupManualTiebreak
+    {
+        foreach ($persistedTiebreaks as $tiebreak) {
+            if ($this->playerSetsMatch($tiebreak->orderedPlayerIds(), $pendingGroup)) {
+                return $tiebreak;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<int, int>  $left
+     * @param  array<int, int>  $right
+     */
+    private function playerSetsMatch(array $left, array $right): bool
+    {
+        $leftSorted = array_map('intval', $left);
+        $rightSorted = array_map('intval', $right);
+        sort($leftSorted);
+        sort($rightSorted);
+
+        return $leftSorted === $rightSorted;
+    }
+
+    /**
+     * @param  array<int, int>  $orderedIds
+     * @param  array<int, int>  $blockPlayerIds
+     * @param  array<int, int>  $manualOrder
+     * @return array<int, int>
+     */
+    private function replaceContiguousBlock(array $orderedIds, array $blockPlayerIds, array $manualOrder): array
+    {
+        $blockIndex = $this->findContiguousBlockIndex($orderedIds, $blockPlayerIds);
+
+        if ($blockIndex === null) {
+            return $orderedIds;
+        }
+
+        $blockLength = count($blockPlayerIds);
+
+        return [
+            ...array_slice($orderedIds, 0, $blockIndex),
+            ...$manualOrder,
+            ...array_slice($orderedIds, $blockIndex + $blockLength),
+        ];
+    }
+
+    /**
+     * @param  array<int, int>  $orderedIds
+     * @param  array<int, int>  $playerIds
+     */
+    private function findContiguousBlockIndex(array $orderedIds, array $playerIds): ?int
+    {
+        $blockLength = count($playerIds);
+
+        if ($blockLength === 0 || count($orderedIds) < $blockLength) {
+            return null;
+        }
+
+        for ($index = 0; $index <= count($orderedIds) - $blockLength; $index++) {
+            $window = array_slice($orderedIds, $index, $blockLength);
+
+            if ($this->playerSetsMatch($window, $playerIds)) {
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<int, string>  $playerNameById
+     * @return array{id: int, player_ids: array<int, int>, player_names: array<int, string>, reason: string, notes: ?string, applied_at: string}
+     */
+    private function formatTiebreakRecord(GroupManualTiebreak $tiebreak, array $playerNameById): array
+    {
+        $playerIds = $tiebreak->orderedPlayerIds();
+
+        return [
+            'id' => (int) $tiebreak->id,
+            'player_ids' => $playerIds,
+            'player_names' => array_map(
+                fn (int $playerId): string => (string) ($playerNameById[$playerId] ?? ''),
+                $playerIds
+            ),
+            'reason' => $tiebreak->reason->value,
+            'notes' => $tiebreak->notes,
+            'applied_at' => $tiebreak->applied_at?->toIso8601String() ?? '',
+        ];
     }
 
     /**

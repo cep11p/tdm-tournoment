@@ -23,6 +23,9 @@ class GroupStandingsController extends Controller
                 'meta' => [
                     'requires_manual_tiebreak' => $result->requiresManualTiebreak(),
                     'manual_tiebreak_groups' => $result->manualTiebreakGroups,
+                    'has_manual_tiebreaks' => $result->hasManualTiebreaks(),
+                    'manual_tiebreaks' => $result->appliedManualTiebreaks,
+                    'stale_manual_tiebreaks' => $result->staleManualTiebreaks,
                 ],
             ]);
     }

@@ -10,6 +10,8 @@ final class CompetitionStandingData
         public int $won,
         public int $lost,
         public bool $requiresManualTiebreak = false,
+        public bool $manualTiebreakApplied = false,
+        public ?int $manualPosition = null,
     ) {
     }
 

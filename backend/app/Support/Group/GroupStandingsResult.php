@@ -10,14 +10,23 @@ final class GroupStandingsResult
     /**
      * @param  Collection<int, CompetitionStandingData>  $standings
      * @param  array<int, array{player_ids: array<int, int>, player_names: array<int, string>}>  $manualTiebreakGroups
+     * @param  array<int, array{id: int, player_ids: array<int, int>, player_names: array<int, string>, reason: string, notes: ?string, applied_at: string}>  $appliedManualTiebreaks
+     * @param  array<int, array{id: int, player_ids: array<int, int>, player_names: array<int, string>, reason: string, notes: ?string, applied_at: string}>  $staleManualTiebreaks
      */
     public function __construct(
         public readonly Collection $standings,
         public readonly array $manualTiebreakGroups,
+        public readonly array $appliedManualTiebreaks = [],
+        public readonly array $staleManualTiebreaks = [],
     ) {}
 
     public function requiresManualTiebreak(): bool
     {
         return $this->manualTiebreakGroups !== [];
+    }
+
+    public function hasManualTiebreaks(): bool
+    {
+        return $this->appliedManualTiebreaks !== [];
     }
 }

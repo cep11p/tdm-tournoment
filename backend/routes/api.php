@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\CompetitionStandingsController;
 use App\Http\Controllers\Api\V1\GameController;
 use App\Http\Controllers\Api\V1\GroupController;
 use App\Http\Controllers\Api\V1\GroupPlayerController;
+use App\Http\Controllers\Api\V1\GroupManualTiebreakController;
 use App\Http\Controllers\Api\V1\GroupRoundRobinGameController;
 use App\Http\Controllers\Api\V1\GroupStandingsController;
 use App\Http\Controllers\Api\V1\PlayerController;
@@ -54,6 +55,9 @@ Route::prefix(config('api.version_prefix', 'v1'))
 
         Route::get('groups/{group}/standings', [GroupStandingsController::class, 'index'])
             ->name('groups.standings.index');
+
+        Route::post('groups/{group}/manual-tiebreaks', [GroupManualTiebreakController::class, 'store'])
+            ->name('groups.manual-tiebreaks.store');
 
         Route::apiResource('competitions.games', GameController::class)
             ->only(['store', 'index']);
