@@ -4,6 +4,8 @@ namespace Tests\Feature\Bracket;
 
 use App\Models\Bracket;
 use App\Models\Game;
+use App\Models\Player;
+use Tests\Support\TournamentTestContext;
 use Tests\TestCase;
 
 class BracketFlowTest extends TestCase
@@ -135,6 +137,40 @@ class BracketFlowTest extends TestCase
 
         $game = Game::query()->where('group_id', $group->id)->sole();
         $context->finishGame($game, $players[0])->assertOk();
+
+        $response = $context->createBracket($competition);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['qualified_per_group']);
+
+        $this->assertDatabaseCount('brackets', 0);
+    }
+
+    public function test_rejects_bracket_when_manual_tie_crosses_cutoff(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition(setsToWin: 3);
+        $competition->update(['qualified_per_group' => 2]);
+        $competition->refresh();
+
+        $players = $context->createPlayers(3);
+        [$playerA, $playerB, $playerC] = $players;
+        $context->registerPlayers($competition, $players);
+        $group = $context->createGroupWithPlayers($competition, $players, 'Grupo A');
+        $context->generateRoundRobin($group)->assertCreated();
+
+        $games = Game::query()->where('group_id', $group->id)->get();
+        $balancedSets = [
+            [11, 9],
+            [11, 9],
+            [9, 11],
+            [11, 9],
+        ];
+
+        $this->playMatch($context, $context->findGameBetween($games, $playerA, $playerB), $playerA, $playerB, $balancedSets);
+        $this->playMatch($context, $context->findGameBetween($games, $playerB, $playerC), $playerB, $playerC, $balancedSets);
+        $this->playMatch($context, $context->findGameBetween($games, $playerC, $playerA), $playerC, $playerA, $balancedSets);
 
         $response = $context->createBracket($competition);
 
@@ -309,5 +345,29 @@ class BracketFlowTest extends TestCase
             ->assertJsonValidationErrors(['bracket']);
 
         $this->assertSame(3, Game::query()->where('bracket_id', $bracket->id)->count());
+    }
+
+    /**
+     * @param  array<int, array{int, int}>  $sets
+     */
+    private function playMatch(
+        TournamentTestContext $context,
+        Game $game,
+        Player $leftPlayer,
+        Player $rightPlayer,
+        array $sets,
+    ): void {
+        foreach ($sets as $index => [$leftScore, $rightScore]) {
+            $player1IsLeft = (int) $game->player1_id === $leftPlayer->id;
+            $player1Score = $player1IsLeft ? $leftScore : $rightScore;
+            $player2Score = $player1IsLeft ? $rightScore : $leftScore;
+
+            $context->recordSet(
+                $game,
+                setNumber: $index + 1,
+                player1Score: $player1Score,
+                player2Score: $player2Score,
+            )->assertOk();
+        }
     }
 }

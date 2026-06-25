@@ -10,6 +10,7 @@ use App\Models\Competition;
 use App\Models\Group;
 use App\Support\Bracket\BracketSupport;
 use App\Support\Game\GameFormatResolver;
+use App\Support\Group\GroupStandingsCalculator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -18,6 +19,7 @@ final class CreateBracketKnockoutAction
 {
     public function __construct(
         private readonly CreateGameAction $createGame,
+        private readonly GroupStandingsCalculator $groupStandingsCalculator,
     ) {}
 
     public function __invoke(Competition $competition, array $payload): Bracket
@@ -191,84 +193,71 @@ final class CreateBracketKnockoutAction
             ]);
         }
 
-        $statsByPlayer = $this->initializeStats($groupPlayers);
-
-        foreach ($group->games()->where('status', GameStatus::Finished)->whereNotNull('winner_id')->get() as $game) {
-            $winnerId = (int) $game->winner_id;
-            $loserId = $winnerId === (int) $game->player1_id
-                ? (int) $game->player2_id
-                : (int) $game->player1_id;
-
-            if (isset($statsByPlayer[$winnerId])) {
-                $statsByPlayer[$winnerId]['won']++;
-            }
-
-            if (isset($statsByPlayer[$loserId])) {
-                $statsByPlayer[$loserId]['lost']++;
-            }
-        }
-
-        $standings = $groupPlayers
-            ->map(function ($groupPlayer) use ($statsByPlayer): CompetitionStandingData {
-                $playerId = (int) $groupPlayer->player_id;
-                $stats = $statsByPlayer[$playerId] ?? ['won' => 0, 'lost' => 0];
-
-                return new CompetitionStandingData(
-                    playerId: $playerId,
-                    playerName: trim(sprintf(
-                        '%s %s',
-                        (string) $groupPlayer->player?->first_name,
-                        (string) $groupPlayer->player?->last_name
-                    )),
-                    won: (int) $stats['won'],
-                    lost: (int) $stats['lost'],
-                );
-            })
-            ->sort(function (CompetitionStandingData $left, CompetitionStandingData $right): int {
-                return [$right->won, $left->lost, strtolower($left->playerName)]
-                    <=>
-                    [$left->won, $right->lost, strtolower($right->playerName)];
-            })
-            ->values();
+        $standingsResult = $this->groupStandingsCalculator->calculate($group);
+        $standings = $standingsResult->standings;
 
         $availableQualifiers = min($qualifiersPerGroup, $standings->count());
         $groupQualifiers = $standings->take($availableQualifiers);
 
-        if ($standings->count() > $availableQualifiers) {
-            $lastQualifier = $groupQualifiers->last();
-            $firstExcluded = $standings->get($availableQualifiers);
-
-            if (
-                $lastQualifier instanceof CompetitionStandingData
-                && $firstExcluded instanceof CompetitionStandingData
-                && $lastQualifier->won === $firstExcluded->won
-                && $lastQualifier->lost === $firstExcluded->lost
-            ) {
-                throw ValidationException::withMessages([
-                    'qualified_per_group' => [
-                        sprintf('Hay empate en la clasificación del grupo "%s".', $group->name),
-                    ],
-                ]);
-            }
+        if (
+            $standingsResult->requiresManualTiebreak()
+            && $this->manualTieCrossesQualifierCutoff(
+                standings: $standings,
+                manualTiebreakGroups: $standingsResult->manualTiebreakGroups,
+                qualifierCutoff: $availableQualifiers,
+            )
+        ) {
+            throw ValidationException::withMessages([
+                'qualified_per_group' => [
+                    sprintf(
+                        'El grupo "%s" requiere desempate manual para definir la clasificación.',
+                        $group->name
+                    ),
+                ],
+            ]);
         }
 
         return $groupQualifiers;
     }
 
     /**
-     * @return array<int, array{won: int, lost: int}>
+     * @param  Collection<int, CompetitionStandingData>  $standings
+     * @param  array<int, array{player_ids: array<int, int>, player_names: array<int, string>}>  $manualTiebreakGroups
      */
-    private function initializeStats(Collection $groupPlayers): array
-    {
-        $stats = [];
-
-        foreach ($groupPlayers as $groupPlayer) {
-            $stats[(int) $groupPlayer->player_id] = [
-                'won' => 0,
-                'lost' => 0,
-            ];
+    private function manualTieCrossesQualifierCutoff(
+        Collection $standings,
+        array $manualTiebreakGroups,
+        int $qualifierCutoff,
+    ): bool {
+        if ($qualifierCutoff <= 0) {
+            return false;
         }
 
-        return $stats;
+        $positionByPlayerId = $standings
+            ->values()
+            ->mapWithKeys(fn (CompetitionStandingData $standing, int $index): array => [
+                $standing->playerId => $index,
+            ])
+            ->all();
+
+        foreach ($manualTiebreakGroups as $manualTiebreakGroup) {
+            $positions = collect($manualTiebreakGroup['player_ids'] ?? [])
+                ->map(fn (int $playerId): ?int => $positionByPlayerId[$playerId] ?? null)
+                ->filter(fn (?int $position): bool => $position !== null)
+                ->values();
+
+            if ($positions->isEmpty()) {
+                continue;
+            }
+
+            $minPosition = (int) $positions->min();
+            $maxPosition = (int) $positions->max();
+
+            if ($minPosition < $qualifierCutoff && $maxPosition >= $qualifierCutoff) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

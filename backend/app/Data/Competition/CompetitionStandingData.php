@@ -9,6 +9,7 @@ final class CompetitionStandingData
         public string $playerName,
         public int $won,
         public int $lost,
+        public bool $requiresManualTiebreak = false,
     ) {
     }
 
