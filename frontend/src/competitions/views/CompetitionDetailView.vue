@@ -290,7 +290,7 @@ const loadCompetitionSummary = async () => {
       const standingsEntries = await Promise.all(
         groupsData.map(async (group) => {
           try {
-            const standings = await StandingService.listByGroup(group.id)
+            const { standings } = await StandingService.listByGroup(group.id)
             return [group.id, standings]
           } catch {
             return [group.id, null]

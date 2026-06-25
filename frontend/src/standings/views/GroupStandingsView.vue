@@ -2,9 +2,11 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
+import BracketService from '../../brackets/services/BracketService'
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import CompetitionService from '../../competitions/services/CompetitionService'
+import GroupManualTiebreakPanel from '../components/GroupManualTiebreakPanel.vue'
 import StandingService from '../services/StandingService'
 
 const route = useRoute()
@@ -13,12 +15,15 @@ const groupId = computed(() => route.params.id)
 const competitionId = computed(() => route.query.competitionId || '')
 const groupName = computed(() => route.query.groupName || `Grupo #${groupId.value}`)
 const competition = ref(null)
+const hasBracket = ref(false)
 
 const qualifiedPerGroup = computed(() => competition.value?.qualified_per_group ?? 2)
 
 const standings = ref([])
+const standingsMeta = ref({})
 const isLoading = ref(false)
 const errorMessage = ref('')
+const manualTiebreakSuccessMessage = ref('')
 
 const standingsWithPosition = computed(() =>
   standings.value.map((standing, index) => ({
@@ -26,6 +31,15 @@ const standingsWithPosition = computed(() =>
     position: index + 1,
   })),
 )
+
+const pendingManualTiebreakGroups = computed(() => standingsMeta.value.manual_tiebreak_groups ?? [])
+
+const staleManualTiebreaks = computed(() => standingsMeta.value.stale_manual_tiebreaks ?? [])
+
+const requiresManualTiebreak = computed(() => Boolean(standingsMeta.value.requires_manual_tiebreak))
+
+const tiebreakGroupKey = (tiebreakGroup) =>
+  [...(tiebreakGroup.player_ids ?? [])].sort((left, right) => left - right).join('-')
 
 const completedMatches = computed(() => {
   if (standings.value.length === 0) {
@@ -84,7 +98,9 @@ const loadStandings = async () => {
   errorMessage.value = ''
 
   try {
-    standings.value = await StandingService.listByGroup(groupId.value)
+    const { standings: groupStandings, meta } = await StandingService.listByGroup(groupId.value)
+    standings.value = groupStandings
+    standingsMeta.value = meta
   } catch (error) {
     errorMessage.value = error?.response?.data?.message || 'No se pudo cargar la tabla de posiciones.'
   } finally {
@@ -95,6 +111,7 @@ const loadStandings = async () => {
 const loadCompetition = async () => {
   if (!competitionId.value) {
     competition.value = null
+    hasBracket.value = false
     return
   }
 
@@ -103,6 +120,18 @@ const loadCompetition = async () => {
   } catch {
     competition.value = null
   }
+
+  try {
+    const bracket = await BracketService.show(competitionId.value)
+    hasBracket.value = Boolean(bracket)
+  } catch {
+    hasBracket.value = false
+  }
+}
+
+const handleManualTiebreakSaved = async () => {
+  manualTiebreakSuccessMessage.value = 'Desempate manual guardado correctamente.'
+  await loadStandings()
 }
 
 onMounted(async () => {
@@ -147,6 +176,34 @@ onMounted(async () => {
     </div>
 
     <div v-else class="space-y-4">
+      <p v-if="manualTiebreakSuccessMessage" class="text-sm text-emerald-700 dark:text-emerald-300">
+        {{ manualTiebreakSuccessMessage }}
+      </p>
+
+      <div
+        v-if="requiresManualTiebreak"
+        class="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"
+      >
+        <p class="font-medium">Empate no resuelto automáticamente.</p>
+        <p class="mt-1">Definí el orden manual para continuar con la clasificación.</p>
+      </div>
+
+      <GroupManualTiebreakPanel
+        v-for="tiebreakGroup in pendingManualTiebreakGroups"
+        :key="tiebreakGroupKey(tiebreakGroup)"
+        :group-id="groupId"
+        :tiebreak-group="tiebreakGroup"
+        :disabled="hasBracket"
+        @saved="handleManualTiebreakSaved"
+      />
+
+      <div
+        v-if="staleManualTiebreaks.length > 0"
+        class="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300"
+      >
+        Hay desempates manuales guardados que ya no aplican por cambios en los resultados.
+      </div>
+
       <div
         class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-700 dark:bg-slate-900/60"
       >
@@ -199,7 +256,15 @@ onMounted(async () => {
                 </span>
               </td>
               <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
-                {{ standing.player_name }}
+                <div class="flex flex-wrap items-center gap-2">
+                  <span>{{ standing.player_name }}</span>
+                  <span
+                    v-if="standing.manual_tiebreak_applied"
+                    class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-200"
+                  >
+                    Desempate manual
+                  </span>
+                </div>
               </td>
               <td class="px-3 py-2 text-slate-700 dark:text-slate-300">{{ standing.played }}</td>
               <td class="px-3 py-2 text-slate-700 dark:text-slate-300">{{ standing.won }}</td>

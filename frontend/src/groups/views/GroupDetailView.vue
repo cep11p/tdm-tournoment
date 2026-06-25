@@ -181,7 +181,8 @@ const loadStandings = async () => {
   isLoadingStandings.value = true
 
   try {
-    standings.value = await StandingService.listByGroup(groupId.value)
+    const { standings: groupStandings } = await StandingService.listByGroup(groupId.value)
+    standings.value = groupStandings
   } catch {
     standings.value = []
   } finally {

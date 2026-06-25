@@ -1,11 +1,19 @@
 import httpClient from '../../services/httpClient'
 
-const unwrap = (response) => response?.data?.data
-
 const StandingService = {
   async listByGroup(groupId) {
     const response = await httpClient.get(`/groups/${groupId}/standings`)
-    return unwrap(response) ?? []
+
+    return {
+      standings: response?.data?.data ?? [],
+      meta: response?.data?.meta ?? {},
+    }
+  },
+
+  async applyManualTiebreak(groupId, payload) {
+    const response = await httpClient.post(`/groups/${groupId}/manual-tiebreaks`, payload)
+
+    return response?.data?.data ?? null
   },
 }
 
