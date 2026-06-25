@@ -4,11 +4,14 @@ import { RouterLink, useRoute } from 'vue-router'
 
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
+import BracketService from '../../brackets/services/BracketService'
 import CompetitionService from '../../competitions/services/CompetitionService'
 import GameResultModal from '../../games/components/GameResultModal.vue'
 import GameService from '../../games/services/GameService'
 import RegistrationService from '../../registrations/services/RegistrationService'
 import StandingService from '../../standings/services/StandingService'
+import GroupPlayerStatusModal from '../components/GroupPlayerStatusModal.vue'
+import { getGroupPlayerStatusLabel } from '../constants/groupPlayerStatus'
 import GroupService from '../services/GroupService'
 
 const route = useRoute()
@@ -17,6 +20,7 @@ const groupId = computed(() => route.params.id)
 const competitionId = computed(() => route.query.competitionId || '')
 const groupName = computed(() => route.query.groupName || `Grupo #${groupId.value}`)
 const competition = ref(null)
+const hasBracket = ref(false)
 
 const qualifiedPerGroup = computed(() => competition.value?.qualified_per_group ?? 2)
 
@@ -39,6 +43,25 @@ const assignSuccessMessage = ref('')
 const isGeneratingRoundRobin = ref(false)
 const roundRobinError = ref('')
 const roundRobinSuccessMessage = ref('')
+
+const selectedPlayerForStatus = ref(null)
+const playerStatusSuccessMessage = ref('')
+
+const resolveIsQualified = (standing, position) => {
+  if (typeof standing?.eligible_for_qualification === 'boolean') {
+    return standing.eligible_for_qualification
+  }
+
+  if (position !== null) {
+    return position <= qualifiedPerGroup.value
+  }
+
+  return null
+}
+
+const isPlayerActive = (groupPlayer) => (groupPlayer?.status ?? 'active') === 'active'
+
+const canChangePlayerStatus = (groupPlayer) => isPlayerActive(groupPlayer) && !hasBracket.value
 
 const loadGroupPlayers = async () => {
   isLoadingGroupPlayers.value = true
@@ -81,6 +104,7 @@ const loadRegisteredPlayers = async () => {
 const loadCompetition = async () => {
   if (!competitionId.value) {
     competition.value = null
+    hasBracket.value = false
     return
   }
 
@@ -88,6 +112,13 @@ const loadCompetition = async () => {
     competition.value = await CompetitionService.show(competitionId.value)
   } catch {
     competition.value = null
+  }
+
+  try {
+    const bracket = await BracketService.show(competitionId.value)
+    hasBracket.value = Boolean(bracket)
+  } catch {
+    hasBracket.value = false
   }
 }
 
@@ -115,7 +146,7 @@ const displayedGroupPlayers = computed(() => {
       return {
         groupPlayer,
         position,
-        isQualified: position <= qualifiedPerGroup.value,
+        isQualified: resolveIsQualified(standing, position),
       }
     })
     .filter(Boolean)
@@ -154,6 +185,10 @@ const positionBadgeClasses = (position) => {
 }
 
 const playerCardClasses = (entry) => {
+  if (!isPlayerActive(entry.groupPlayer)) {
+    return 'border-slate-200 bg-slate-50/60 opacity-80 dark:border-slate-700 dark:bg-slate-800/40'
+  }
+
   if (entry.isQualified === true) {
     return 'border-emerald-200 bg-emerald-50/40 dark:border-emerald-900 dark:bg-emerald-950/20'
   }
@@ -176,6 +211,20 @@ const qualificationBadgeClasses = (isQualified) => {
 
   return ''
 }
+
+const playerStatusBadgeClasses = (status) => {
+  if (status === 'withdrawn') {
+    return 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200'
+  }
+
+  if (status === 'disqualified') {
+    return 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200'
+  }
+
+  return ''
+}
+
+const playerStatusLabel = (groupPlayer) => getGroupPlayerStatusLabel(groupPlayer?.status ?? 'active')
 
 const loadStandings = async () => {
   isLoadingStandings.value = true
@@ -418,6 +467,21 @@ const handleGenerateRoundRobin = async () => {
   }
 }
 
+const openPlayerStatusModal = (groupPlayer) => {
+  selectedPlayerForStatus.value = groupPlayer
+  playerStatusSuccessMessage.value = ''
+}
+
+const closePlayerStatusModal = () => {
+  selectedPlayerForStatus.value = null
+}
+
+const handlePlayerStatusSaved = async () => {
+  closePlayerStatusModal()
+  await Promise.all([loadGroupPlayers(), loadStandings(), loadGroupGames()])
+  playerStatusSuccessMessage.value = 'Estado del jugador actualizado correctamente.'
+}
+
 onMounted(async () => {
   await Promise.all([
     loadGroupPlayers(),
@@ -534,6 +598,9 @@ onMounted(async () => {
       <p v-if="roundRobinSuccessMessage" class="text-emerald-700 dark:text-emerald-300">
         {{ roundRobinSuccessMessage }}
       </p>
+      <p v-if="playerStatusSuccessMessage" class="text-emerald-700 dark:text-emerald-300">
+        {{ playerStatusSuccessMessage }}
+      </p>
 
       <p v-if="isLoadingGroupPlayers || isLoadingStandings" class="text-slate-600 dark:text-slate-300">
         Cargando jugadores del grupo...
@@ -568,6 +635,14 @@ onMounted(async () => {
             </p>
 
             <span
+              v-if="playerStatusLabel(entry.groupPlayer)"
+              class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+              :class="playerStatusBadgeClasses(entry.groupPlayer.status)"
+            >
+              {{ playerStatusLabel(entry.groupPlayer) }}
+            </span>
+
+            <span
               v-if="entry.isQualified !== null"
               class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
               :class="qualificationBadgeClasses(entry.isQualified)"
@@ -575,10 +650,25 @@ onMounted(async () => {
               <span aria-hidden="true">{{ entry.isQualified ? '✓' : '✗' }}</span>
               {{ entry.isQualified ? 'Clasifica' : 'Eliminado' }}
             </span>
+
+            <button
+              v-if="canChangePlayerStatus(entry.groupPlayer)"
+              type="button"
+              class="ml-auto rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+              @click="openPlayerStatusModal(entry.groupPlayer)"
+            >
+              Retirar / descalificar
+            </button>
           </div>
 
           <p class="mt-1 text-slate-600 dark:text-slate-300">
             Nickname: {{ entry.groupPlayer.player.nickname || '-' }}
+          </p>
+          <p
+            v-if="entry.groupPlayer.status_notes"
+            class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+          >
+            Notas: {{ entry.groupPlayer.status_notes }}
           </p>
         </article>
       </div>
@@ -679,6 +769,14 @@ onMounted(async () => {
       :game="selectedGame"
       @close="closeResultModal"
       @saved="handleResultSaved"
+    />
+
+    <GroupPlayerStatusModal
+      :show="Boolean(selectedPlayerForStatus)"
+      :group-id="groupId"
+      :player="selectedPlayerForStatus?.player ?? null"
+      @close="closePlayerStatusModal"
+      @saved="handlePlayerStatusSaved"
     />
   </section>
 </template>

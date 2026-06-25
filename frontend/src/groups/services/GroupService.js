@@ -29,6 +29,11 @@ const GroupService = {
     const response = await httpClient.post(`/groups/${groupId}/round-robin-games`)
     return unwrap(response) ?? []
   },
+
+  async setGroupPlayerStatus(groupId, payload) {
+    const response = await httpClient.post(`/groups/${groupId}/player-status`, payload)
+    return unwrap(response) ?? null
+  },
 }
 
 export default GroupService

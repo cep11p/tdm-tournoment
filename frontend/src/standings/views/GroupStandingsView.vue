@@ -6,6 +6,7 @@ import BracketService from '../../brackets/services/BracketService'
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import CompetitionService from '../../competitions/services/CompetitionService'
+import { getGroupPlayerStatusLabel } from '../../groups/constants/groupPlayerStatus'
 import GroupManualTiebreakPanel from '../components/GroupManualTiebreakPanel.vue'
 import StandingService from '../services/StandingService'
 
@@ -57,7 +58,18 @@ const completedMatches = computed(() => {
   return Number.isInteger(matches) ? matches : '-'
 })
 
-const isQualified = (position) => position <= qualifiedPerGroup.value
+const isPlayerInactive = (standing) => {
+  const status = standing?.group_player_status ?? 'active'
+  return status !== 'active'
+}
+
+const isQualified = (standing) => {
+  if (typeof standing?.eligible_for_qualification === 'boolean') {
+    return standing.eligible_for_qualification
+  }
+
+  return Number(standing?.position) <= Number(qualifiedPerGroup.value)
+}
 
 const positionBadgeClasses = (position) => {
   if (position === 1) {
@@ -76,22 +88,40 @@ const positionBadgeClasses = (position) => {
 }
 
 const rowClasses = (standing) => {
-  if (isQualified(standing.position)) {
+  if (isPlayerInactive(standing)) {
+    return 'border-t border-slate-200 bg-slate-50/60 opacity-80 dark:border-slate-700 dark:bg-slate-800/40'
+  }
+
+  if (isQualified(standing)) {
     return 'border-t border-slate-200 bg-emerald-50/40 dark:border-slate-700 dark:bg-emerald-950/20'
   }
 
   return 'border-t border-slate-200 bg-red-50/30 dark:border-slate-700 dark:bg-red-950/10'
 }
 
-const qualificationBadgeClasses = (position) => {
-  if (isQualified(position)) {
+const qualificationBadgeClasses = (standing) => {
+  if (isQualified(standing)) {
     return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
   }
 
   return 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200'
 }
 
-const qualificationLabel = (position) => (isQualified(position) ? 'Clasifica' : 'Eliminado')
+const qualificationLabel = (standing) => (isQualified(standing) ? 'Clasifica' : 'Eliminado')
+
+const playerStatusBadgeClasses = (status) => {
+  if (status === 'withdrawn') {
+    return 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200'
+  }
+
+  if (status === 'disqualified') {
+    return 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200'
+  }
+
+  return ''
+}
+
+const playerStatusLabel = (standing) => getGroupPlayerStatusLabel(standing?.group_player_status ?? 'active')
 
 const loadStandings = async () => {
   isLoading.value = true
@@ -264,6 +294,13 @@ onMounted(async () => {
                   >
                     Desempate manual
                   </span>
+                  <span
+                    v-if="playerStatusLabel(standing)"
+                    class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+                    :class="playerStatusBadgeClasses(standing.group_player_status)"
+                  >
+                    {{ playerStatusLabel(standing) }}
+                  </span>
                 </div>
               </td>
               <td class="px-3 py-2 text-slate-700 dark:text-slate-300">{{ standing.played }}</td>
@@ -272,10 +309,10 @@ onMounted(async () => {
               <td class="px-3 py-2">
                 <span
                   class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-                  :class="qualificationBadgeClasses(standing.position)"
+                  :class="qualificationBadgeClasses(standing)"
                 >
-                  <span aria-hidden="true">{{ isQualified(standing.position) ? '✓' : '✗' }}</span>
-                  {{ qualificationLabel(standing.position) }}
+                  <span aria-hidden="true">{{ isQualified(standing) ? '✓' : '✗' }}</span>
+                  {{ qualificationLabel(standing) }}
                 </span>
               </td>
             </tr>
