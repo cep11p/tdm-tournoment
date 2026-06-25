@@ -3,14 +3,18 @@ import httpClient from '../../services/httpClient'
 const unwrap = (response) => response?.data?.data
 
 const PlayerService = {
-  async search(query = '') {
+  async getPlayers({ q = '' } = {}) {
     const response = await httpClient.get('/players', {
       params: {
-        q: query,
+        q,
       },
     })
 
     return unwrap(response) ?? []
+  },
+
+  async search(query = '') {
+    return this.getPlayers({ q: query })
   },
 
   async create(payload) {

@@ -42,6 +42,9 @@ Route::prefix(config('api.version_prefix', 'v1'))
         Route::apiResource('players', PlayerController::class)
             ->only(['store', 'index', 'show']);
 
+        Route::post('competitions/{competition}/registrations/bulk', [RegistrationController::class, 'bulkStore'])
+            ->name('competitions.registrations.bulk');
+
         Route::apiResource('competitions.registrations', RegistrationController::class)
             ->only(['store', 'index']);
 

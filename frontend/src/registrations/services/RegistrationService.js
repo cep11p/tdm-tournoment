@@ -15,6 +15,14 @@ const RegistrationService = {
 
     return unwrap(response) ?? null
   },
+
+  async bulkRegister(competitionId, playerIds) {
+    const response = await httpClient.post(`/competitions/${competitionId}/registrations/bulk`, {
+      player_ids: playerIds,
+    })
+
+    return response?.data ?? null
+  },
 }
 
 export default RegistrationService

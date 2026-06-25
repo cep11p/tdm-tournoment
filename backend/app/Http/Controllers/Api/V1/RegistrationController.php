@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Registration\BulkRegisterPlayersToCompetitionAction;
 use App\Actions\Registration\RegisterPlayerToCompetitionAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Registration\BulkStoreRegistrationRequest;
 use App\Http\Requests\Registration\StoreRegistrationRequest;
 use App\Http\Resources\Registration\RegistrationResource;
 use App\Models\Competition;
@@ -36,5 +38,18 @@ class RegistrationController extends Controller
         return (new RegistrationResource($registration))
             ->response()
             ->setStatusCode(Response::HTTP_CREATED);
+    }
+
+    public function bulkStore(
+        BulkStoreRegistrationRequest $request,
+        Competition $competition,
+        BulkRegisterPlayersToCompetitionAction $bulkRegister,
+    ): JsonResponse {
+        $result = $bulkRegister($competition->id, $request->validated('player_ids'));
+
+        return response()->json([
+            'message' => 'Inscripción masiva procesada.',
+            ...$result,
+        ]);
     }
 }
