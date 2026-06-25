@@ -30,6 +30,15 @@ const GroupService = {
     return unwrap(response) ?? []
   },
 
+  async generateRandomGroups(competitionId, { groups_count }) {
+    const response = await httpClient.post(
+      `/competitions/${competitionId}/groups/random-generate`,
+      { groups_count },
+    )
+
+    return response?.data
+  },
+
   async setGroupPlayerStatus(groupId, payload) {
     const response = await httpClient.post(`/groups/${groupId}/player-status`, payload)
     return unwrap(response) ?? null

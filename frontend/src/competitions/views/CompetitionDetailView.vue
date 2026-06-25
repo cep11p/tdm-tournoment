@@ -15,6 +15,7 @@ import GameService from '../../games/services/GameService'
 import GroupService from '../../groups/services/GroupService'
 import RegistrationService from '../../registrations/services/RegistrationService'
 import BulkPlayerRegistrationModal from '../../registrations/components/BulkPlayerRegistrationModal.vue'
+import GenerateRandomGroupsModal from '../../groups/components/GenerateRandomGroupsModal.vue'
 import StandingService from '../../standings/services/StandingService'
 import { buildGroupPhaseAlert } from '../utils/buildGroupPhaseAlert'
 import CompetitionService from '../services/CompetitionService'
@@ -32,6 +33,7 @@ const groupStandingsMetaByGroupId = ref({})
 const isLoading = ref(false)
 const errorMessage = ref('')
 const showBulkRegistrationModal = ref(false)
+const showGenerateRandomGroupsModal = ref(false)
 
 const competitionId = computed(() => route.params.id)
 
@@ -45,6 +47,20 @@ const formatCount = (value) => (value === null || value === undefined ? '-' : va
 
 const playerCount = computed(() =>
   registrations.value === null ? '-' : registrations.value.length,
+)
+
+const registeredCount = computed(() => registrations.value?.length ?? 0)
+
+const hasExistingGroups = computed(() => (groups.value?.length ?? 0) > 0)
+
+const isCompetitionCompleted = computed(() => statusSummary.value?.code === 'completed')
+
+const canGenerateRandomGroups = computed(
+  () =>
+    registeredCount.value >= 2 &&
+    !hasExistingGroups.value &&
+    !isCompetitionCompleted.value &&
+    groups.value !== null,
 )
 
 const registeredPlayerIds = computed(() =>
@@ -414,6 +430,11 @@ const handleBulkRegistrationSaved = async () => {
   showBulkRegistrationModal.value = false
   await loadCompetitionSummary()
 }
+
+const handleRandomGroupsSaved = async () => {
+  showGenerateRandomGroupsModal.value = false
+  await loadCompetitionSummary()
+}
 </script>
 
 <template>
@@ -513,6 +534,15 @@ const handleBulkRegistrationSaved = async () => {
           >
             {{ statusActionLink.label }}
           </RouterLink>
+
+          <button
+            v-if="statusSummary.code === 'no_groups' && canGenerateRandomGroups"
+            type="button"
+            class="inline-flex shrink-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            @click="showGenerateRandomGroupsModal = true"
+          >
+            Generar grupos
+          </button>
         </div>
       </div>
 
@@ -814,13 +844,22 @@ const handleBulkRegistrationSaved = async () => {
       <div>
         <p class="mb-3 text-sm font-medium text-slate-700 dark:text-slate-200">Acciones principales</p>
 
-        <div class="mb-3">
+        <div class="mb-3 flex flex-wrap gap-2">
           <button
             type="button"
             class="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
             @click="showBulkRegistrationModal = true"
           >
             Inscribir jugadores
+          </button>
+
+          <button
+            v-if="canGenerateRandomGroups"
+            type="button"
+            class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            @click="showGenerateRandomGroupsModal = true"
+          >
+            Generar grupos
           </button>
         </div>
 
@@ -849,6 +888,16 @@ const handleBulkRegistrationSaved = async () => {
         :registered-player-ids="registeredPlayerIds"
         @close="showBulkRegistrationModal = false"
         @saved="handleBulkRegistrationSaved"
+      />
+
+      <GenerateRandomGroupsModal
+        :show="showGenerateRandomGroupsModal"
+        :competition-id="competitionId"
+        :registered-count="registeredCount"
+        :has-existing-groups="hasExistingGroups"
+        :is-competition-completed="isCompetitionCompleted"
+        @close="showGenerateRandomGroupsModal = false"
+        @saved="handleRandomGroupsSaved"
       />
     </template>
   </section>
