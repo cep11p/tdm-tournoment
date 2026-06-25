@@ -29,7 +29,9 @@ El MVP cubre:
 - Registro e inscripción de jugadores.
 - Gestión de grupos y asignación de jugadores.
 - Generación de partidos round robin por grupo.
-- Standings por grupo y standings global de competencia.
+- Standings por grupo con mini tabla automática y desempate manual cuando corresponde.
+- Standings global de competencia.
+- Retiro y descalificación de jugadores dentro de un grupo.
 - Creación de bracket eliminatorio.
 - Generación de siguientes rondas del bracket.
 - Creación manual de partidos.
@@ -40,9 +42,10 @@ Queda **fuera del MVP**:
 
 - Dobles.
 - Ranking y estadísticas avanzadas.
-- Desempates complejos más allá de las reglas implementadas.
+- Walkover formal como estado propio de partido.
+- Abandono puntual de un solo partido como flujo separado.
+- Reactivación de jugadores retirados/descalificados.
 - Edición de sets individuales.
-- Walkover y abandono.
 - Validación ITTF completa (`win_by_two`, saque, etc.).
 - Scheduling y conflictos de mesa.
 - Multi-organización.
@@ -135,6 +138,8 @@ Se calcula en `CompetitionStatusResolver` a partir de:
 
 **No reemplaza** las validaciones de las Actions (generar bracket, cargar sets, etc.). Solo informa.
 
+**Limitación:** no conoce empates manuales pendientes ni desempates desactualizados por grupo. Una competencia puede aparecer como `ready_for_bracket` aunque un grupo todavía requiera desempate manual. Para ese detalle, consultar standings por grupo o el panel de fase de grupos en la UI.
+
 Códigos disponibles:
 
 | code | Significado |
@@ -221,17 +226,73 @@ Restricción única: `(competition_id, name)`.
 
 Representa la asignación de un jugador a un grupo.
 
-| Campo      | Tipo   | Descripción          |
-|------------|--------|----------------------|
-| id         | bigint | Identificador único. |
-| group_id   | bigint | FK a Group.          |
-| player_id  | bigint | FK a Player.         |
+| Campo               | Tipo       | Descripción                                              |
+|---------------------|------------|----------------------------------------------------------|
+| id                  | bigint     | Identificador único.                                     |
+| group_id            | bigint     | FK a Group.                                              |
+| player_id           | bigint     | FK a Player.                                             |
+| status              | enum       | `active`, `withdrawn`, `disqualified` (default: `active`). |
+| status_reason       | enum       | Nullable. Motivo de la baja (ver abajo).                 |
+| status_notes        | text       | Nullable. Notas libres sobre la baja.                  |
+| status_changed_at   | timestamp  | Nullable. Momento del último cambio de estado.           |
 
 Restricción única: `(group_id, player_id)`.
 
-Regla adicional implementada:
+Reglas adicionales implementadas:
 
-- un jugador no puede estar en más de un grupo dentro de la misma competencia.
+- un jugador no puede estar en más de un grupo dentro de la misma competencia;
+- solo se puede pasar de `active` a `withdrawn` o `disqualified` (no hay reactivación en el MVP);
+- no se puede cambiar el estado si la competencia ya tiene bracket.
+
+**Motivos de baja (`status_reason`):**
+
+| Valor                 | Descripción              |
+|-----------------------|--------------------------|
+| `personal`            | Motivos personales.      |
+| `injury`              | Lesión.                  |
+| `no_show`             | No se presentó.          |
+| `organizer_decision`  | Decisión organizativa.   |
+| `other`               | Otro.                    |
+
+---
+
+### GroupManualTiebreak
+
+Representa un desempate manual persistido para un grupo.
+
+| Campo      | Tipo      | Descripción                                |
+|------------|-----------|--------------------------------------------|
+| id         | bigint    | Identificador único.                       |
+| group_id   | bigint    | FK a Group.                                |
+| reason     | enum      | Motivo del desempate (ver abajo).          |
+| notes      | text      | Nullable. Notas libres.                    |
+| applied_at | timestamp | Momento en que se aplicó o actualizó.      |
+
+**Motivos (`reason`):**
+
+| Valor                 | Descripción                    |
+|-----------------------|--------------------------------|
+| `draw`                | Sorteo.                        |
+| `organizer_decision`  | Decisión organizativa.         |
+| `agreement`           | Acuerdo entre jugadores.       |
+| `other`               | Otro.                          |
+
+El orden de los jugadores empatados se guarda en `GroupManualTiebreakPlayer`.
+
+---
+
+### GroupManualTiebreakPlayer
+
+Representa la posición de un jugador dentro de un desempate manual.
+
+| Campo                    | Tipo   | Descripción                          |
+|--------------------------|--------|--------------------------------------|
+| id                       | bigint | Identificador único.                 |
+| group_manual_tiebreak_id | bigint | FK a GroupManualTiebreak.            |
+| player_id                | bigint | FK a Player.                         |
+| position                 | int    | Posición dentro del empate (1-based). |
+
+Restricciones únicas por tiebreak: `(group_manual_tiebreak_id, player_id)` y `(group_manual_tiebreak_id, position)`.
 
 ---
 
@@ -338,10 +399,19 @@ Registration
 Group
   ├── belongsTo Competition
   ├── hasMany GroupPlayer
+  ├── hasMany GroupManualTiebreak
   └── hasMany Game
 
 GroupPlayer
   ├── belongsTo Group
+  └── belongsTo Player
+
+GroupManualTiebreak
+  ├── belongsTo Group
+  └── hasMany GroupManualTiebreakPlayer
+
+GroupManualTiebreakPlayer
+  ├── belongsTo GroupManualTiebreak
   └── belongsTo Player
 
 Bracket
@@ -383,7 +453,7 @@ GameSet
 14. Un jugador no puede estar en dos grupos de la misma competencia.
 15. Solo puede existir un bracket por competencia.
 16. Para crear bracket, todos los partidos de grupos deben estar finalizados.
-17. El bracket usa `Competition.qualified_per_group` para determinar cuántos jugadores clasifican de cada grupo.
+17. El bracket usa `Competition.qualified_per_group` para determinar cuántos jugadores clasifican de cada grupo, considerando solo jugadores elegibles según standings.
 18. El total de clasificados ya no necesita ser exactamente 2, 4 u 8. Si no es potencia de 2, el sistema calcula la siguiente potencia de 2 y completa la llave con BYEs (hasta 64 clasificados).
 19. Los BYEs favorecen a los mejores seeds: se emparejan contra `player2_id = null`, quedan finalizados con `is_bye = true` y sin sets.
 20. `Game.is_bye` indica avance automático. Ejemplo: 30 clasificados → bracket de 32 → 2 BYEs.
@@ -392,6 +462,18 @@ GameSet
 23. No puede generarse siguiente ronda si la actual está incompleta.
 24. No puede generarse una ronda ya creada ni avanzar cuando el bracket ya terminó.
 25. No se puede cambiar el formato por fase (`*_best_of`) si la competencia ya tiene partidos generados.
+26. Los standings de grupo se calculan en runtime (no se persisten como tabla fija).
+27. Solo jugadores `active` en `group_players` participan del orden automático por victorias y de la elegibilidad para clasificar.
+28. Jugadores `withdrawn` o `disqualified` permanecen visibles en standings, al final de la tabla, y no son elegibles para clasificación.
+29. Si un jugador pasa a `withdrawn` o `disqualified`, los partidos del grupo ya finalizados no se modifican; los partidos `pending` o `in_progress` del jugador se cierran a favor del rival sin registrar sets.
+30. No se puede cambiar el estado de un jugador de grupo si ya existe bracket.
+31. No se puede definir desempate manual si ya existe bracket.
+32. Un desempate manual solo se acepta si el conjunto de `player_ids` coincide exactamente con un empate pendiente actual del grupo.
+33. Si cambian los resultados y un desempate manual guardado ya no coincide con ningún empate pendiente, queda como **stale** (desactualizado).
+34. El bracket usa el mismo cálculo de standings por grupo que la API/UI, incluyendo desempates manuales aplicados.
+35. Solo jugadores con `eligible_for_qualification = true` pueden clasificar al bracket.
+36. Si un empate manual pendiente afecta el corte de clasificación del grupo, se bloquea la generación del bracket hasta resolverlo.
+37. Si hay menos clasificados elegibles que `qualified_per_group`, el bracket se genera con la cantidad disponible; los BYEs absorben las vacantes restantes.
 
 ---
 
@@ -431,10 +513,12 @@ Al registrar un set (`POST /games/{game}/sets`), el sistema:
 7. Generar Round Robin de cada Group
 8. Cargar sets hasta finalizar los games de grupos
 9. Consultar standings de grupos / competencia
-10. Crear Bracket eliminatorio (usa `Competition.qualified_per_group`; guarda snapshot en `Bracket.qualifiers_per_group`)
-11. Cargar sets de games del bracket
-12. Generar siguiente ronda del bracket
-13. Repetir hasta la final
+10. Resolver desempates manuales pendientes (si los hubiera)
+11. Marcar retiros/descalificaciones de jugadores (si corresponde)
+12. Crear Bracket eliminatorio (usa `Competition.qualified_per_group`; guarda snapshot en `Bracket.qualifiers_per_group`)
+13. Cargar sets de games del bracket
+14. Generar siguiente ronda del bracket
+15. Repetir hasta la final
 ```
 
 También se pueden crear games manuales directamente en la competencia.
@@ -479,7 +563,9 @@ También se pueden crear games manuales directamente en la competencia.
 | POST | `/api/v1/groups/{group}/players` | Asignar jugador a grupo |
 | GET | `/api/v1/groups/{group}/players` | Listar jugadores del grupo |
 | POST | `/api/v1/groups/{group}/round-robin-games` | Generar round robin |
-| GET | `/api/v1/groups/{group}/standings` | Standings del grupo |
+| GET | `/api/v1/groups/{group}/standings` | Standings del grupo (incluye `meta` de desempates) |
+| POST | `/api/v1/groups/{group}/manual-tiebreaks` | Aplicar desempate manual |
+| POST | `/api/v1/groups/{group}/player-status` | Marcar jugador como retirado o descalificado |
 | GET | `/api/v1/competitions/{competition}/standings` | Standings global de competencia |
 
 ### Games y sets
@@ -496,8 +582,32 @@ También se pueden crear games manuales directamente en la competencia.
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
+| GET | `/api/v1/competitions/{competition}/bracket` | Ver bracket de la competencia |
 | POST | `/api/v1/competitions/{competition}/bracket` | Crear bracket eliminatorio |
 | POST | `/api/v1/brackets/{bracket}/next-round` | Generar siguiente ronda |
+
+#### Payloads relevantes de fase de grupos
+
+**Desempate manual** — `POST /groups/{group}/manual-tiebreaks`
+
+```json
+{
+  "player_ids": [3, 1, 2],
+  "reason": "organizer_decision",
+  "notes": "Opcional"
+}
+```
+
+**Estado de jugador en grupo** — `POST /groups/{group}/player-status`
+
+```json
+{
+  "player_id": 5,
+  "status": "withdrawn",
+  "reason": "no_show",
+  "notes": "Opcional"
+}
+```
 
 ---
 
@@ -518,7 +628,12 @@ No hay reglas de transición de estado implementadas más allá de aceptar valor
 
 - Dobles.
 - Edición de sets individuales.
-- Walkover y abandono.
+- Walkover formal como estado propio de partido.
+- Abandono puntual de un solo partido como flujo separado.
+- Reactivación de jugadores retirados/descalificados.
+- Modificación automática de un bracket ya creado por una baja posterior.
+- Eliminación o reversión de desempates manuales desde la UI.
+- Auditoría avanzada de quién aplicó cambios de estado o desempates.
 - Ranking de jugadores.
 - Estadísticas avanzadas.
 - Reglas ITTF completas (`win_by_two`, saque, etc.).
@@ -549,7 +664,7 @@ Para priorizar simplicidad y velocidad de desarrollo:
 - Los sets son append-only.
 - No hay edición de sets individuales.
 - No se valida diferencia mínima de dos puntos.
-- No hay lógica de desempate avanzada en standings.
+- Los standings de grupo se calculan en runtime con mini tabla y desempate manual persistido.
 - No hay scheduling automático de mesas.
 
 ---
@@ -573,7 +688,274 @@ El sistema garantiza que:
 
 ---
 
-## 14. Filosofía del dominio
+## 14. Fase de grupos
+
+La fase de grupos organiza la competencia antes del cuadro eliminatorio.
+
+Flujo implementado:
+
+1. Crear grupos dentro de una competencia.
+2. Asignar jugadores inscriptos a cada grupo (`group_players`).
+3. Generar partidos round robin por grupo (`POST /groups/{group}/round-robin-games`).
+4. Cargar resultados por sets hasta finalizar los partidos del grupo.
+5. Consultar standings por grupo.
+6. Resolver desempates manuales pendientes (si los hubiera).
+7. Gestionar bajas de jugadores (retiro/descalificación) cuando corresponda.
+8. Generar el bracket cuando todos los grupos cumplen las condiciones.
+
+Cada grupo tiene su propia tabla de posiciones. La competencia puede tener varios grupos en paralelo.
+
+---
+
+## 15. Cálculo de standings por grupo
+
+Los standings se calculan en runtime mediante `GroupStandingsCalculator`. No se persiste una tabla de posiciones fija.
+
+### Entrada del cálculo
+
+- jugadores del grupo y su `status` en `group_players`;
+- partidos del grupo en estado `finished` con `winner_id` definido;
+- sets de esos partidos;
+- desempates manuales persistidos (`group_manual_tiebreaks`).
+
+### Orden automático
+
+1. **Partidos ganados totales** (solo jugadores `active` compiten por posiciones superiores).
+2. Si hay empate en victorias totales, se resuelve con una **mini tabla** entre los empatados.
+
+### Mini tabla (empate doble, triple o múltiple)
+
+Cuando dos o más jugadores activos comparten la misma cantidad de victorias totales:
+
+1. Se consideran **solo** los partidos finalizados **entre los jugadores empatados**.
+2. Los partidos contra jugadores fuera del grupo empatado **no** afectan la mini tabla.
+3. En empate múltiple **no** se usa únicamente el resultado directo entre dos jugadores; se evalúa el subconjunto completo.
+
+Criterios de la mini tabla, en este orden:
+
+1. Partidos ganados entre empatados (`mini_won`).
+2. Diferencia de sets entre empatados (`set_diff`).
+3. Diferencia de puntos entre empatados (`point_diff`).
+
+Si después de agotar esos criterios persiste el empate, el sistema marca el grupo de jugadores como **pendiente de desempate manual**.
+
+### Jugadores inactivos
+
+Jugadores `withdrawn` o `disqualified`:
+
+- conservan sus estadísticas (`won`, `lost`) de partidos ya finalizados;
+- **no** participan del orden automático por victorias;
+- aparecen **al final** de la tabla, ordenados por nombre;
+- tienen `eligible_for_qualification = false`.
+
+### Respuesta API (`GET /groups/{group}/standings`)
+
+**Por fila (`data`):**
+
+| Campo | Descripción |
+|-------|-------------|
+| `player_id` | ID del jugador. |
+| `player_name` | Nombre completo. |
+| `played` | Partidos jugados (`won + lost`). |
+| `won` | Partidos ganados. |
+| `lost` | Partidos perdidos. |
+| `requires_manual_tiebreak` | El jugador está en un empate sin resolver automáticamente. |
+| `manual_tiebreak_applied` | Su posición fue definida por desempate manual. |
+| `manual_position` | Posición dentro del empate manual (si aplica). |
+| `eligible_for_qualification` | Si puede clasificar al bracket. |
+| `group_player_status` | `active`, `withdrawn` o `disqualified`. |
+
+**Meta (`meta`):**
+
+| Campo | Descripción |
+|-------|-------------|
+| `requires_manual_tiebreak` | Hay al menos un empate pendiente en el grupo. |
+| `manual_tiebreak_groups` | Empates pendientes (`player_ids`, `player_names`). |
+| `has_manual_tiebreaks` | Existe al menos un desempate manual aplicado. |
+| `manual_tiebreaks` | Desempates aplicados (id, jugadores, reason, notes, applied_at). |
+| `stale_manual_tiebreaks` | Desempates guardados que ya no coinciden con un empate pendiente actual. |
+
+---
+
+## 16. Desempate manual
+
+Cuando la mini tabla no puede desempatar automáticamente, el organizador puede persistir un orden manual.
+
+### Endpoint
+
+```http
+POST /api/v1/groups/{group}/manual-tiebreaks
+```
+
+### Payload
+
+```json
+{
+  "player_ids": [3, 1, 2],
+  "reason": "draw",
+  "notes": "Sorteo en mesa 1"
+}
+```
+
+| Campo | Requerido | Descripción |
+|-------|-----------|-------------|
+| `player_ids` | Sí | Orden final del empate. Debe incluir exactamente a los jugadores del empate pendiente (mismo conjunto, cualquier orden). |
+| `reason` | Sí | `draw`, `organizer_decision`, `agreement`, `other`. |
+| `notes` | No | Texto libre (máx. según validación). |
+
+### Reglas
+
+- Solo se acepta si hay un empate pendiente actual en el grupo.
+- El conjunto de `player_ids` debe coincidir **exactamente** con uno de los grupos en `meta.manual_tiebreak_groups` (sin importar el orden al comparar).
+- Si ya existía un desempate para el mismo conjunto de jugadores, se **actualiza** (reason, notes, orden y `applied_at`).
+- No se puede aplicar si la competencia ya tiene bracket.
+- Si los resultados cambian y el desempate guardado ya no resuelve un empate pendiente actual, pasa a `meta.stale_manual_tiebreaks` hasta que se vuelva a aplicar uno válido o desaparezca el empate.
+- Resolver un desempate que afectaba el corte de clasificación **desbloquea** la generación del bracket (si el resto de condiciones se cumple).
+
+### UI
+
+`GroupStandingsView` muestra empates pendientes, desempates stale y permite aplicar el desempate manual mediante paneles en la misma vista. No hay eliminación de desempates desde la UI.
+
+---
+
+## 17. Retiro y descalificación de jugadores en grupo
+
+El estado del jugador dentro del grupo vive en `group_players`, no en el jugador global.
+
+### Endpoint
+
+```http
+POST /api/v1/groups/{group}/player-status
+```
+
+### Payload
+
+```json
+{
+  "player_id": 5,
+  "status": "withdrawn",
+  "reason": "no_show",
+  "notes": "No se presentó el sábado"
+}
+```
+
+| Campo | Requerido | Valores |
+|-------|-----------|---------|
+| `player_id` | Sí | ID del jugador en el grupo. |
+| `status` | Sí | `withdrawn` o `disqualified`. |
+| `reason` | No | `personal`, `injury`, `no_show`, `organizer_decision`, `other`. |
+| `notes` | No | Texto libre. |
+
+### Reglas al marcar baja
+
+- Solo se permite pasar de `active` a `withdrawn` o `disqualified`.
+- **No hay reactivación** en el MVP.
+- **No se permite** si ya existe bracket.
+- No se puede aplicar a un jugador que ya no está activo.
+- Los partidos **ya finalizados** del jugador **no se modifican**.
+- Los partidos `pending` o `in_progress` del jugador en ese grupo se cierran **a favor del rival**:
+  - `status = finished`
+  - `winner_id = rival`
+  - `finished_at = now()`
+  - **sin registrar sets**
+- El jugador permanece visible en standings, al final, con `eligible_for_qualification = false`.
+- El bracket lo excluye al tomar clasificados.
+
+### Lo que esto no es
+
+- **No** existe walkover formal como estado propio de partido.
+- **No** existe abandono puntual de un solo partido como flujo separado.
+- Cerrar partidos pendientes por baja **no** es lo mismo que un walkover configurable partido a partido.
+
+### UI
+
+`GroupDetailView` permite marcar jugadores activos como retirados o descalificados mediante un modal de confirmación. La acción queda bloqueada si ya hay bracket.
+
+---
+
+## 18. Clasificación al bracket
+
+`CreateBracketKnockoutAction` usa el mismo `GroupStandingsCalculator` que la API de standings.
+
+### Reglas de clasificación
+
+- Por cada grupo se toman hasta `Competition.qualified_per_group` jugadores **elegibles** (`eligible_for_qualification = true`), en el orden calculado.
+- Jugadores retirados o descalificados **no clasifican**, aunque estén en posiciones altas antes de moverse al final.
+- Si hay **menos elegibles** que `qualified_per_group`, el bracket se genera con los disponibles.
+- Los BYEs existentes **absorben vacantes**: el tamaño de llave sigue siendo la siguiente potencia de 2 ≥ total de clasificados.
+- Todos los partidos de **todos** los grupos deben estar finalizados.
+- Si un grupo tiene empate manual pendiente que **cruza el corte de clasificación**, se bloquea la generación del bracket con error explícito.
+
+### Bloqueos con bracket existente
+
+Si ya existe bracket:
+
+- no se puede cambiar el estado de jugadores de grupo;
+- no se puede aplicar desempate manual;
+- no se recalcula ni modifica automáticamente la llave por bajas posteriores.
+
+### Seeding
+
+Los clasificados de todos los grupos se combinan y ordenan globalmente por `(won desc, lost asc, nombre)` antes de armar la llave con BYEs.
+
+---
+
+## 19. Frontend / UX
+
+Vistas principales relacionadas con la fase de grupos:
+
+### `GroupStandingsView`
+
+- Muestra la tabla de posiciones del grupo.
+- Indica clasificación (`Clasifica` / `Eliminado`) según `eligible_for_qualification`.
+- Muestra badges de jugadores retirados/descalificados.
+- Muestra aviso y paneles cuando hay empates manuales pendientes.
+- Permite resolver desempates manuales (solo lectura + formulario en esta vista).
+- Muestra aviso si hay desempates stale.
+- Deshabilita desempate manual si ya existe bracket.
+
+### `GroupDetailView`
+
+- Lista jugadores del grupo, standings y partidos del grupo.
+- Permite asignar jugadores y generar round robin.
+- Permite cargar resultados de partidos.
+- Permite marcar jugadores activos como retirados/descalificados (modal).
+- Muestra badges de estado y elegibilidad de clasificación.
+
+### `CompetitionDetailView`
+
+Panel de control de la fase de grupos. Por cada grupo muestra:
+
+- empate manual pendiente;
+- desempate manual aplicado;
+- desempates stale;
+- partidos pendientes;
+- jugadores con baja;
+- grupo listo;
+- links a **Ver posiciones** y **Ver grupo**.
+
+Los clasificados visibles en la competencia filtran por `eligible_for_qualification !== false`.
+
+**Nota:** `status_summary` a nivel competencia es orientativo y puede decir `ready_for_bracket` aunque un grupo requiera desempate manual. El panel por grupo complementa esa información.
+
+---
+
+## 20. Fuera de alcance actual (no implementado)
+
+Explicitamente **no** está implementado hoy:
+
+- walkover formal como estado propio de partido;
+- abandono puntual de un solo partido;
+- reactivación de jugador retirado/descalificado;
+- modificación automática de bracket ya creado por baja posterior;
+- eliminación/reversión de desempates manuales desde UI;
+- auditoría avanzada de quién aplicó cambios de estado o desempates;
+- endpoint para listar o borrar desempates manuales;
+- notificaciones automáticas al organizador por empates pendientes (solo UI al consultar).
+
+---
+
+## 21. Filosofía del dominio
 
 El dominio prioriza:
 
