@@ -4,6 +4,7 @@ namespace App\Support\Group;
 
 use App\Data\Competition\CompetitionStandingData;
 use App\Enums\GameStatus;
+use App\Enums\GroupPlayerStatus;
 use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupManualTiebreak;
@@ -33,7 +34,8 @@ final class GroupStandingsCalculator
      *     stats_by_player: array<int, array{won: int, lost: int}>,
      *     player_name_by_id: array<int, string>,
      *     ordered_player_ids: array<int, int>,
-     *     manual_tie_groups: array<int, array<int, int>>
+     *     manual_tie_groups: array<int, array<int, int>>,
+     *     status_by_player_id: array<int, GroupPlayerStatus>
      * }
      */
     private function calculateAutomatic(Group $group): array
@@ -46,6 +48,22 @@ final class GroupStandingsCalculator
             ->pluck('player_id')
             ->map(fn (int $playerId): int => (int) $playerId)
             ->all();
+
+        $statusByPlayerId = [];
+        $activePlayerIds = [];
+        $inactivePlayerIds = [];
+
+        foreach ($groupPlayers as $groupPlayer) {
+            $playerId = (int) $groupPlayer->player_id;
+            $status = $groupPlayer->status ?? GroupPlayerStatus::Active;
+            $statusByPlayerId[$playerId] = $status;
+
+            if ($status === GroupPlayerStatus::Active) {
+                $activePlayerIds[] = $playerId;
+            } else {
+                $inactivePlayerIds[] = $playerId;
+            }
+        }
 
         $playerNameById = $groupPlayers
             ->mapWithKeys(function ($groupPlayer): array {
@@ -95,7 +113,7 @@ final class GroupStandingsCalculator
         $orderedPlayerIds = [];
         $manualTieGroups = [];
 
-        $playersByWins = collect($playerIds)
+        $playersByWins = collect($activePlayerIds)
             ->groupBy(fn (int $playerId): int => (int) ($statsByPlayer[$playerId]['won'] ?? 0))
             ->sortKeysDesc();
 
@@ -118,11 +136,19 @@ final class GroupStandingsCalculator
             $manualTieGroups = [...$manualTieGroups, ...$resolvedTie['manual_groups']];
         }
 
+        if ($inactivePlayerIds !== []) {
+            $orderedPlayerIds = [
+                ...$orderedPlayerIds,
+                ...$this->sortPlayersByName($inactivePlayerIds, $playerNameById),
+            ];
+        }
+
         return [
             'stats_by_player' => $statsByPlayer,
             'player_name_by_id' => $playerNameById,
             'ordered_player_ids' => $orderedPlayerIds,
             'manual_tie_groups' => $manualTieGroups,
+            'status_by_player_id' => $statusByPlayerId,
         ];
     }
 
@@ -219,6 +245,7 @@ final class GroupStandingsCalculator
         $playerNameById = $automatic['player_name_by_id'];
         $orderedPlayerIds = $automatic['ordered_player_ids'];
         $manualTieGroups = $automatic['manual_tie_groups'];
+        $statusByPlayerId = $automatic['status_by_player_id'] ?? [];
 
         $manualPlayerFlags = [];
 
@@ -235,19 +262,24 @@ final class GroupStandingsCalculator
                 $manualPlayerFlags,
                 $appliedPlayerFlags,
                 $manualPositionByPlayerId,
+                $statusByPlayerId,
             ): CompetitionStandingData {
                 $stats = $statsByPlayer[$playerId] ?? ['won' => 0, 'lost' => 0];
+                $status = $statusByPlayerId[$playerId] ?? GroupPlayerStatus::Active;
+                $isActive = $status === GroupPlayerStatus::Active;
 
                 return new CompetitionStandingData(
                     playerId: $playerId,
                     playerName: $playerNameById[$playerId] ?? '',
                     won: (int) $stats['won'],
                     lost: (int) $stats['lost'],
-                    requiresManualTiebreak: (bool) ($manualPlayerFlags[$playerId] ?? false),
+                    requiresManualTiebreak: $isActive && (bool) ($manualPlayerFlags[$playerId] ?? false),
                     manualTiebreakApplied: (bool) ($appliedPlayerFlags[$playerId] ?? false),
                     manualPosition: $appliedPlayerFlags[$playerId] ?? false
                         ? ($manualPositionByPlayerId[$playerId] ?? null)
                         : null,
+                    eligibleForQualification: $isActive,
+                    groupPlayerStatus: $status->value,
                 );
             })
             ->values();

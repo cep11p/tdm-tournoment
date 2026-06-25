@@ -12,6 +12,8 @@ final class CompetitionStandingData
         public bool $requiresManualTiebreak = false,
         public bool $manualTiebreakApplied = false,
         public ?int $manualPosition = null,
+        public bool $eligibleForQualification = true,
+        public string $groupPlayerStatus = 'active',
     ) {
     }
 

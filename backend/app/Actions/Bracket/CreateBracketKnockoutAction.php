@@ -194,15 +194,17 @@ final class CreateBracketKnockoutAction
         }
 
         $standingsResult = $this->groupStandingsCalculator->calculate($group);
-        $standings = $standingsResult->standings;
+        $eligibleStandings = $standingsResult->standings
+            ->filter(fn (CompetitionStandingData $standing): bool => $standing->eligibleForQualification)
+            ->values();
 
-        $availableQualifiers = min($qualifiersPerGroup, $standings->count());
-        $groupQualifiers = $standings->take($availableQualifiers);
+        $availableQualifiers = min($qualifiersPerGroup, $eligibleStandings->count());
+        $groupQualifiers = $eligibleStandings->take($availableQualifiers);
 
         if (
             $standingsResult->requiresManualTiebreak()
             && $this->manualTieCrossesQualifierCutoff(
-                standings: $standings,
+                standings: $eligibleStandings,
                 manualTiebreakGroups: $standingsResult->manualTiebreakGroups,
                 qualifierCutoff: $availableQualifiers,
             )

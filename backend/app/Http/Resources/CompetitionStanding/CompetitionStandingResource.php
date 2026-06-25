@@ -18,6 +18,8 @@ class CompetitionStandingResource extends JsonResource
             'requires_manual_tiebreak' => (bool) ($this->requiresManualTiebreak ?? false),
             'manual_tiebreak_applied' => (bool) ($this->manualTiebreakApplied ?? false),
             'manual_position' => $this->manualPosition,
+            'eligible_for_qualification' => (bool) ($this->eligibleForQualification ?? true),
+            'group_player_status' => $this->groupPlayerStatus ?? 'active',
         ];
     }
 }
