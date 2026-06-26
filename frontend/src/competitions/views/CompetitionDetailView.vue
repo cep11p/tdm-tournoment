@@ -37,8 +37,6 @@ const showGenerateRandomGroupsModal = ref(false)
 
 const competitionId = computed(() => route.params.id)
 
-const qualifiedPerGroup = computed(() => competition.value?.qualified_per_group ?? 2)
-
 const fallbackBackRoute = computed(() =>
   competition.value?.tournament_id ? `/tournaments/${competition.value.tournament_id}/competitions` : '/tournaments',
 )
@@ -79,14 +77,6 @@ const finishedGameCount = computed(() => {
   return games.value.filter((game) => game.status === 'finished').length
 })
 
-const groupGames = computed(() => {
-  if (!games.value) {
-    return []
-  }
-
-  return games.value.filter((game) => game.group_id)
-})
-
 const bracketGames = computed(() => {
   if (!games.value) {
     return []
@@ -122,89 +112,6 @@ const bracketRoute = computed(() => `/competitions/${competitionId.value}/bracke
 const resultSummary = computed(() => competition.value?.result_summary ?? null)
 
 const statusSummary = computed(() => competition.value?.status_summary ?? null)
-
-const statusBadgeClasses = (code) => {
-  switch (code) {
-    case 'no_groups':
-      return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200'
-    case 'group_stage_pending':
-      return 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200'
-    case 'group_stage_in_progress':
-      return 'bg-sky-100 text-sky-800 dark:bg-sky-900/60 dark:text-sky-200'
-    case 'ready_for_bracket':
-      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
-    case 'knockout_in_progress':
-      return 'bg-violet-100 text-violet-800 dark:bg-violet-900/60 dark:text-violet-200'
-    case 'completed':
-      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
-    default:
-      return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200'
-  }
-}
-
-const statusActionLink = computed(() => {
-  const code = statusSummary.value?.code
-
-  if (!code) {
-    return null
-  }
-
-  switch (code) {
-    case 'no_groups':
-    case 'group_stage_pending':
-      return {
-        to: `/competitions/${competitionId.value}/groups`,
-        label: 'Gestionar grupos',
-      }
-    case 'group_stage_in_progress':
-      return {
-        to: `/competitions/${competitionId.value}/groups`,
-        label: 'Ver grupos',
-      }
-    case 'ready_for_bracket':
-      return {
-        to: bracketRoute.value,
-        label: hasBracket.value ? 'Ver llave' : 'Generar llave',
-      }
-    case 'knockout_in_progress':
-    case 'completed':
-      return {
-        to: bracketRoute.value,
-        label: 'Ver llave',
-      }
-    default:
-      return null
-  }
-})
-
-const qualifiersByGroup = computed(() => {
-  if (!groups.value?.length) {
-    return []
-  }
-
-  return groups.value.map((group) => {
-    const standings = groupStandingsByGroupId.value[group.id]
-
-    if (!standings?.length) {
-      return {
-        group,
-        qualifiers: null,
-      }
-    }
-
-    const eligibleQualifiers = standings
-      .filter((standing) => standing.eligible_for_qualification !== false)
-      .slice(0, qualifiedPerGroup.value)
-
-    return {
-      group,
-      qualifiers: eligibleQualifiers.map((standing, index) => ({
-        ...standing,
-        position: index + 1,
-      })),
-    }
-  })
-})
 
 const groupPhaseSummaries = computed(() =>
   (groups.value ?? []).map((group) =>
@@ -279,66 +186,6 @@ const groupPhaseCardClasses = (summary) => {
   }
 
   return 'border-slate-200 bg-slate-50/40 dark:border-slate-700 dark:bg-slate-900/40'
-}
-
-const hasQualifiersData = computed(() =>
-  qualifiersByGroup.value.some((entry) => entry.qualifiers?.length > 0),
-)
-
-const groupPhaseGamesForQualifiers = computed(() => {
-  if (!games.value) {
-    return []
-  }
-
-  return groupGames.value.length > 0 ? groupGames.value : games.value
-})
-
-const isGroupPhaseComplete = computed(() => {
-  const phaseGames = groupPhaseGamesForQualifiers.value
-
-  if (phaseGames.length === 0) {
-    return false
-  }
-
-  return phaseGames.every((game) => game.status === 'finished')
-})
-
-const qualifiersSectionTitle = computed(() =>
-  isGroupPhaseComplete.value ? 'Clasificados' : 'Posiciones provisionales',
-)
-
-const qualifiersSectionMessage = computed(() =>
-  isGroupPhaseComplete.value
-    ? 'Clasificación definida'
-    : 'Los clasificados se definirán cuando finalice la fase de grupos.',
-)
-
-const qualifiersStatusBadgeClasses = computed(() =>
-  isGroupPhaseComplete.value
-    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
-    : 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200',
-)
-
-const qualifiersStatusBadgeLabel = computed(() =>
-  isGroupPhaseComplete.value ? 'Definitivo' : 'Provisional',
-)
-
-const qualifierItemClasses = computed(() =>
-  isGroupPhaseComplete.value
-    ? 'border-emerald-200 bg-emerald-50/40 dark:border-emerald-900 dark:bg-emerald-950/20'
-    : 'border-amber-200 bg-amber-50/40 dark:border-amber-900 dark:bg-amber-950/20',
-)
-
-const positionBadgeClasses = (position) => {
-  if (position === 1) {
-    return 'bg-amber-100 text-amber-900 ring-1 ring-amber-200 dark:bg-amber-900/50 dark:text-amber-200 dark:ring-amber-800'
-  }
-
-  if (position === 2) {
-    return 'bg-slate-200 text-slate-800 ring-1 ring-slate-300 dark:bg-slate-600 dark:text-slate-100 dark:ring-slate-500'
-  }
-
-  return 'bg-slate-100 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700'
 }
 
 const actionLinks = computed(() => [
@@ -504,56 +351,16 @@ const handleRandomGroupsSaved = async () => {
         </p>
       </div>
 
-      <div
-        v-if="statusSummary"
-        class="rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
-      >
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div class="space-y-2">
-            <p class="font-medium text-slate-700 dark:text-slate-200">Estado de la competencia</p>
-
-            <span
-              class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
-              :class="statusBadgeClasses(statusSummary.code)"
-            >
-              {{ statusSummary.label }}
-            </span>
-
-            <p class="text-slate-600 dark:text-slate-300">{{ statusSummary.description }}</p>
-
-            <p class="text-slate-700 dark:text-slate-200">
-              Próxima acción:
-              <span class="font-medium text-slate-900 dark:text-slate-100">{{ statusSummary.next_action }}</span>
-            </p>
-          </div>
-
-          <RouterLink
-            v-if="statusActionLink"
-            :to="statusActionLink.to"
-            class="inline-flex shrink-0 rounded-md bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-          >
-            {{ statusActionLink.label }}
-          </RouterLink>
-
-          <button
-            v-if="statusSummary.code === 'no_groups' && canGenerateRandomGroups"
-            type="button"
-            class="inline-flex shrink-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-            @click="showGenerateRandomGroupsModal = true"
-          >
-            Generar grupos
-          </button>
-        </div>
-      </div>
-
-      <div
+      <details
         v-if="groups !== null && groups.length > 0"
         class="rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
       >
-        <p class="font-medium text-slate-700 dark:text-slate-200">Estado de la fase de grupos</p>
+        <summary class="cursor-pointer font-medium text-slate-700 dark:text-slate-200">
+          Estado de la fase de grupos
+        </summary>
 
         <p
-          class="mt-2 rounded-md px-3 py-2 text-xs font-medium"
+          class="mt-4 rounded-md px-3 py-2 text-xs font-medium"
           :class="
             groupsNeedingAttention.length > 0
               ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100'
@@ -623,7 +430,7 @@ const handleRandomGroupsSaved = async () => {
             </div>
           </article>
         </div>
-      </div>
+      </details>
 
       <div
         v-if="resultSummary"
@@ -722,72 +529,6 @@ const handleRandomGroupsSaved = async () => {
           </div>
         </div>
       </details>
-
-      <div
-        class="rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
-      >
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <p class="font-medium text-slate-700 dark:text-slate-200">{{ qualifiersSectionTitle }}</p>
-
-          <span
-            v-if="hasQualifiersData"
-            class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-            :class="qualifiersStatusBadgeClasses"
-          >
-            <span aria-hidden="true">{{ isGroupPhaseComplete ? '✓' : '⏳' }}</span>
-            {{ qualifiersStatusBadgeLabel }}
-          </span>
-        </div>
-
-        <p
-          v-if="hasQualifiersData"
-          class="mt-2 text-slate-600 dark:text-slate-300"
-        >
-          <span aria-hidden="true">{{ isGroupPhaseComplete ? '✓' : '⏳' }}</span>
-          {{ qualifiersSectionMessage }}
-        </p>
-
-        <p
-          v-if="groups !== null && groups.length === 0"
-          class="mt-3 text-slate-600 dark:text-slate-300"
-        >
-          No hay grupos creados
-        </p>
-
-        <p
-          v-else-if="groups !== null && groups.length > 0 && !hasQualifiersData"
-          class="mt-3 text-slate-600 dark:text-slate-300"
-        >
-          Las posiciones aún no están disponibles
-        </p>
-
-        <div v-else-if="hasQualifiersData" class="mt-3 space-y-4">
-          <div v-for="entry in qualifiersByGroup" :key="entry.group.id">
-            <template v-if="entry.qualifiers?.length">
-              <p class="font-medium text-slate-900 dark:text-slate-100">{{ entry.group.name }}</p>
-
-              <ul class="mt-2 space-y-2">
-                <li
-                  v-for="qualifier in entry.qualifiers"
-                  :key="qualifier.player_id"
-                  class="flex items-center gap-2 rounded-md border px-3 py-2"
-                  :class="qualifierItemClasses"
-                >
-                  <span
-                    class="inline-flex min-w-[2.5rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold"
-                    :class="positionBadgeClasses(qualifier.position)"
-                  >
-                    {{ qualifier.position }}°
-                  </span>
-                  <span class="font-medium text-slate-900 dark:text-slate-100">
-                    {{ qualifier.player_name }}
-                  </span>
-                </li>
-              </ul>
-            </template>
-          </div>
-        </div>
-      </div>
 
       <div
         class="rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
