@@ -355,7 +355,7 @@ const handleRandomGroupsSaved = async () => {
         v-if="groups !== null && groups.length > 0"
         class="rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
       >
-        <summary class="cursor-pointer font-medium text-slate-700 dark:text-slate-200">
+        <summary class="cursor-pointer font-bold text-slate-700 dark:text-slate-200">
           Estado de la fase de grupos
         </summary>
 
