@@ -314,6 +314,11 @@ const handleRandomGroupsSaved = async (result) => {
   randomGroupsSuccessMessage.value = buildRandomGroupsSuccessMessage(result)
   await loadCompetitionSummary()
 }
+
+const openGenerateRandomGroupsModal = () => {
+  randomGroupsSuccessMessage.value = ''
+  showGenerateRandomGroupsModal.value = true
+}
 </script>
 
 <template>
@@ -344,10 +349,7 @@ const handleRandomGroupsSaved = async (result) => {
           <button
             type="button"
             class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-            @click="
-              randomGroupsSuccessMessage = ''
-              showGenerateRandomGroupsModal = true
-            "
+            @click="openGenerateRandomGroupsModal"
           >
             Generar grupos
           </button>
