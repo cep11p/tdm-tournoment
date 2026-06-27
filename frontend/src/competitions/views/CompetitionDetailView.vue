@@ -14,7 +14,6 @@ import BracketService from '../../brackets/services/BracketService'
 import GameService from '../../games/services/GameService'
 import GroupService from '../../groups/services/GroupService'
 import RegistrationService from '../../registrations/services/RegistrationService'
-import BulkPlayerRegistrationModal from '../../registrations/components/BulkPlayerRegistrationModal.vue'
 import GenerateRandomGroupsModal from '../../groups/components/GenerateRandomGroupsModal.vue'
 import StandingService from '../../standings/services/StandingService'
 import { buildGroupPhaseAlert } from '../utils/buildGroupPhaseAlert'
@@ -32,7 +31,6 @@ const groupStandingsMetaByGroupId = ref({})
 
 const isLoading = ref(false)
 const errorMessage = ref('')
-const showBulkRegistrationModal = ref(false)
 const showGenerateRandomGroupsModal = ref(false)
 
 const competitionId = computed(() => route.params.id)
@@ -59,10 +57,6 @@ const canGenerateRandomGroups = computed(
     !hasExistingGroups.value &&
     !isCompetitionCompleted.value &&
     groups.value !== null,
-)
-
-const registeredPlayerIds = computed(() =>
-  (registrations.value ?? []).map((registration) => registration.player?.id).filter(Boolean),
 )
 
 const groupCount = computed(() => (groups.value === null ? '-' : groups.value.length))
@@ -273,11 +267,6 @@ const loadCompetitionSummary = async () => {
 
 onMounted(loadCompetitionSummary)
 
-const handleBulkRegistrationSaved = async () => {
-  showBulkRegistrationModal.value = false
-  await loadCompetitionSummary()
-}
-
 const handleRandomGroupsSaved = async () => {
   showGenerateRandomGroupsModal.value = false
   await loadCompetitionSummary()
@@ -305,6 +294,38 @@ const handleRandomGroupsSaved = async () => {
     <p v-else-if="errorMessage" class="text-sm text-red-600 dark:text-red-400">{{ errorMessage }}</p>
 
     <template v-else-if="competition">
+      <div>
+        <p class="mb-3 text-sm font-medium text-slate-700 dark:text-slate-200">Acciones principales</p>
+
+        <div v-if="canGenerateRandomGroups" class="mb-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+            @click="showGenerateRandomGroupsModal = true"
+          >
+            Generar grupos
+          </button>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-2">
+          <RouterLink
+            v-for="action in actionLinks"
+            :key="action.to"
+            :to="action.to"
+            class="group flex items-start gap-3 rounded-md border border-slate-200 bg-white p-4 text-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600 dark:hover:bg-slate-800/80"
+          >
+            <component
+              :is="action.icon"
+              class="mt-0.5 h-6 w-6 shrink-0 text-slate-500 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200"
+            />
+            <div>
+              <p class="font-medium text-slate-900 dark:text-slate-100">{{ action.label }}</p>
+              <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ action.description }}</p>
+            </div>
+          </RouterLink>
+        </div>
+      </div>
+
       <div
         class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-700 dark:bg-slate-900/60"
       >
@@ -356,7 +377,7 @@ const handleRandomGroupsSaved = async () => {
         class="rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
       >
         <summary class="cursor-pointer font-bold text-slate-700 dark:text-slate-200">
-          Estado de la fase de grupos
+          Fase de grupos
         </summary>
 
         <p
@@ -581,55 +602,6 @@ const handleRandomGroupsSaved = async () => {
           </RouterLink>
         </template>
       </div>
-
-      <div>
-        <p class="mb-3 text-sm font-medium text-slate-700 dark:text-slate-200">Acciones principales</p>
-
-        <div class="mb-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            class="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-            @click="showBulkRegistrationModal = true"
-          >
-            Inscribir jugadores
-          </button>
-
-          <button
-            v-if="canGenerateRandomGroups"
-            type="button"
-            class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-            @click="showGenerateRandomGroupsModal = true"
-          >
-            Generar grupos
-          </button>
-        </div>
-
-        <div class="grid gap-3 sm:grid-cols-2">
-          <RouterLink
-            v-for="action in actionLinks"
-            :key="action.to"
-            :to="action.to"
-            class="group flex items-start gap-3 rounded-md border border-slate-200 bg-white p-4 text-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600 dark:hover:bg-slate-800/80"
-          >
-            <component
-              :is="action.icon"
-              class="mt-0.5 h-6 w-6 shrink-0 text-slate-500 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200"
-            />
-            <div>
-              <p class="font-medium text-slate-900 dark:text-slate-100">{{ action.label }}</p>
-              <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ action.description }}</p>
-            </div>
-          </RouterLink>
-        </div>
-      </div>
-
-      <BulkPlayerRegistrationModal
-        :show="showBulkRegistrationModal"
-        :competition-id="competitionId"
-        :registered-player-ids="registeredPlayerIds"
-        @close="showBulkRegistrationModal = false"
-        @saved="handleBulkRegistrationSaved"
-      />
 
       <GenerateRandomGroupsModal
         :show="showGenerateRandomGroupsModal"
