@@ -13,10 +13,15 @@ use Illuminate\Validation\ValidationException;
 
 final class GenerateRandomGroupsForCompetitionAction
 {
+    public function __construct(
+        private readonly GenerateGroupRoundRobinGamesAction $generateRoundRobin,
+    ) {}
+
     /**
      * @return array{
      *     groups_created: int,
      *     players_assigned: int,
+     *     games_created: int,
      *     groups: Collection<int, Group>,
      * }
      */
@@ -125,9 +130,24 @@ final class GenerateRandomGroupsForCompetitionAction
                 ->orderBy('id')
                 ->get();
 
+            $gamesCreated = 0;
+
+            foreach ($createdGroups as $group) {
+                if ($group->groupPlayers->count() < 2) {
+                    continue;
+                }
+
+                if ($group->games()->exists()) {
+                    continue;
+                }
+
+                $gamesCreated += ($this->generateRoundRobin)($group)->count();
+            }
+
             return [
                 'groups_created' => $groupsCount,
                 'players_assigned' => $playerCount,
+                'games_created' => $gamesCreated,
                 'groups' => $createdGroups,
             ];
         });

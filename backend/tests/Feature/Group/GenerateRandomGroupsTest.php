@@ -2,6 +2,9 @@
 
 namespace Tests\Feature\Group;
 
+use App\Enums\GameStatus;
+use App\Models\Game;
+use App\Models\Group;
 use App\Models\GroupPlayer;
 use Tests\TestCase;
 
@@ -150,16 +153,84 @@ class GenerateRandomGroupsTest extends TestCase
             ->assertJsonValidationErrors(['competition']);
     }
 
-    public function test_does_not_create_games(): void
+    public function test_generates_round_robin_games_for_each_group(): void
     {
         $context = $this->tournamentContext();
         $competition = $context->createCompetition();
         $players = $context->createPlayers(6);
         $context->registerPlayers($competition, $players);
 
-        $context->generateRandomGroups($competition, groupsCount: 2)->assertCreated();
+        $response = $context->generateRandomGroups($competition, groupsCount: 2);
+
+        $response
+            ->assertCreated()
+            ->assertJson([
+                'games_created' => 6,
+            ]);
+
+        $this->assertDatabaseCount('games', 6);
+
+        $groups = Group::query()
+            ->where('competition_id', $competition->id)
+            ->orderBy('id')
+            ->get();
+
+        $this->assertCount(2, $groups);
+
+        foreach ($groups as $group) {
+            $this->assertSame(3, Game::query()->where('group_id', $group->id)->count());
+        }
+
+        $this->assertGamesHaveExpectedAttributes($competition->id, $groups);
+    }
+
+    public function test_does_not_generate_games_for_single_player_groups(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+        $players = $context->createPlayers(4);
+        $context->registerPlayers($competition, $players);
+
+        $response = $context->generateRandomGroups($competition, groupsCount: 4);
+
+        $response
+            ->assertCreated()
+            ->assertJson([
+                'groups_created' => 4,
+                'players_assigned' => 4,
+                'games_created' => 0,
+            ]);
 
         $this->assertDatabaseCount('games', 0);
+    }
+
+    public function test_generates_thirty_games_for_twenty_players_in_five_groups(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+        $players = $context->createPlayers(20);
+        $context->registerPlayers($competition, $players);
+
+        $response = $context->generateRandomGroups($competition, groupsCount: 5);
+
+        $response
+            ->assertCreated()
+            ->assertJson([
+                'games_created' => 30,
+            ]);
+
+        $this->assertDatabaseCount('games', 30);
+
+        $groups = Group::query()
+            ->where('competition_id', $competition->id)
+            ->orderBy('id')
+            ->get();
+
+        foreach ($groups as $group) {
+            $this->assertSame(6, Game::query()->where('group_id', $group->id)->count());
+        }
+
+        $this->assertGamesHaveExpectedAttributes($competition->id, $groups);
     }
 
     public function test_creates_group_players_for_all_registered_players(): void
@@ -202,6 +273,7 @@ class GenerateRandomGroupsTest extends TestCase
                 'message',
                 'groups_created',
                 'players_assigned',
+                'games_created',
                 'groups' => [
                     '*' => [
                         'id',
@@ -213,5 +285,21 @@ class GenerateRandomGroupsTest extends TestCase
                     ],
                 ],
             ]);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Group>|\Illuminate\Database\Eloquent\Collection<int, Group>  $groups
+     */
+    private function assertGamesHaveExpectedAttributes(int $competitionId, $groups): void
+    {
+        foreach ($groups as $group) {
+            $games = Game::query()->where('group_id', $group->id)->get();
+
+            foreach ($games as $game) {
+                $this->assertSame($competitionId, (int) $game->competition_id);
+                $this->assertSame($group->id, (int) $game->group_id);
+                $this->assertSame(GameStatus::Pending, $game->status);
+            }
+        }
     }
 }
