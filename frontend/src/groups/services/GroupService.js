@@ -30,6 +30,15 @@ const GroupService = {
     return unwrap(response) ?? []
   },
 
+  /**
+   * @returns {Promise<{
+   *   message?: string,
+   *   groups_created?: number,
+   *   players_assigned?: number,
+   *   games_created?: number,
+   *   groups?: unknown[],
+   * }|undefined>}
+   */
   async generateRandomGroups(competitionId, { groups_count }) {
     const response = await httpClient.post(
       `/competitions/${competitionId}/groups/random-generate`,

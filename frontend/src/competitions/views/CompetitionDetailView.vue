@@ -15,6 +15,7 @@ import GameService from '../../games/services/GameService'
 import GroupService from '../../groups/services/GroupService'
 import RegistrationService from '../../registrations/services/RegistrationService'
 import GenerateRandomGroupsModal from '../../groups/components/GenerateRandomGroupsModal.vue'
+import { buildRandomGroupsSuccessMessage } from '../../groups/utils/buildRandomGroupsSuccessMessage'
 import StandingService from '../../standings/services/StandingService'
 import { buildGroupPhaseAlert } from '../utils/buildGroupPhaseAlert'
 import {
@@ -35,6 +36,7 @@ const groupStandingsMetaByGroupId = ref({})
 
 const isLoading = ref(false)
 const errorMessage = ref('')
+const randomGroupsSuccessMessage = ref('')
 const showGenerateRandomGroupsModal = ref(false)
 
 const competitionId = computed(() => route.params.id)
@@ -307,8 +309,9 @@ const loadCompetitionSummary = async () => {
 
 onMounted(loadCompetitionSummary)
 
-const handleRandomGroupsSaved = async () => {
+const handleRandomGroupsSaved = async (result) => {
   showGenerateRandomGroupsModal.value = false
+  randomGroupsSuccessMessage.value = buildRandomGroupsSuccessMessage(result)
   await loadCompetitionSummary()
 }
 </script>
@@ -341,11 +344,21 @@ const handleRandomGroupsSaved = async () => {
           <button
             type="button"
             class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-            @click="showGenerateRandomGroupsModal = true"
+            @click="
+              randomGroupsSuccessMessage = ''
+              showGenerateRandomGroupsModal = true
+            "
           >
             Generar grupos
           </button>
         </div>
+
+        <p
+          v-if="randomGroupsSuccessMessage"
+          class="mb-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
+        >
+          {{ randomGroupsSuccessMessage }}
+        </p>
 
         <p
           v-if="isKnockoutDirect"

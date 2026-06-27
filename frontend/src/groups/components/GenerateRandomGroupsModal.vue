@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 
 import GroupService from '../services/GroupService'
+import { buildRandomGroupsSuccessMessage } from '../utils/buildRandomGroupsSuccessMessage'
 import {
   calculateBalancedGroupSizes,
   formatBalancedGroupSizes,
@@ -105,9 +106,7 @@ const handleConfirm = async () => {
       groups_count: groupsCount.value,
     })
 
-    successMessage.value =
-      result?.message ||
-      `Grupos generados: ${result?.groups_created ?? 0}, jugadores asignados: ${result?.players_assigned ?? 0}.`
+    successMessage.value = buildRandomGroupsSuccessMessage(result)
 
     emit('saved', result)
   } catch (error) {
