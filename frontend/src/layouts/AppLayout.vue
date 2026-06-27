@@ -7,7 +7,7 @@ import { useTheme } from '../composables/useTheme'
 const navigationLinks = [
   { name: 'Dashboard', to: '/', icon: HomeIcon },
   { name: 'Tournaments', to: '/tournaments', icon: TrophyIcon },
-  { name: 'Players', to: '/players', icon: UsersIcon },
+  { name: 'Jugadores', to: '/players', icon: UsersIcon },
 ]
 
 const { theme, toggle } = useTheme()

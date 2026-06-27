@@ -15,6 +15,8 @@ import GameDetailView from '../games/views/GameDetailView.vue'
 import GroupStandingsView from '../standings/views/GroupStandingsView.vue'
 import CompetitionBracketView from '../brackets/views/CompetitionBracketView.vue'
 import PlayerListView from '../players/views/PlayerListView.vue'
+import PlayerCreateView from '../players/views/PlayerCreateView.vue'
+import PlayerEditView from '../players/views/PlayerEditView.vue'
 
 const routes = [
   {
@@ -91,6 +93,16 @@ const routes = [
     path: '/players',
     name: 'players',
     component: PlayerListView,
+  },
+  {
+    path: '/players/create',
+    name: 'players-create',
+    component: PlayerCreateView,
+  },
+  {
+    path: '/players/:id/edit',
+    name: 'players-edit',
+    component: PlayerEditView,
   },
 ]
 
