@@ -22,13 +22,10 @@ use App\Models\Player;
 use App\Models\Registration;
 use App\Models\Tournament;
 use Illuminate\Console\Command;
-use Illuminate\Support\Str;
 
 final class MisSeedsDePruebaBuilder
 {
     private const TOURNAMENT_LOCATION = 'Club Mis Pruebas';
-
-    private const NICKNAME_PREFIX = 'amistoso';
 
     /**
      * @var array<string, int>
@@ -375,17 +372,17 @@ final class MisSeedsDePruebaBuilder
 
         foreach (array_keys($uniqueFullNames) as $fullName) {
             [$firstName, $lastName] = $this->splitPlayerName($fullName);
-            $nickname = $this->buildNickname($fullName);
 
             $player = Player::query()
-                ->where('nickname', $nickname)
+                ->where('first_name', $firstName)
+                ->where('last_name', $lastName)
                 ->first();
 
             if ($player === null) {
                 $player = ($createPlayer)([
                     'first_name' => $firstName,
                     'last_name' => $lastName,
-                    'nickname' => $nickname,
+                    'nickname' => null,
                 ]);
             }
 
@@ -574,10 +571,5 @@ final class MisSeedsDePruebaBuilder
             $parts[0],
             $parts[1] ?? 'Sin apellido',
         ];
-    }
-
-    private function buildNickname(string $fullName): string
-    {
-        return self::NICKNAME_PREFIX.'-'.Str::slug($fullName);
     }
 }
