@@ -392,6 +392,42 @@ const finalResult = computed(() => {
   return { champion, runnerUp }
 })
 
+const canGenerateNextRound = computed(() => {
+  if (!hasBracket.value || finalResult.value) {
+    return false
+  }
+
+  const games = bracket.value?.games
+
+  if (!games?.length) {
+    return false
+  }
+
+  const currentRound = Math.max(...games.map((game) => game.bracket_round || 0))
+
+  if (currentRound === 0) {
+    return false
+  }
+
+  const currentRoundGames = games.filter((game) => (game.bracket_round || 0) === currentRound)
+
+  if (currentRoundGames.length === 0) {
+    return false
+  }
+
+  const currentRoundComplete = currentRoundGames.every(
+    (game) => game.status === 'finished' && game.winner_id != null,
+  )
+
+  if (!currentRoundComplete) {
+    return false
+  }
+
+  const nextRoundExists = games.some((game) => (game.bracket_round || 0) === currentRound + 1)
+
+  return !nextRoundExists
+})
+
 const handleCreateBracket = async () => {
   isCreatingBracket.value = true
   createError.value = ''
@@ -541,7 +577,7 @@ onMounted(loadData)
           <p class="font-medium text-slate-700 dark:text-slate-200">Rondas eliminatorias</p>
 
           <button
-            v-if="hasBracket"
+            v-if="canGenerateNextRound"
             type="button"
             class="rounded-md bg-emerald-700 px-3 py-2 font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
             :disabled="isGeneratingNextRound"
