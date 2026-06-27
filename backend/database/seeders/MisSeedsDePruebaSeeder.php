@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use Database\Seeders\Support\CleanTechnicalPlayerNicknames;
+use Database\Seeders\Support\FriendlyTournamentRoster;
 use Database\Seeders\Support\MisSeedsDePruebaBuilder;
 use Illuminate\Database\Seeder;
 
@@ -15,6 +16,8 @@ class MisSeedsDePruebaSeeder extends Seeder
     private const TOURNAMENT_ROUND_ROBIN_PENDIENTE = 'Mis Pruebas - Round Robin Pendiente';
 
     private const TOURNAMENT_RESULTADOS_PARCIALES = 'Mis Pruebas - Resultados Parciales';
+
+    private const TOURNAMENT_ELIMINACION_DIRECTA = 'Mis Pruebas - Eliminación Directa';
 
     public function run(): void
     {
@@ -33,6 +36,7 @@ class MisSeedsDePruebaSeeder extends Seeder
         $this->seedConGrupos($builder);
         $this->seedRoundRobinPendiente($builder);
         $this->seedResultadosParciales($builder);
+        $this->seedEliminacionDirecta($builder);
 
         $this->command?->newLine();
         $this->command?->info('MisSeedsDePruebaSeeder finalizado.');
@@ -108,6 +112,43 @@ class MisSeedsDePruebaSeeder extends Seeder
             'Asignaciones nuevas' => $groups['assignments_created'],
             'Partidos generados' => $gamesGenerated,
             'Resultados cargados' => $gamesFinished,
+        ]);
+    }
+
+    private function seedEliminacionDirecta(MisSeedsDePruebaBuilder $builder): void
+    {
+        $base = $builder->seedKnockoutDirectTournament(
+            self::TOURNAMENT_ELIMINACION_DIRECTA,
+            [
+                [
+                    'category' => 'primera',
+                    'name' => 'Singles - Primera Directa',
+                ],
+                [
+                    'category' => 'cuarta',
+                    'name' => 'Singles - Cuarta Directa',
+                ],
+                [
+                    'category' => 'segunda',
+                    'name' => 'Singles - Segunda Directa',
+                    'player_names' => array_slice(
+                        FriendlyTournamentRoster::PLAYERS_BY_CATEGORY['segunda'],
+                        0,
+                        8,
+                    ),
+                ],
+            ],
+        );
+
+        $builder->printScenarioSummary(self::TOURNAMENT_ELIMINACION_DIRECTA, [
+            'Torneo' => $base['tournament_created'] ? 'creado' : 'reutilizado',
+            'Competencias creadas' => $base['competitions_created'],
+            'Competencias reutilizadas' => $base['competitions_reused'],
+            'Inscripciones nuevas' => $base['registrations_created'],
+            'Inscripciones reutilizadas' => $base['registrations_reused'],
+            'Formato' => 'knockout_direct',
+            'Grupos' => 0,
+            'Partidos' => 0,
         ]);
     }
 }

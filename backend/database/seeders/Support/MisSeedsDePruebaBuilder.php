@@ -133,6 +133,75 @@ final class MisSeedsDePruebaBuilder
     }
 
     /**
+     * @param  array<int, array{
+     *     category: string,
+     *     name: string,
+     *     player_names?: array<int, string>|null,
+     * }>  $competitionSpecs
+     * @return array{
+     *     tournament: Tournament,
+     *     tournament_created: bool,
+     *     competitions: array<string, Competition>,
+     *     competitions_created: int,
+     *     competitions_reused: int,
+     *     registrations_created: int,
+     *     registrations_reused: int,
+     * }
+     */
+    public function seedKnockoutDirectTournament(string $tournamentName, array $competitionSpecs): array
+    {
+        $createTournament = app(CreateTournamentAction::class);
+        $createCompetition = app(CreateCompetitionAction::class);
+
+        [$tournament, $tournamentCreated] = $this->findOrCreateTournament($tournamentName, $createTournament);
+
+        $this->findOrCreatePlayersFromRoster();
+
+        $competitions = [];
+        $competitionsCreated = 0;
+        $competitionsReused = 0;
+        $registrationsCreated = 0;
+        $registrationsReused = 0;
+
+        foreach ($competitionSpecs as $spec) {
+            $category = $spec['category'];
+            $competitionName = $spec['name'];
+
+            [$competition, $competitionCreated] = $this->findOrCreateKnockoutDirectCompetition(
+                $tournament,
+                $competitionName,
+                $category,
+                $createCompetition,
+            );
+
+            $competitions[$category.'::'.$competitionName] = $competition;
+
+            if ($competitionCreated) {
+                $competitionsCreated++;
+            } else {
+                $competitionsReused++;
+            }
+
+            $playerNames = $spec['player_names']
+                ?? FriendlyTournamentRoster::PLAYERS_BY_CATEGORY[$category];
+
+            $registrationSummary = $this->registerPlayersByNames($competition, $playerNames);
+            $registrationsCreated += $registrationSummary['created'];
+            $registrationsReused += $registrationSummary['reused'];
+        }
+
+        return [
+            'tournament' => $tournament,
+            'tournament_created' => $tournamentCreated,
+            'competitions' => $competitions,
+            'competitions_created' => $competitionsCreated,
+            'competitions_reused' => $competitionsReused,
+            'registrations_created' => $registrationsCreated,
+            'registrations_reused' => $registrationsReused,
+        ];
+    }
+
+    /**
      * @return array{groups_created: int, assignments_created: int}
      */
     public function assignDeterministicGroups(Competition $competition, string $category): array
@@ -351,6 +420,42 @@ final class MisSeedsDePruebaBuilder
     }
 
     /**
+     * @return array{0: Competition, 1: bool}
+     */
+    public function findOrCreateKnockoutDirectCompetition(
+        Tournament $tournament,
+        string $competitionName,
+        string $category,
+        CreateCompetitionAction $createCompetition,
+    ): array {
+        $existingCompetition = Competition::query()
+            ->where('tournament_id', $tournament->id)
+            ->where('name', $competitionName)
+            ->first();
+
+        if ($existingCompetition !== null) {
+            return [$existingCompetition, false];
+        }
+
+        return [
+            ($createCompetition)([
+                'tournament_id' => $tournament->id,
+                'name' => $competitionName,
+                'type' => CompetitionType::Singles,
+                'category' => $category,
+                'format' => CompetitionFormat::KnockoutDirect,
+                'points_per_set' => 11,
+                'group_stage_best_of' => 3,
+                'knockout_stage_best_of' => 3,
+                'semifinal_best_of' => 3,
+                'final_best_of' => 3,
+                'qualified_per_group' => 2,
+            ]),
+            true,
+        ];
+    }
+
+    /**
      * @return array<string, Player>
      */
     public function findOrCreatePlayersFromRoster(): array
@@ -395,12 +500,12 @@ final class MisSeedsDePruebaBuilder
     }
 
     /**
+     * @param  array<int, string>  $playerNames
      * @return array{created: int, reused: int}
      */
-    public function registerCategoryPlayers(Competition $competition, string $category): array
+    public function registerPlayersByNames(Competition $competition, array $playerNames): array
     {
         $registerPlayer = app(RegisterPlayerToCompetitionAction::class);
-        $playerNames = FriendlyTournamentRoster::PLAYERS_BY_CATEGORY[$category];
 
         if ($this->playersByFullName === null) {
             $this->findOrCreatePlayersFromRoster();
@@ -434,6 +539,17 @@ final class MisSeedsDePruebaBuilder
             'created' => $created,
             'reused' => $reused,
         ];
+    }
+
+    /**
+     * @return array{created: int, reused: int}
+     */
+    public function registerCategoryPlayers(Competition $competition, string $category): array
+    {
+        return $this->registerPlayersByNames(
+            $competition,
+            FriendlyTournamentRoster::PLAYERS_BY_CATEGORY[$category],
+        );
     }
 
     public function finishGame(Game $game, int $scoreVariantIndex = 0): bool
