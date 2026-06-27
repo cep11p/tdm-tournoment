@@ -8,6 +8,11 @@ final class CreatePlayerAction
 {
     public function __invoke(array $payload): Player
     {
-        return Player::query()->create($payload);
+        $player = Player::query()->create([
+            ...$payload,
+            'active' => $payload['active'] ?? true,
+        ]);
+
+        return $player->refresh();
     }
 }

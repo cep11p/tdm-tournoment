@@ -2,15 +2,33 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Player extends Model
 {
     use HasFactory;
 
-    protected $guarded = [];
+    protected $fillable = [
+        'first_name',
+        'last_name',
+        'nickname',
+        'active',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'active' => 'boolean',
+        ];
+    }
+
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('active', true);
+    }
 
     public function registrations(): HasMany
     {
@@ -35,5 +53,10 @@ class Player extends Model
     public function wonGames(): HasMany
     {
         return $this->hasMany(Game::class, 'winner_id');
+    }
+
+    public function manualTiebreakPlayers(): HasMany
+    {
+        return $this->hasMany(GroupManualTiebreakPlayer::class);
     }
 }

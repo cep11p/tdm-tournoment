@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Registration;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreRegistrationRequest extends FormRequest
 {
@@ -15,7 +16,11 @@ class StoreRegistrationRequest extends FormRequest
     {
         return [
             'competition_id' => ['required', 'integer', 'exists:competitions,id'],
-            'player_id' => ['required', 'integer', 'exists:players,id'],
+            'player_id' => [
+                'required',
+                'integer',
+                Rule::exists('players', 'id')->where('active', true),
+            ],
         ];
     }
 

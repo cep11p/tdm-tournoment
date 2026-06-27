@@ -40,8 +40,7 @@ Route::prefix(config('api.version_prefix', 'v1'))
         Route::post('brackets/{bracket}/next-round', [BracketNextRoundController::class, 'store'])
             ->name('brackets.next-round.store');
 
-        Route::apiResource('players', PlayerController::class)
-            ->only(['store', 'index', 'show']);
+        Route::apiResource('players', PlayerController::class);
 
         Route::post('competitions/{competition}/registrations/bulk', [RegistrationController::class, 'bulkStore'])
             ->name('competitions.registrations.bulk');
