@@ -7,6 +7,7 @@ use App\Enums\GroupPlayerStatus;
 use App\Enums\GroupPlayerStatusReason;
 use App\Models\Group;
 use App\Models\GroupPlayer;
+use App\Support\Competition\CompetitionFormatGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -23,6 +24,8 @@ final class SetGroupPlayerStatusAction
     public function __invoke(Group $group, array $payload): GroupPlayer
     {
         $group->loadMissing('competition');
+
+        CompetitionFormatGuard::ensureGroupStage($group->competition);
 
         if ($group->competition->brackets()->exists()) {
             throw ValidationException::withMessages([

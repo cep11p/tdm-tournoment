@@ -6,6 +6,7 @@ use App\Enums\ManualTiebreakReason;
 use App\Models\Group;
 use App\Models\GroupManualTiebreak;
 use App\Models\GroupManualTiebreakPlayer;
+use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Group\GroupStandingsCalculator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -22,6 +23,8 @@ final class ApplyGroupManualTiebreakAction
     public function __invoke(Group $group, array $payload): GroupManualTiebreak
     {
         $group->loadMissing('competition');
+
+        CompetitionFormatGuard::ensureGroupStage($group->competition);
 
         if ($group->competition->brackets()->exists()) {
             throw ValidationException::withMessages([

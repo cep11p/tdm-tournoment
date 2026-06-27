@@ -32,6 +32,7 @@ final class TournamentTestContext
     public function createCompetition(
         int $setsToWin = 1,
         int $pointsPerSet = 11,
+        CompetitionFormat $format = CompetitionFormat::GroupsKnockout,
     ): Competition {
         $bestOf = max(1, ($setsToWin * 2) - 1);
 
@@ -47,7 +48,7 @@ final class TournamentTestContext
             'name' => 'Singles Test',
             'type' => CompetitionType::Singles,
             'category' => 'primera',
-            'format' => CompetitionFormat::Manual,
+            'format' => $format,
             'sets_to_win' => $setsToWin,
             'points_per_set' => $pointsPerSet,
             'group_stage_best_of' => $bestOf,
@@ -55,6 +56,13 @@ final class TournamentTestContext
             'semifinal_best_of' => $bestOf,
             'final_best_of' => $bestOf,
         ]);
+    }
+
+    public function createKnockoutDirectCompetition(
+        int $setsToWin = 1,
+        int $pointsPerSet = 11,
+    ): Competition {
+        return $this->createCompetition($setsToWin, $pointsPerSet, CompetitionFormat::KnockoutDirect);
     }
 
     /**
@@ -247,7 +255,7 @@ final class TournamentTestContext
             'name' => 'Singles Test',
             'category' => 'primera',
             'type' => 'singles',
-            'format' => 'manual',
+            'format' => 'groups_knockout',
             'points_per_set' => 11,
             ...$overrides,
         ]);

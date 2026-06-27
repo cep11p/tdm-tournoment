@@ -122,7 +122,7 @@ class DemoTournamentSeeder extends Seeder
             'name' => $competitionName,
             'type' => CompetitionType::Singles,
             'category' => Str::lower($competitionName),
-            'format' => CompetitionFormat::Manual,
+            'format' => CompetitionFormat::GroupsKnockout,
             'points_per_set' => 11,
             'group_stage_best_of' => 3,
             'knockout_stage_best_of' => 3,

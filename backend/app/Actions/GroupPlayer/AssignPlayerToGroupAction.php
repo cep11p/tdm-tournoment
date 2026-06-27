@@ -4,6 +4,7 @@ namespace App\Actions\GroupPlayer;
 
 use App\Models\Group;
 use App\Models\GroupPlayer;
+use App\Support\Competition\CompetitionFormatGuard;
 use Illuminate\Database\QueryException;
 use Illuminate\Validation\ValidationException;
 
@@ -12,6 +13,8 @@ final class AssignPlayerToGroupAction
     public function __invoke(array $payload): GroupPlayer
     {
         $group = Group::query()->findOrFail($payload['group_id']);
+        $group->loadMissing('competition');
+        CompetitionFormatGuard::ensureGroupStage($group->competition);
         $playerId = (int) $payload['player_id'];
 
         $alreadyAssigned = GroupPlayer::query()

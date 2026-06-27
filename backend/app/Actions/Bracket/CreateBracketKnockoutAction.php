@@ -7,6 +7,7 @@ use App\Data\Competition\CompetitionStandingData;
 use App\Enums\GameStatus;
 use App\Models\Bracket;
 use App\Models\Competition;
+use App\Models\Game;
 use App\Models\Group;
 use App\Support\Bracket\BracketSupport;
 use App\Support\Game\GameFormatResolver;
@@ -30,6 +31,57 @@ final class CreateBracketKnockoutAction
             ]);
         }
 
+        if ($competition->format->isKnockoutDirect()) {
+            return $this->createDirectKnockoutBracket($competition, $payload);
+        }
+
+        return $this->createGroupsKnockoutBracket($competition, $payload);
+    }
+
+    private function createDirectKnockoutBracket(Competition $competition, array $payload): Bracket
+    {
+        if ($competition->groups()->exists()) {
+            throw ValidationException::withMessages([
+                'competition' => ['La competencia de eliminación directa no puede tener grupos.'],
+            ]);
+        }
+
+        if (
+            Game::query()
+                ->where('competition_id', $competition->id)
+                ->whereNotNull('group_id')
+                ->exists()
+        ) {
+            throw ValidationException::withMessages([
+                'competition' => ['La competencia de eliminación directa no puede tener partidos de grupo.'],
+            ]);
+        }
+
+        $playerIds = $competition->registrations()
+            ->orderBy('player_id')
+            ->pluck('player_id')
+            ->map(fn ($playerId) => (int) $playerId)
+            ->values()
+            ->all();
+
+        if (count($playerIds) < 2) {
+            throw ValidationException::withMessages([
+                'competition' => [
+                    'Se requieren al menos 2 jugadores inscriptos para generar el cuadro eliminatorio.',
+                ],
+            ]);
+        }
+
+        return $this->buildBracketFromPlayerIds(
+            competition: $competition,
+            playerIds: $playerIds,
+            qualifiersPerGroup: 0,
+            payload: $payload,
+        );
+    }
+
+    private function createGroupsKnockoutBracket(Competition $competition, array $payload): Bracket
+    {
         $groups = $competition->groups()->get();
 
         if ($groups->isEmpty()) {
@@ -64,11 +116,39 @@ final class CreateBracketKnockoutAction
             ]);
         }
 
+        $playerIds = $seededQualifiers
+            ->pluck('playerId')
+            ->map(fn (int $playerId) => $playerId)
+            ->all();
+
+        return $this->buildBracketFromPlayerIds(
+            competition: $competition,
+            playerIds: $playerIds,
+            qualifiersPerGroup: $qualifiersPerGroup,
+            payload: $payload,
+        );
+    }
+
+    /**
+     * @param  array<int, int>  $playerIds
+     */
+    private function buildBracketFromPlayerIds(
+        Competition $competition,
+        array $playerIds,
+        int $qualifiersPerGroup,
+        array $payload,
+    ): Bracket {
+        $qualifierCount = count($playerIds);
+
         $bracketSize = BracketSupport::nextPowerOfTwo($qualifierCount);
 
         if ($bracketSize > BracketSupport::MAX_BRACKET_SIZE) {
+            $errorField = $competition->format->isKnockoutDirect()
+                ? 'competition'
+                : 'qualified_per_group';
+
             throw ValidationException::withMessages([
-                'qualified_per_group' => [
+                $errorField => [
                     sprintf(
                         'El cuadro eliminatorio admite hasta %d clasificados. La configuración actual produce %d.',
                         BracketSupport::MAX_BRACKET_SIZE,
@@ -89,7 +169,7 @@ final class CreateBracketKnockoutAction
 
         return DB::transaction(function () use (
             $competition,
-            $seededQualifiers,
+            $playerIds,
             $qualifierCount,
             $bracketSize,
             $byesCount,
@@ -105,11 +185,6 @@ final class CreateBracketKnockoutAction
                 'bracket_size' => $bracketSize,
                 'byes_count' => $byesCount,
             ]);
-
-            $playerIds = $seededQualifiers
-                ->pluck('playerId')
-                ->map(fn (int $playerId) => $playerId)
-                ->all();
 
             $matchCount = (int) ($bracketSize / 2);
 

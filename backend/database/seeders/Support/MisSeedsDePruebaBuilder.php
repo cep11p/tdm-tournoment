@@ -338,7 +338,7 @@ final class MisSeedsDePruebaBuilder
                 'name' => $competitionName,
                 'type' => CompetitionType::Singles,
                 'category' => $category,
-                'format' => CompetitionFormat::Manual,
+                'format' => CompetitionFormat::GroupsKnockout,
                 'points_per_set' => 11,
                 'group_stage_best_of' => 3,
                 'knockout_stage_best_of' => 3,

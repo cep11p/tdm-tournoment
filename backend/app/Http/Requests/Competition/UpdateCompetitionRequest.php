@@ -51,6 +51,23 @@ class UpdateCompetitionRequest extends FormRequest
                 return;
             }
 
+            if ($this->has('format')) {
+                $newFormat = CompetitionFormat::from((string) $this->input('format'));
+
+                if ($newFormat->normalized() !== $competition->format->normalized()) {
+                    if (
+                        $competition->groups()->exists()
+                        || $competition->games()->exists()
+                        || $competition->brackets()->exists()
+                    ) {
+                        $validator->errors()->add(
+                            'format',
+                            'No se puede cambiar el formato porque la competencia ya tiene grupos, partidos o un cuadro eliminatorio.'
+                        );
+                    }
+                }
+            }
+
             if ($this->has('qualified_per_group')) {
                 if ($competition->brackets()->exists()) {
                     $newValue = (int) $this->input('qualified_per_group');

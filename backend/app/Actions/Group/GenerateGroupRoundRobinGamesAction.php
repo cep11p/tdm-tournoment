@@ -5,6 +5,7 @@ namespace App\Actions\Group;
 use App\Actions\Game\CreateGameAction;
 use App\Models\Game;
 use App\Models\Group;
+use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Game\GameFormatResolver;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +22,9 @@ final class GenerateGroupRoundRobinGamesAction
      */
     public function __invoke(Group $group): Collection
     {
+        $group->loadMissing('competition');
+        CompetitionFormatGuard::ensureGroupStage($group->competition);
+
         $playerIds = $group->groupPlayers()
             ->orderBy('player_id')
             ->pluck('player_id')

@@ -6,6 +6,7 @@ use App\Models\Competition;
 use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupPlayer;
+use App\Support\Competition\CompetitionFormatGuard;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -21,6 +22,8 @@ final class GenerateRandomGroupsForCompetitionAction
      */
     public function __invoke(Competition $competition, int $groupsCount): array
     {
+        CompetitionFormatGuard::ensureGroupStage($competition);
+
         if ($competition->brackets()->exists()) {
             throw ValidationException::withMessages([
                 'competition' => ['La competencia ya tiene un cuadro eliminatorio.'],

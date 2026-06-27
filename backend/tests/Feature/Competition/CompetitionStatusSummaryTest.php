@@ -130,4 +130,64 @@ class CompetitionStatusSummaryTest extends TestCase
                 ->exists()
         );
     }
+
+    public function test_knockout_direct_with_insufficient_registrations_returns_awaiting_registrations(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createKnockoutDirectCompetition();
+        $players = $context->createPlayers(1);
+        $context->registerPlayers($competition, $players);
+
+        $response = $this->getJson($context->apiUrl("competitions/{$competition->id}"));
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.status_summary.code', 'awaiting_registrations')
+            ->assertJsonPath('data.status_summary.label', 'Esperando inscriptos')
+            ->assertJsonPath('data.has_group_stage', false);
+    }
+
+    public function test_knockout_direct_with_enough_registrations_returns_ready_for_bracket(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createKnockoutDirectCompetition();
+        $players = $context->createPlayers(4);
+        $context->registerPlayers($competition, $players);
+
+        $response = $this->getJson($context->apiUrl("competitions/{$competition->id}"));
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.status_summary.code', 'ready_for_bracket')
+            ->assertJsonPath('data.status_summary.label', 'Lista para generar llave');
+    }
+
+    public function test_knockout_direct_with_bracket_returns_knockout_in_progress(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createKnockoutDirectCompetition();
+        $players = $context->createPlayers(4);
+        $context->registerPlayers($competition, $players);
+        $context->createBracket($competition)->assertCreated();
+
+        $response = $this->getJson($context->apiUrl("competitions/{$competition->id}"));
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.status_summary.code', 'knockout_in_progress');
+
+        $this->assertNotSame('no_groups', $response->json('data.status_summary.code'));
+    }
+
+    public function test_knockout_direct_never_returns_no_groups(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createKnockoutDirectCompetition();
+
+        $response = $this->getJson($context->apiUrl("competitions/{$competition->id}"));
+
+        $response->assertOk();
+
+        $this->assertNotSame('no_groups', $response->json('data.status_summary.code'));
+    }
 }
