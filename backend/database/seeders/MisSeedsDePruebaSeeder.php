@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use Database\Seeders\Support\CleanTechnicalPlayerNicknames;
 use Database\Seeders\Support\MisSeedsDePruebaBuilder;
 use Illuminate\Database\Seeder;
 
@@ -22,6 +23,9 @@ class MisSeedsDePruebaSeeder extends Seeder
 
             return;
         }
+
+        $cleanedNicknames = CleanTechnicalPlayerNicknames::cleanAmistosoPrefix();
+        $this->command?->line(sprintf('Nicknames amistoso-* limpiados: %d', $cleanedNicknames));
 
         $builder = new MisSeedsDePruebaBuilder($this->command);
 

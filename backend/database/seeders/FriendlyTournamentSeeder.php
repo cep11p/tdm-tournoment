@@ -13,9 +13,9 @@ use App\Models\Competition;
 use App\Models\Player;
 use App\Models\Registration;
 use App\Models\Tournament;
+use Database\Seeders\Support\CleanTechnicalPlayerNicknames;
 use Database\Seeders\Support\FriendlyTournamentRoster;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 class FriendlyTournamentSeeder extends Seeder
 {
@@ -30,6 +30,9 @@ class FriendlyTournamentSeeder extends Seeder
 
             return;
         }
+
+        $cleanedNicknames = CleanTechnicalPlayerNicknames::cleanAmistosoPrefix();
+        $this->command?->line(sprintf('Nicknames amistoso-* limpiados: %d', $cleanedNicknames));
 
         $createTournament = app(CreateTournamentAction::class);
         $createCompetition = app(CreateCompetitionAction::class);
@@ -176,17 +179,17 @@ class FriendlyTournamentSeeder extends Seeder
 
         foreach (array_keys($uniqueFullNames) as $fullName) {
             [$firstName, $lastName] = $this->splitPlayerName($fullName);
-            $nickname = $this->buildNickname($fullName);
 
             $player = Player::query()
-                ->where('nickname', $nickname)
+                ->where('first_name', $firstName)
+                ->where('last_name', $lastName)
                 ->first();
 
             if ($player === null) {
                 $player = ($createPlayer)([
                     'first_name' => $firstName,
                     'last_name' => $lastName,
-                    'nickname' => $nickname,
+                    'nickname' => null,
                 ]);
                 $summary['players_created']++;
             } else {
@@ -251,11 +254,6 @@ class FriendlyTournamentSeeder extends Seeder
             $parts[0],
             $parts[1] ?? 'Sin apellido',
         ];
-    }
-
-    private function buildNickname(string $fullName): string
-    {
-        return 'amistoso-'.Str::slug($fullName);
     }
 
     /**
