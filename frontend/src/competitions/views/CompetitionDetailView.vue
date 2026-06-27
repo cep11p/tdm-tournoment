@@ -17,6 +17,10 @@ import RegistrationService from '../../registrations/services/RegistrationServic
 import GenerateRandomGroupsModal from '../../groups/components/GenerateRandomGroupsModal.vue'
 import StandingService from '../../standings/services/StandingService'
 import { buildGroupPhaseAlert } from '../utils/buildGroupPhaseAlert'
+import {
+  competitionHasGroupStage,
+  getCompetitionFormatLabel,
+} from '../constants/competitionFormats'
 import CompetitionService from '../services/CompetitionService'
 
 const route = useRoute()
@@ -49,14 +53,38 @@ const registeredCount = computed(() => registrations.value?.length ?? 0)
 
 const hasExistingGroups = computed(() => (groups.value?.length ?? 0) > 0)
 
+const hasGroupStage = computed(() => competitionHasGroupStage(competition.value))
+
+const isKnockoutDirect = computed(() => !hasGroupStage.value)
+
+const formatLabel = computed(() => getCompetitionFormatLabel(competition.value))
+
 const isCompetitionCompleted = computed(() => statusSummary.value?.code === 'completed')
 
 const canGenerateRandomGroups = computed(
   () =>
+    hasGroupStage.value &&
     registeredCount.value >= 2 &&
     !hasExistingGroups.value &&
     !isCompetitionCompleted.value &&
     groups.value !== null,
+)
+
+const canGenerateBracket = computed(
+  () =>
+    isKnockoutDirect.value &&
+    !hasBracket.value &&
+    !isCompetitionCompleted.value &&
+    registeredCount.value >= 2,
+)
+
+const needsMoreRegistrationsForBracket = computed(
+  () =>
+    isKnockoutDirect.value &&
+    !hasBracket.value &&
+    !isCompetitionCompleted.value &&
+    registeredCount.value < 2 &&
+    registrations.value !== null,
 )
 
 const groupCount = computed(() => (groups.value === null ? '-' : groups.value.length))
@@ -182,34 +210,43 @@ const groupPhaseCardClasses = (summary) => {
   return 'border-slate-200 bg-slate-50/40 dark:border-slate-700 dark:bg-slate-900/40'
 }
 
-const actionLinks = computed(() => [
-  {
-    to: `/competitions/${competitionId.value}/registrations`,
-    label: 'Administrar inscripciones',
-    description: 'Gestionar jugadores inscriptos',
-    icon: UserGroupIcon,
-  },
-  {
-    to: `/competitions/${competitionId.value}/groups`,
-    label: 'Administrar grupos',
-    description: 'Crear grupos y asignar jugadores',
-    icon: RectangleGroupIcon,
-  },
-  {
+const actionLinks = computed(() => {
+  const links = [
+    {
+      to: `/competitions/${competitionId.value}/registrations`,
+      label: 'Administrar inscripciones',
+      description: 'Gestionar jugadores inscriptos',
+      icon: UserGroupIcon,
+    },
+  ]
+
+  if (hasGroupStage.value) {
+    links.push({
+      to: `/competitions/${competitionId.value}/groups`,
+      label: 'Administrar grupos',
+      description: 'Crear grupos y asignar jugadores',
+      icon: RectangleGroupIcon,
+    })
+  }
+
+  links.push({
     to: `/competitions/${competitionId.value}/games`,
     label: 'Ver partidos',
     description: 'Consultar resultados y estado',
     icon: ViewColumnsIcon,
-  },
-  {
+  })
+
+  links.push({
     to: bracketRoute.value,
     label: hasBracket.value ? 'Ver llave eliminatoria' : 'Generar bracket',
     description: hasBracket.value
       ? 'Consultar rondas y partidos eliminatorios'
       : 'Crear la llave eliminatoria',
     icon: TrophyIcon,
-  },
-])
+  })
+
+  return links
+})
 
 const loadCompetitionSummary = async () => {
   isLoading.value = true
@@ -230,7 +267,10 @@ const loadCompetitionSummary = async () => {
     groups.value = groupsData
     games.value = gamesData
 
-    if (groupsData?.length > 0) {
+    const shouldLoadGroupStandings =
+      competitionHasGroupStage(competitionData) && groupsData?.length > 0
+
+    if (shouldLoadGroupStandings) {
       const standingsEntries = await Promise.all(
         groupsData.map(async (group) => {
           try {
@@ -307,6 +347,20 @@ const handleRandomGroupsSaved = async () => {
           </button>
         </div>
 
+        <p
+          v-if="isKnockoutDirect"
+          class="mb-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-100"
+        >
+          Esta competencia es de eliminación directa. Los jugadores inscriptos pasan directamente a la llave.
+        </p>
+
+        <p
+          v-if="needsMoreRegistrationsForBracket"
+          class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+        >
+          Necesitás al menos 2 jugadores inscriptos para generar la llave.
+        </p>
+
         <div class="grid gap-3 sm:grid-cols-2">
           <RouterLink
             v-for="action in actionLinks"
@@ -342,7 +396,7 @@ const handleRandomGroupsSaved = async () => {
             </dd>
           </div>
 
-          <div>
+          <div v-if="hasGroupStage">
             <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Grupos</dt>
             <dd class="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
               {{ formatCount(groupCount) }}
@@ -373,7 +427,7 @@ const handleRandomGroupsSaved = async () => {
       </div>
 
       <details
-        v-if="groups !== null && groups.length > 0"
+        v-if="hasGroupStage && groups !== null && groups.length > 0"
         class="rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
       >
         <summary class="cursor-pointer font-bold text-slate-700 dark:text-slate-200">
@@ -525,12 +579,12 @@ const handleRandomGroupsSaved = async () => {
 
           <div>
             <p class="text-sm text-slate-500 dark:text-slate-400">Formato</p>
-            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">{{ competition.format }}</p>
+            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">{{ formatLabel }}</p>
           </div>
 
           <div class="space-y-1 border-t border-slate-200 pt-3 dark:border-slate-700 sm:col-span-2 lg:col-span-4">
             <p class="text-sm font-medium text-slate-700 dark:text-slate-200">Formato de partidos</p>
-            <p class="text-sm text-slate-600 dark:text-slate-400">
+            <p v-if="hasGroupStage" class="text-sm text-slate-600 dark:text-slate-400">
               Grupos: mejor de {{ formatCount(competition.group_stage_best_of) }}
             </p>
             <p class="text-sm text-slate-600 dark:text-slate-400">
@@ -561,7 +615,16 @@ const handleRandomGroupsSaved = async () => {
             Todavía no se generó la llave eliminatoria.
           </p>
 
+          <p
+            v-if="isKnockoutDirect"
+            class="mt-2 text-sm text-slate-600 dark:text-slate-400"
+          >
+            La llave se generará con los {{ registeredCount }} jugador{{ registeredCount === 1 ? '' : 'es' }}
+            inscripto{{ registeredCount === 1 ? '' : 's' }}.
+          </p>
+
           <RouterLink
+            v-if="canGenerateBracket || hasGroupStage"
             :to="bracketRoute"
             class="mt-4 inline-flex rounded-md bg-slate-900 px-3 py-2 font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
           >
@@ -576,7 +639,7 @@ const handleRandomGroupsSaved = async () => {
               <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ bracket.name }}</dd>
             </div>
 
-            <div>
+            <div v-if="hasGroupStage && bracket.qualifiers_per_group > 0">
               <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Clasifican por grupo</dt>
               <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">
                 {{ bracket.qualifiers_per_group }}
@@ -604,6 +667,7 @@ const handleRandomGroupsSaved = async () => {
       </div>
 
       <GenerateRandomGroupsModal
+        v-if="hasGroupStage"
         :show="showGenerateRandomGroupsModal"
         :competition-id="competitionId"
         :registered-count="registeredCount"

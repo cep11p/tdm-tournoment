@@ -5,6 +5,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import CompetitionService from '../../competitions/services/CompetitionService'
+import { competitionHasGroupStage } from '../../competitions/constants/competitionFormats'
 import GameResultModal from '../../games/components/GameResultModal.vue'
 import BracketService from '../services/BracketService'
 
@@ -28,6 +29,12 @@ const selectedGame = ref(null)
 const resultSuccessMessage = ref('')
 
 const hasBracket = computed(() => Boolean(bracket.value?.id))
+
+const hasGroupStage = computed(() => competitionHasGroupStage(competition.value))
+
+const showQualifiersPerGroup = computed(
+  () => hasGroupStage.value && (bracket.value?.qualifiers_per_group ?? 0) > 0,
+)
 
 const initialRoundLabel = computed(() => {
   const games = bracket.value?.games
@@ -467,9 +474,13 @@ onMounted(loadData)
           Todavía no se generó la llave eliminatoria para esta competencia.
         </p>
 
-        <p class="text-slate-600 dark:text-slate-300">
+        <p v-if="hasGroupStage" class="text-slate-600 dark:text-slate-300">
           Clasificados por grupo (configuración de la competencia):
           <span class="font-medium text-slate-900 dark:text-slate-100">{{ competition?.qualified_per_group ?? 2 }}</span>
+        </p>
+
+        <p v-else class="text-slate-600 dark:text-slate-300">
+          La llave se genera directamente con los jugadores inscriptos.
         </p>
 
         <p v-if="createError" class="text-red-600 dark:text-red-400">{{ createError }}</p>
@@ -496,7 +507,7 @@ onMounted(loadData)
             <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ bracket.name }}</dd>
           </div>
 
-          <div>
+          <div v-if="showQualifiersPerGroup">
             <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Clasifican por grupo</dt>
             <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ bracket.qualifiers_per_group }}</dd>
           </div>

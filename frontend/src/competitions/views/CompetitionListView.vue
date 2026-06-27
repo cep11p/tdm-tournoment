@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import CompetitionService from '../services/CompetitionService'
+import { getCompetitionFormatLabel } from '../constants/competitionFormats'
 
 const route = useRoute()
 const tournamentId = route.params.id
@@ -106,7 +107,9 @@ onMounted(loadCompetitions)
             </td>
             <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">{{ competition.category }}</td>
             <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">{{ competition.type }}</td>
-            <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">{{ competition.format }}</td>
+            <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
+              {{ getCompetitionFormatLabel(competition) }}
+            </td>
             <td class="px-4 py-3 text-sm">
               <span
                 v-if="competition.status_summary?.label"

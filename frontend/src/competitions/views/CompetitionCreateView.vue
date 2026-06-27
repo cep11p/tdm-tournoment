@@ -1,7 +1,8 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
+import { FORMAT_OPTIONS } from '../constants/competitionFormats'
 import CompetitionService from '../services/CompetitionService'
 
 const route = useRoute()
@@ -15,7 +16,7 @@ const form = reactive({
   name: '',
   category: '',
   type: 'singles',
-  format: 'manual',
+  format: 'groups_knockout',
   points_per_set: 11,
   qualified_per_group: 2,
   group_stage_best_of: 5,
@@ -25,6 +26,10 @@ const form = reactive({
 })
 
 const bestOfOptions = [1, 3, 5, 7]
+
+const showGroupStageFields = computed(
+  () => form.format === 'groups_knockout' || form.format === 'manual',
+)
 
 const submit = async () => {
   isSubmitting.value = true
@@ -36,8 +41,8 @@ const submit = async () => {
     type: form.type,
     format: form.format,
     points_per_set: Number(form.points_per_set),
-    qualified_per_group: Number(form.qualified_per_group),
-    group_stage_best_of: Number(form.group_stage_best_of),
+    qualified_per_group: showGroupStageFields.value ? Number(form.qualified_per_group) : 2,
+    group_stage_best_of: showGroupStageFields.value ? Number(form.group_stage_best_of) : 5,
     knockout_stage_best_of: Number(form.knockout_stage_best_of),
     semifinal_best_of: Number(form.semifinal_best_of),
     final_best_of: Number(form.final_best_of),
@@ -111,10 +116,20 @@ const submit = async () => {
             required
             class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"
           >
-            <option value="manual">manual</option>
+            <option v-for="option in FORMAT_OPTIONS" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
           </select>
         </div>
       </div>
+
+      <p
+        v-if="!showGroupStageFields"
+        class="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-100"
+      >
+        En eliminación directa, todos los inscriptos pasan directamente a la llave. No se generan grupos ni
+        standings.
+      </p>
 
       <div class="space-y-1">
         <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="points_per_set">
@@ -130,7 +145,7 @@ const submit = async () => {
         />
       </div>
 
-      <div class="space-y-1">
+      <div v-if="showGroupStageFields" class="space-y-1">
         <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="qualified_per_group">
           Clasificados por grupo
         </label>
@@ -148,7 +163,7 @@ const submit = async () => {
         <legend class="px-1 text-sm font-medium text-slate-700 dark:text-slate-200">Formato de partidos</legend>
 
         <div class="grid gap-4 sm:grid-cols-2">
-          <div class="space-y-1">
+          <div v-if="showGroupStageFields" class="space-y-1">
             <label class="block text-sm text-slate-600 dark:text-slate-300" for="group_stage_best_of">
               Fase de grupos: mejor de
             </label>
