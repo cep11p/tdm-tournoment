@@ -17,6 +17,7 @@ import RegistrationService from '../../registrations/services/RegistrationServic
 import GenerateRandomGroupsModal from '../../groups/components/GenerateRandomGroupsModal.vue'
 import { buildRandomGroupsSuccessMessage } from '../../groups/utils/buildRandomGroupsSuccessMessage'
 import StandingService from '../../standings/services/StandingService'
+import { buildBracketGenerationPreview } from '../utils/buildBracketGenerationPreview'
 import { buildGroupPhaseAlert } from '../utils/buildGroupPhaseAlert'
 import {
   competitionHasGroupStage,
@@ -110,6 +111,19 @@ const bracketGames = computed(() => {
 })
 
 const hasBracket = computed(() => Boolean(bracket.value?.id))
+
+const qualifiedPerGroup = computed(() => competition.value?.qualified_per_group ?? 2)
+
+const bracketGenerationPreview = computed(() => {
+  if (!hasGroupStage.value || hasBracket.value || !competition.value) {
+    return null
+  }
+
+  return buildBracketGenerationPreview({
+    qualifiedPerGroup: qualifiedPerGroup.value,
+    groupCount: groups.value === null ? null : groups.value.length,
+  })
+})
 
 const bracketGameCount = computed(() => bracket.value?.games?.length ?? bracketGames.value.length)
 
@@ -637,6 +651,65 @@ const openGenerateRandomGroupsModal = () => {
             La llave se generará con los {{ registeredCount }} jugador{{ registeredCount === 1 ? '' : 'es' }}
             inscripto{{ registeredCount === 1 ? '' : 's' }}.
           </p>
+
+          <div
+            v-if="bracketGenerationPreview"
+            class="mt-3 space-y-2 rounded-md border border-sky-200 bg-sky-50/60 p-3 dark:border-sky-900 dark:bg-sky-950/20"
+          >
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <p class="font-medium text-slate-800 dark:text-slate-100">
+                {{ bracketGenerationPreview.title }}
+              </p>
+              <span
+                v-if="bracketGenerationPreview.badge"
+                class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+                :class="
+                  bracketGenerationPreview.hasQualifyingRound
+                    ? 'bg-violet-100 text-violet-800 dark:bg-violet-900/60 dark:text-violet-200'
+                    : 'bg-sky-100 text-sky-800 dark:bg-sky-900/60 dark:text-sky-200'
+                "
+              >
+                {{ bracketGenerationPreview.badge }}
+              </span>
+            </div>
+
+            <p
+              v-for="(line, index) in bracketGenerationPreview.introLines"
+              :key="`intro-${index}`"
+              class="text-slate-600 dark:text-slate-300"
+            >
+              {{ line }}
+            </p>
+
+            <template v-if="bracketGenerationPreview.statsLines.length > 0">
+              <p
+                v-for="(line, index) in bracketGenerationPreview.statsLines"
+                :key="`stats-${index}`"
+                class="text-slate-700 dark:text-slate-200"
+              >
+                {{ line }}
+              </p>
+              <ul
+                v-if="bracketGenerationPreview.detailLines.length > 0"
+                class="list-inside list-disc space-y-1 text-slate-600 dark:text-slate-300"
+              >
+                <li
+                  v-for="(line, index) in bracketGenerationPreview.detailLines"
+                  :key="`detail-${index}`"
+                >
+                  {{ line }}
+                </li>
+              </ul>
+            </template>
+
+            <p
+              v-for="(warning, index) in bracketGenerationPreview.warnings"
+              :key="`warning-${index}`"
+              class="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+            >
+              {{ warning }}
+            </p>
+          </div>
 
           <RouterLink
             v-if="canGenerateBracket || hasGroupStage"
