@@ -7,6 +7,7 @@ import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import CompetitionService from '../../competitions/services/CompetitionService'
 import { competitionHasGroupStage } from '../../competitions/constants/competitionFormats'
 import GameResultModal from '../../games/components/GameResultModal.vue'
+import { extractApiErrorMessage } from '../../shared/utils/extractApiErrorMessage'
 import BracketService from '../services/BracketService'
 import {
   BYE_BADGE_LABEL,
@@ -72,7 +73,7 @@ const loadData = async () => {
     competition.value = competitionData
     bracket.value = bracketData
   } catch (error) {
-    loadError.value = error?.response?.data?.message || 'No se pudo cargar la llave eliminatoria.'
+    loadError.value = extractApiErrorMessage(error, 'No se pudo cargar la llave eliminatoria.')
   } finally {
     isLoading.value = false
   }
@@ -482,12 +483,10 @@ const handleCreateBracket = async () => {
 
     createSuccessMessage.value = 'Llave eliminatoria generada correctamente.'
   } catch (error) {
-    createError.value =
-      error?.response?.data?.errors?.qualified_per_group?.[0] ||
-      error?.response?.data?.errors?.competition?.[0] ||
-      error?.response?.data?.errors?.group?.[0] ||
-      error?.response?.data?.message ||
-      'No se pudo generar la llave eliminatoria.'
+    createError.value = extractApiErrorMessage(
+      error,
+      'No se pudo generar la llave eliminatoria.',
+    )
   } finally {
     isCreatingBracket.value = false
   }
@@ -508,10 +507,10 @@ const handleGenerateNextRound = async () => {
     bracket.value = await BracketService.generateNextRound(bracket.value.id)
     nextRoundSuccessMessage.value = 'Siguiente ronda generada correctamente.'
   } catch (error) {
-    nextRoundError.value =
-      error?.response?.data?.errors?.bracket?.[0] ||
-      error?.response?.data?.message ||
-      'No se pudo generar la siguiente ronda.'
+    nextRoundError.value = extractApiErrorMessage(
+      error,
+      'No se pudo generar la siguiente ronda.',
+    )
   } finally {
     isGeneratingNextRound.value = false
   }
