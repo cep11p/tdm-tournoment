@@ -3,6 +3,7 @@
 namespace App\Actions\Bracket;
 
 use App\Actions\Game\CreateGameAction;
+use App\Data\Bracket\GroupKnockoutDrawResult;
 use App\Data\Competition\GroupQualifierData;
 use App\Enums\GameStatus;
 use App\Models\Bracket;
@@ -90,6 +91,17 @@ final class CreateBracketKnockoutAction
 
         $qualifiersPerGroup = (int) $competition->qualified_per_group;
         $groupQualifiers = $this->groupQualifiersCollector->collect($competition);
+
+        if ($qualifiersPerGroup === 3) {
+            $draw = $this->groupKnockoutDrawBuilder->buildDraw($groupQualifiers, $qualifiersPerGroup);
+
+            return $this->buildBracketFromDrawResult(
+                competition: $competition,
+                draw: $draw,
+                qualifiersPerGroup: $qualifiersPerGroup,
+                payload: $payload,
+            );
+        }
 
         $playerIds = $qualifiersPerGroup === 2
             ? $this->groupKnockoutDrawBuilder->build($groupQualifiers, $qualifiersPerGroup)
@@ -222,6 +234,88 @@ final class CreateBracketKnockoutAction
                     'round' => $roundLabel,
                     'bracket_round' => 1,
                     'bracket_match' => $matchIndex + 1,
+                    'is_bye' => false,
+                    'best_of' => $matchFormat['best_of'],
+                    'sets_to_win' => $matchFormat['sets_to_win'],
+                ]);
+            }
+
+            return $bracket->load([
+                'games.player1:id,first_name,last_name,nickname',
+                'games.player2:id,first_name,last_name,nickname',
+                'games.winner:id,first_name,last_name,nickname',
+                'games.sets',
+            ]);
+        });
+    }
+
+    private function buildBracketFromDrawResult(
+        Competition $competition,
+        GroupKnockoutDrawResult $draw,
+        int $qualifiersPerGroup,
+        array $payload,
+    ): Bracket {
+        if ($draw->bracketSize > BracketSupport::MAX_BRACKET_SIZE) {
+            throw ValidationException::withMessages([
+                'qualified_per_group' => [
+                    sprintf(
+                        'El cuadro eliminatorio admite hasta %d clasificados. La configuración actual produce %d.',
+                        BracketSupport::MAX_BRACKET_SIZE,
+                        $draw->bracketSize - $draw->byesCount,
+                    ),
+                ],
+            ]);
+        }
+
+        $matchFormat = GameFormatResolver::resolveForBracketRound($competition, $draw->firstRoundLabel);
+        $name = trim($payload['name'] ?? '');
+
+        if ($name === '') {
+            $name = 'Llave - ' . $competition->name;
+        }
+
+        return DB::transaction(function () use (
+            $competition,
+            $draw,
+            $matchFormat,
+            $name,
+            $qualifiersPerGroup
+        ): Bracket {
+            $bracket = Bracket::query()->create([
+                'competition_id' => $competition->id,
+                'name' => $name,
+                'qualifiers_per_group' => $qualifiersPerGroup,
+                'bracket_size' => $draw->bracketSize,
+                'byes_count' => $draw->byesCount,
+            ]);
+
+            foreach ($draw->matches as $match) {
+                if ($match->isBye) {
+                    ($this->createGame)([
+                        'competition_id' => $competition->id,
+                        'bracket_id' => $bracket->id,
+                        'player1_id' => $match->player1Id,
+                        'player2_id' => null,
+                        'winner_id' => $match->player1Id,
+                        'status' => GameStatus::Finished,
+                        'finished_at' => now(),
+                        'is_bye' => true,
+                        'round' => $draw->firstRoundLabel,
+                        'bracket_round' => 1,
+                        'bracket_match' => $match->bracketMatch,
+                    ]);
+
+                    continue;
+                }
+
+                ($this->createGame)([
+                    'competition_id' => $competition->id,
+                    'bracket_id' => $bracket->id,
+                    'player1_id' => $match->player1Id,
+                    'player2_id' => $match->player2Id,
+                    'round' => $draw->firstRoundLabel,
+                    'bracket_round' => 1,
+                    'bracket_match' => $match->bracketMatch,
                     'is_bye' => false,
                     'best_of' => $matchFormat['best_of'],
                     'sets_to_win' => $matchFormat['sets_to_win'],

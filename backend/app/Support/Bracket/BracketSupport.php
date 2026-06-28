@@ -8,6 +8,8 @@ final class BracketSupport
 {
     public const MAX_BRACKET_SIZE = 64;
 
+    public const PLAY_IN_ROUND_LABEL = 'Ronda clasificatoria';
+
     public static function nextPowerOfTwo(int $count): int
     {
         if ($count <= 1) {

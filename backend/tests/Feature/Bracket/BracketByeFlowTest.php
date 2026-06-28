@@ -2,16 +2,13 @@
 
 namespace Tests\Feature\Bracket;
 
-use App\Enums\GameStatus;
-use App\Models\Competition;
 use App\Models\Game;
 use App\Models\Player;
-use Database\Seeders\DemoPendingByesSeeder;
 use Tests\TestCase;
 
 class BracketByeFlowTest extends TestCase
 {
-    public function test_creates_bracket_of_four_with_one_bye_for_three_qualifiers(): void
+    public function test_rejects_q3_bracket_for_single_group(): void
     {
         $context = $this->tournamentContext();
         $competition = $context->createCompetition();
@@ -22,32 +19,22 @@ class BracketByeFlowTest extends TestCase
 
         $group = $context->createGroupWithPlayers($competition, $players, 'Grupo A');
         $context->generateRoundRobin($group)->assertCreated();
-
         $this->finishGroupRoundRobinWithRankOrder($group->id, $players);
 
         $response = $context->createBracket($competition);
 
         $response
-            ->assertCreated()
-            ->assertJsonPath('data.bracket_size', 4)
-            ->assertJsonPath('data.byes_count', 1)
-            ->assertJsonCount(2, 'data.games');
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['qualified_per_group']);
 
-        $byeGames = collect($response->json('data.games'))
-            ->filter(fn (array $game): bool => ($game['is_bye'] ?? false) === true);
-
-        $this->assertCount(1, $byeGames);
-        $this->assertSame($players[0]->id, $byeGames->first()['player1']['id']);
-        $this->assertNull($byeGames->first()['player2']['id']);
-        $this->assertSame('finished', $byeGames->first()['status']);
-        $this->assertSame($players[0]->id, $byeGames->first()['winner_id']);
+        $this->assertDatabaseCount('brackets', 0);
     }
 
-    public function test_creates_bracket_of_eight_with_two_byes_for_six_qualifiers(): void
+    public function test_creates_bracket_of_sixteen_with_four_byes_for_twelve_qualifiers(): void
     {
         $context = $this->tournamentContext();
         $competition = $context->createCompetition();
-        $players = $context->createPlayers(6);
+        $players = $context->createPlayers(12);
         $context->registerPlayers($competition, $players);
         $competition->update(['qualified_per_group' => 3]);
         $competition->refresh();
@@ -55,6 +42,8 @@ class BracketByeFlowTest extends TestCase
         $groups = [
             $context->createGroupWithPlayers($competition, array_slice($players, 0, 3), 'Grupo A'),
             $context->createGroupWithPlayers($competition, array_slice($players, 3, 3), 'Grupo B'),
+            $context->createGroupWithPlayers($competition, array_slice($players, 6, 3), 'Grupo C'),
+            $context->createGroupWithPlayers($competition, array_slice($players, 9, 3), 'Grupo D'),
         ];
 
         foreach ($groups as $group) {
@@ -67,36 +56,44 @@ class BracketByeFlowTest extends TestCase
 
         $response
             ->assertCreated()
-            ->assertJsonPath('data.bracket_size', 8)
-            ->assertJsonPath('data.byes_count', 2)
-            ->assertJsonCount(4, 'data.games');
+            ->assertJsonPath('data.bracket_size', 16)
+            ->assertJsonPath('data.byes_count', 4)
+            ->assertJsonCount(8, 'data.games');
 
         $byeGames = collect($response->json('data.games'))
             ->filter(fn (array $game): bool => ($game['is_bye'] ?? false) === true)
             ->sortBy('bracket_match')
             ->values();
 
-        $this->assertCount(2, $byeGames);
+        $this->assertCount(4, $byeGames);
         $this->assertSame($players[0]->id, $byeGames[0]['player1']['id']);
-        $this->assertSame($players[3]->id, $byeGames[1]['player1']['id']);
-        $this->assertSame('Cuartos de final', $response->json('data.games.0.round'));
+        $this->assertSame('Ronda clasificatoria', $response->json('data.games.0.round'));
     }
 
-    public function test_creates_bracket_of_32_with_two_byes_for_demo_pending_byes_seeder(): void
+    public function test_creates_bracket_of_thirty_two_with_eight_byes_for_twenty_four_qualifiers(): void
     {
-        $this->seed(DemoPendingByesSeeder::class);
-
-        $competition = Competition::query()
-            ->where('name', 'Singles Club')
-            ->firstOrFail();
-
         $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+        $players = $context->createPlayers(24);
+        $context->registerPlayers($competition, $players);
+        $competition->update(['qualified_per_group' => 3]);
+        $competition->refresh();
+
+        $groupNames = ['Grupo A', 'Grupo B', 'Grupo C', 'Grupo D', 'Grupo E', 'Grupo F', 'Grupo G', 'Grupo H'];
+
+        foreach ($groupNames as $index => $groupName) {
+            $groupPlayers = array_slice($players, $index * 3, 3);
+            $group = $context->createGroupWithPlayers($competition, $groupPlayers, $groupName);
+            $context->generateRoundRobin($group)->assertCreated();
+            $this->finishGroupRoundRobinWithRankOrder($group->id, $groupPlayers);
+        }
+
         $response = $context->createBracket($competition);
 
         $response
             ->assertCreated()
             ->assertJsonPath('data.bracket_size', 32)
-            ->assertJsonPath('data.byes_count', 2)
+            ->assertJsonPath('data.byes_count', 8)
             ->assertJsonCount(16, 'data.games');
 
         $byeGames = collect($response->json('data.games'))
@@ -104,8 +101,8 @@ class BracketByeFlowTest extends TestCase
             ->sortBy('bracket_match')
             ->values();
 
-        $this->assertCount(2, $byeGames);
-        $this->assertSame('16avos de final', $byeGames[0]['round']);
+        $this->assertCount(8, $byeGames);
+        $this->assertSame('Ronda clasificatoria', $byeGames[0]['round']);
         $this->assertSame('finished', $byeGames[0]['status']);
     }
 
@@ -113,40 +110,41 @@ class BracketByeFlowTest extends TestCase
     {
         $context = $this->tournamentContext();
         $competition = $context->createCompetition();
-        $players = $context->createPlayers(3);
+        $players = $context->createPlayers(12);
         $context->registerPlayers($competition, $players);
         $competition->update(['qualified_per_group' => 3]);
         $competition->refresh();
 
-        $group = $context->createGroupWithPlayers($competition, $players, 'Grupo A');
-        $context->generateRoundRobin($group)->assertCreated();
-        $this->finishGroupRoundRobinWithRankOrder($group->id, $players);
+        $groups = [
+            $context->createGroupWithPlayers($competition, array_slice($players, 0, 3), 'Grupo A'),
+            $context->createGroupWithPlayers($competition, array_slice($players, 3, 3), 'Grupo B'),
+            $context->createGroupWithPlayers($competition, array_slice($players, 6, 3), 'Grupo C'),
+            $context->createGroupWithPlayers($competition, array_slice($players, 9, 3), 'Grupo D'),
+        ];
+
+        foreach ($groups as $group) {
+            $context->generateRoundRobin($group)->assertCreated();
+            $groupPlayers = $group->groupPlayers()->with('player')->get()->pluck('player')->all();
+            $this->finishGroupRoundRobinWithRankOrder($group->id, $groupPlayers);
+        }
 
         $context->createBracket($competition)->assertCreated();
 
         $bracket = $competition->fresh()->brackets()->firstOrFail();
         $firstRoundGames = $context->bracketGamesForRound($bracket, 1);
 
-        $realGame = $firstRoundGames->first(
-            fn (Game $game): bool => ! $game->is_bye && $game->status !== GameStatus::Finished
-        );
-
-        $this->assertNotNull($realGame);
-
-        $winner = $realGame->player1_id === $players[1]->id
-            ? $players[1]
-            : $players[2];
-
-        $context->finishGame($realGame, $winner)->assertOk();
+        foreach ($firstRoundGames->reject(fn (Game $game): bool => $game->is_bye) as $playInGame) {
+            $context->finishGame($playInGame, $playInGame->player1)->assertOk();
+        }
 
         $response = $context->generateBracketNextRound($bracket);
 
         $response->assertCreated();
 
-        $finalGames = $context->bracketGamesForRound($bracket->fresh(), 2);
-        $this->assertCount(1, $finalGames);
-        $this->assertSame('Final', $finalGames[0]->round);
-        $this->assertSame($players[0]->id, $finalGames[0]->player1_id);
+        $secondRoundGames = $context->bracketGamesForRound($bracket->fresh(), 2);
+        $this->assertCount(4, $secondRoundGames);
+        $this->assertSame('Cuartos de final', $secondRoundGames[0]->round);
+        $this->assertSame($players[0]->id, $secondRoundGames[0]->player1_id);
     }
 
     public function test_rejects_bracket_when_fewer_than_two_qualifiers(): void
