@@ -307,20 +307,27 @@ Representa el cuadro eliminatorio de una competencia.
 | name                 | string | Nombre del cuadro. Se genera automáticamente como `Llave - {nombre de competencia}` si no se envía uno custom. |
 | qualifiers_per_group | int    | Snapshot del valor `qualified_per_group` de la competencia al momento de crear el cuadro. |
 | bracket_size         | int    | Tamaño de la llave (siguiente potencia de 2 ≥ clasificados).                             |
-| byes_count           | int    | Cantidad de BYEs incluidos al completar la llave.                                        |
+| byes_count           | int    | Cantidad de BYEs incluidos al completar la llave hasta `bracket_size`. En `groups_knockout` con `qualified_per_group = 3`, corresponde típicamente a un BYE por cada 1° de grupo. |
 
 `Bracket.qualifiers_per_group` registra cuántos clasificados por grupo se usaron al generar el cuadro. La configuración activa vive en `Competition.qualified_per_group`; el campo del bracket es histórico.
 
 Restricción única: `competition_id` (una competencia tiene un solo bracket).
 
-El nombre del bracket **no representa la ronda inicial**. La ronda inicial se deriva de `bracket_size` y de los partidos generados (campo `round` del primer `bracket_round`).
+El nombre del bracket **no representa la ronda inicial**. La ronda inicial depende de `qualified_per_group`, de `bracket_size` y de los partidos generados (campo `round` del primer `bracket_round`).
 
-Ejemplo:
+- Con `qualified_per_group = 2` y total de clasificados = potencia de 2, la primera ronda suele ser la ronda principal del cuadro (ej. cuartos, semifinales).
+- Con `qualified_per_group = 3`, la primera ronda del bracket incluye **play-in** (2° vs 3° de grupos distintos); los BYEs a 1° de grupo pueden registrarse en la misma ronda o en la siguiente, según el árbol generado.
+
+Ejemplo (`groups_knockout`, 4 grupos × 3 clasificados):
 
 ```text
 name = Llave - Singles Club
-bracket_size = 32
-ronda inicial = 16avos de final
+bracket_size = 16
+byes_count = 4
+clasificados = 12
+play-in = 4 partidos (2° vs 3° inter-grupo)
+BYEs = 4 (uno por cada 1° de grupo)
+ronda principal posterior = 8vos de final (8 jugadores)
 ```
 
 ---
@@ -454,9 +461,9 @@ GameSet
 15. Solo puede existir un bracket por competencia.
 16. Para crear bracket, todos los partidos de grupos deben estar finalizados.
 17. El bracket usa `Competition.qualified_per_group` para determinar cuántos jugadores clasifican de cada grupo, considerando solo jugadores elegibles según standings.
-18. El total de clasificados ya no necesita ser exactamente 2, 4 u 8. Si no es potencia de 2, el sistema calcula la siguiente potencia de 2 y completa la llave con BYEs (hasta 64 clasificados).
-19. Los BYEs favorecen a los mejores seeds: se emparejan contra `player2_id = null`, quedan finalizados con `is_bye = true` y sin sets.
-20. `Game.is_bye` indica avance automático. Ejemplo: 30 clasificados → bracket de 32 → 2 BYEs.
+18. El total de clasificados ya no necesita ser exactamente 2, 4 u 8. Si no es potencia de 2, el sistema calcula la siguiente potencia de 2 ≥ total de clasificados y completa la llave con BYEs (hasta 64 clasificados).
+19. En competencias `groups_knockout`, los BYEs se asignan según **procedencia grupal**, no por un ranking global de victorias. Con `qualified_per_group = 3`, los **primeros de cada grupo** tienen prioridad de BYE. Con `qualified_per_group = 2`, los BYEs restantes (si los hubiera) se resuelven dentro del algoritmo de emparejamiento grupal, no por `(won, lost, nombre)`.
+20. `Game.is_bye` indica avance automático: `player2_id = null`, partido finalizado sin sets, `winner_id = player1_id`. Los BYEs a primeros de grupo quedan registrados como partidos `is_bye = true`.
 21. No se puede cambiar `qualified_per_group` si la competencia ya tiene un bracket generado.
 22. La siguiente ronda del bracket se genera con `winner_id` de la ronda actual (incluye ganadores de partidos BYE).
 23. No puede generarse siguiente ronda si la actual está incompleta.
@@ -473,7 +480,9 @@ GameSet
 34. El bracket usa el mismo cálculo de standings por grupo que la API/UI, incluyendo desempates manuales aplicados.
 35. Solo jugadores con `eligible_for_qualification = true` pueden clasificar al bracket.
 36. Si un empate manual pendiente afecta el corte de clasificación del grupo, se bloquea la generación del bracket hasta resolverlo.
-37. Si hay menos clasificados elegibles que `qualified_per_group`, el bracket se genera con la cantidad disponible; los BYEs absorben las vacantes restantes.
+37. Si hay menos clasificados elegibles que `qualified_per_group`, el bracket se genera con los disponibles; los BYEs y el play-in se ajustan a la cantidad real de clasificados por posición grupal.
+38. En competencias `groups_knockout`, la llave eliminatoria se genera de forma **consciente de la procedencia grupal**. Queda **reemplazada** la regla anterior de combinar todos los clasificados y ordenarlos globalmente por `(won desc, lost asc, nombre)` antes de armar la llave.
+39. En competencias `knockout_direct` (sin fase de grupos), el emparejamiento inicial sigue el **orden de inscripción** y el esquema estándar 1 vs N dentro del `bracket_size` calculado; no aplica el draw grupal.
 
 ---
 
@@ -875,16 +884,116 @@ POST /api/v1/groups/{group}/player-status
 
 ## 18. Clasificación al bracket
 
-`CreateBracketKnockoutAction` usa el mismo `GroupStandingsCalculator` que la API de standings.
+`CreateBracketKnockoutAction` usa el mismo `GroupStandingsCalculator` que la API de standings para determinar **quién clasifica** y en **qué orden dentro de cada grupo**. A partir de ahí, el emparejamiento eliminatorio en competencias `groups_knockout` es **consciente de la procedencia grupal**.
+
+> **Regla reemplazada:** ya no se combinan todos los clasificados ni se ordenan globalmente por `(won desc, lost asc, nombre)` para generar la llave. Ese criterio global puede seguir existiendo en otros contextos (ej. standings globales de competencia), pero **no gobierna el draw eliminatorio** en `groups_knockout`.
 
 ### Reglas de clasificación
 
-- Por cada grupo se toman hasta `Competition.qualified_per_group` jugadores **elegibles** (`eligible_for_qualification = true`), en el orden calculado.
-- Jugadores retirados o descalificados **no clasifican**, aunque estén en posiciones altas antes de moverse al final.
-- Si hay **menos elegibles** que `qualified_per_group`, el bracket se genera con los disponibles.
-- Los BYEs existentes **absorben vacantes**: el tamaño de llave sigue siendo la siguiente potencia de 2 ≥ total de clasificados.
+- Por cada grupo se toman hasta `Competition.qualified_per_group` jugadores **elegibles** (`eligible_for_qualification = true`), en el orden calculado por standings del grupo.
+- Jugadores retirados o descalificados **no clasifican**, aunque figuren en posiciones altas antes de moverse al final de la tabla.
+- Si hay **menos elegibles** que `qualified_per_group`, el bracket se genera con los disponibles; play-in y BYEs se recalculan según las posiciones grupalmente ocupadas.
+- El tamaño de llave (`bracket_size`) es la **siguiente potencia de 2 ≥ total de clasificados** (máximo 64).
 - Todos los partidos de **todos** los grupos deben estar finalizados.
 - Si un grupo tiene empate manual pendiente que **cruza el corte de clasificación**, se bloquea la generación del bracket con error explícito.
+
+### Metadata de origen grupal
+
+Al generar la llave, cada clasificado conserva metadata de origen (conceptual; puede materializarse en la lógica de draw sin persistirse como entidad aparte):
+
+| Campo | Descripción |
+|-------|-------------|
+| `group` | Grupo de procedencia (`Group`). |
+| `group_position` | Posición en el grupo (1°, 2°, 3°, …) según standings elegibles. |
+| `player` | Jugador clasificado. |
+| `qualification_order` | Orden de clasificación dentro del grupo (1 = mejor posición elegible). |
+
+Esta metadata guía el emparejamiento eliminatorio. **No** implica reordenar clasificados entre grupos por récord global.
+
+### Draw eliminatorio (`groups_knockout`)
+
+#### Cuando `qualified_per_group = 2`
+
+- Si la cantidad total de clasificados es una **potencia de 2**, se genera una llave directa sin play-in.
+- Los **1° de grupo** se cruzan contra **2° de otros grupos**.
+- **Restricción dura:** en la primera ronda eliminatoria no se enfrentan dos jugadores del **mismo grupo**.
+- Se intenta **separar** en el árbol, en la medida posible, a jugadores provenientes del mismo grupo en rondas posteriores.
+
+Ejemplo típico (2 grupos, 2 clasificados por grupo → 4 jugadores):
+
+```text
+Semifinal 1: A1 vs B2
+Semifinal 2: B1 vs A2
+```
+
+#### Cuando `qualified_per_group = 3`
+
+- Los **1° de cada grupo** tienen **prioridad de BYE** cuando el total de clasificados no completa una potencia de 2, o cuando el diseño del cuadro lo requiere.
+- Los **2° y 3°** disputan una **ronda previa (play-in)** antes de integrarse plenamente al cuadro principal.
+- Cada partido de play-in es **2° vs 3° de grupos distintos** (nunca del mismo grupo).
+- **Restricción dura:** en play-in y en la primera ronda “real” posterior no se enfrentan dos jugadores del **mismo grupo**.
+- **Restricción blanda:** separar lo más posible a jugadores del mismo grupo dentro del árbol eliminatorio.
+
+Flujo general:
+
+```text
+1. Extraer clasificados por grupo (1°, 2°, 3°).
+2. Calcular bracket_size = siguiente potencia de 2 ≥ total clasificados.
+3. Asignar BYEs a 1° de grupo (byes_count = cantidad de grupos con 1° clasificado, cuando aplica).
+4. Generar partidos play-in: emparejar 2° con 3° de otro grupo.
+5. Integrar ganadores de play-in con 1° (BYE o esperando rival) en la ronda principal del cuadro.
+6. Avanzar rondas con winner_id hasta la final.
+```
+
+Los partidos BYE usan `is_bye = true`. Los partidos de play-in son partidos reales (`is_bye = false`) con carga de sets.
+
+### Ejemplos
+
+#### 4 grupos × 3 clasificados
+
+| Concepto | Valor |
+|----------|-------|
+| Clasificados | 12 |
+| `bracket_size` | 16 |
+| `byes_count` | 4 (uno por cada 1° de grupo) |
+| Play-in | 4 partidos: 2° vs 3° de grupos distintos |
+| Ronda principal | 8 jugadores (4 ganadores play-in + 4 primeros con BYE) → equivalente a 8vos de final |
+
+Esquema:
+
+```text
+Play-in (4 partidos):
+  A2 vs B3, B2 vs C3, C2 vs D3, D2 vs A3   (permutación válida inter-grupo)
+
+BYEs:
+  A1, B1, C1, D1
+
+Ronda principal (8 jugadores):
+  ganadores play-in + 1° de grupo → cuadro de 8
+```
+
+#### 8 grupos × 3 clasificados
+
+| Concepto | Valor |
+|----------|-------|
+| Clasificados | 24 |
+| `bracket_size` | 32 |
+| `byes_count` | 8 (uno por cada 1° de grupo) |
+| Play-in | 8 partidos: 2° vs 3° de grupos distintos |
+| Ronda principal | 16 jugadores → 16avos de final |
+
+Esquema:
+
+```text
+Play-in (8 partidos):
+  emparejamientos 2° vs 3° cruzados entre los 8 grupos (sin mismo grupo)
+
+BYEs:
+  un BYE por cada 1° de grupo (8 BYEs)
+
+Ronda principal (16 jugadores):
+  8 ganadores play-in + 8 primeros con BYE → cuadro de 16
+```
 
 ### Bloqueos con bracket existente
 
@@ -894,9 +1003,9 @@ Si ya existe bracket:
 - no se puede aplicar desempate manual;
 - no se recalcula ni modifica automáticamente la llave por bajas posteriores.
 
-### Seeding
+### Eliminación directa (`knockout_direct`)
 
-Los clasificados de todos los grupos se combinan y ordenan globalmente por `(won desc, lost asc, nombre)` antes de armar la llave con BYEs.
+Competencias sin fase de grupos **no** usan draw grupal. El emparejamiento inicial sigue el **orden de inscripción** y el esquema estándar 1 vs N dentro del `bracket_size` calculado.
 
 ---
 
