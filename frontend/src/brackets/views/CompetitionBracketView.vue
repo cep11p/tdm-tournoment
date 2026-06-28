@@ -8,6 +8,13 @@ import CompetitionService from '../../competitions/services/CompetitionService'
 import { competitionHasGroupStage } from '../../competitions/constants/competitionFormats'
 import GameResultModal from '../../games/components/GameResultModal.vue'
 import BracketService from '../services/BracketService'
+import {
+  BYE_BADGE_LABEL,
+  BYE_BADGE_LABEL_GROUP_FIRST,
+  PLAY_IN_BADGE_LABEL,
+  PLAY_IN_ROUND_LABEL,
+  QUALIFYING_ROUND_BANNER,
+} from '../constants/bracketLabels'
 
 const route = useRoute()
 const competitionId = computed(() => route.params.id)
@@ -81,9 +88,27 @@ const playerName = (player) => {
 
 const isByeGame = (game) => game?.is_bye === true || !game?.player2?.id
 
+const isQualifyingRoundLabel = (roundLabel) => roundLabel === PLAY_IN_ROUND_LABEL
+
+const isQualifyingRoundGame = (game) => game?.round === PLAY_IN_ROUND_LABEL
+
+const isPlayInGame = (game) => isQualifyingRoundGame(game) && !isByeGame(game)
+
+const byeBadgeLabel = (game) => {
+  if (!isByeGame(game)) {
+    return null
+  }
+
+  if (isQualifyingRoundGame(game)) {
+    return BYE_BADGE_LABEL_GROUP_FIRST
+  }
+
+  return BYE_BADGE_LABEL
+}
+
 const opponentLabel = (game, player) => {
   if (isByeGame(game)) {
-    return 'BYE'
+    return isQualifyingRoundGame(game) ? 'Sin rival' : 'BYE'
   }
 
   return playerName(player)
@@ -127,7 +152,7 @@ const handleResultSaved = async () => {
 
 const statusLabel = (game) => {
   if (isByeGame(game)) {
-    return 'Avance automático'
+    return isQualifyingRoundGame(game) ? BYE_BADGE_LABEL : 'Avance automático'
   }
 
   if (game?.status === 'finished') {
@@ -255,6 +280,10 @@ const groupedRounds = computed(() => {
   return [...roundsMap.values()].sort((left, right) => left.roundNumber - right.roundNumber)
 })
 
+const hasQualifyingRound = computed(() =>
+  groupedRounds.value.some((round) => isQualifyingRoundLabel(round.roundLabel)),
+)
+
 const MATCH_CARD_HEIGHT = 120
 const MATCH_GAP = 20
 const MATCH_SLOT_HEIGHT = MATCH_CARD_HEIGHT + MATCH_GAP
@@ -345,9 +374,15 @@ const compactPlayerRowClasses = (game, player) => {
 
 const isFinalRound = (roundLabel) => roundLabel === 'Final'
 
+const isQualifyingRound = (roundLabel) => isQualifyingRoundLabel(roundLabel)
+
 const roundColumnClasses = () => 'w-[280px] shrink-0'
 
 const roundHeaderClasses = (roundLabel) => {
+  if (isQualifyingRound(roundLabel)) {
+    return 'mb-1 text-center text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:text-indigo-300'
+  }
+
   if (!isFinalRound(roundLabel)) {
     return 'mb-3 text-center text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400'
   }
@@ -355,7 +390,14 @@ const roundHeaderClasses = (roundLabel) => {
   return 'mb-3 text-center text-sm font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300'
 }
 
+const roundHeaderHintClasses = () =>
+  'mb-3 text-center text-xs text-indigo-600/90 dark:text-indigo-300/90'
+
 const gameCardClasses = (round) => {
+  if (isQualifyingRound(round.roundLabel)) {
+    return 'border-indigo-200 bg-indigo-50/40 dark:border-indigo-800/60 dark:bg-indigo-950/20'
+  }
+
   if (isFinalRound(round.roundLabel)) {
     return 'border-amber-500/70 bg-amber-50/60 dark:border-amber-600 dark:bg-amber-950/20'
   }
@@ -631,6 +673,19 @@ onMounted(loadData)
 
           <p class="mb-3 font-medium text-slate-700 dark:text-slate-200">Vista de llave</p>
 
+          <div
+            v-if="hasQualifyingRound"
+            class="mb-4 rounded-md border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-800/60 dark:bg-indigo-950/30"
+            role="note"
+          >
+            <p class="text-sm font-semibold text-indigo-900 dark:text-indigo-100">
+              {{ QUALIFYING_ROUND_BANNER.title }}
+            </p>
+            <p class="mt-1 text-sm text-indigo-800/90 dark:text-indigo-200/90">
+              {{ QUALIFYING_ROUND_BANNER.description }}
+            </p>
+          </div>
+
           <div class="overflow-x-auto pb-2">
             <div class="flex min-w-max items-start gap-8">
               <section
@@ -641,6 +696,12 @@ onMounted(loadData)
                 <h2 :class="roundHeaderClasses(round.roundLabel)">
                   {{ round.roundLabel }}
                 </h2>
+                <p
+                  v-if="isQualifyingRound(round.roundLabel)"
+                  :class="roundHeaderHintClasses()"
+                >
+                  {{ QUALIFYING_ROUND_BANNER.roundHint }}
+                </p>
 
                 <ul class="space-y-0">
                   <li
@@ -654,12 +715,20 @@ onMounted(loadData)
                       :class="gameCardClasses(round)"
                       :style="{ minHeight: `${MATCH_CARD_HEIGHT}px` }"
                     >
-                      <span
-                        v-if="isByeGame(game)"
-                        class="mb-1.5 inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900/60 dark:text-violet-200"
-                      >
-                        BYE
-                      </span>
+                      <div class="mb-1.5 flex flex-wrap gap-1">
+                        <span
+                          v-if="byeBadgeLabel(game)"
+                          class="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900/60 dark:text-violet-200"
+                        >
+                          {{ byeBadgeLabel(game) }}
+                        </span>
+                        <span
+                          v-if="isPlayInGame(game)"
+                          class="inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-200"
+                        >
+                          {{ PLAY_IN_BADGE_LABEL }}
+                        </span>
+                      </div>
 
                       <div
                         class="overflow-hidden rounded border border-slate-200 dark:border-slate-700"
@@ -769,6 +838,12 @@ onMounted(loadData)
                 <h2 class="font-semibold text-slate-900 dark:text-slate-100">
                   {{ round.roundLabel }}
                 </h2>
+                <p
+                  v-if="isQualifyingRound(round.roundLabel)"
+                  class="text-xs text-indigo-700 dark:text-indigo-300"
+                >
+                  {{ QUALIFYING_ROUND_BANNER.roundHint }}
+                </p>
 
                 <ul class="space-y-2">
                   <li
@@ -786,15 +861,29 @@ onMounted(loadData)
 
                     <div class="flex flex-wrap items-center gap-2">
                       <span
-                        v-if="isByeGame(game)"
+                        v-if="byeBadgeLabel(game)"
                         class="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900/60 dark:text-violet-200"
                       >
-                        BYE
+                        {{ byeBadgeLabel(game) }}
                       </span>
 
                       <span
+                        v-if="isPlayInGame(game)"
+                        class="inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-200"
+                      >
+                        {{ PLAY_IN_BADGE_LABEL }}
+                      </span>
+
+                      <span
+                        v-if="!isByeGame(game)"
                         class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
                         :class="statusBadgeClasses(game)"
+                      >
+                        {{ statusLabel(game) }}
+                      </span>
+                      <span
+                        v-else
+                        class="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900/60 dark:text-violet-200"
                       >
                         {{ statusLabel(game) }}
                       </span>
