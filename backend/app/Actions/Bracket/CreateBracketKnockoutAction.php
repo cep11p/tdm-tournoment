@@ -3,16 +3,15 @@
 namespace App\Actions\Bracket;
 
 use App\Actions\Game\CreateGameAction;
-use App\Data\Competition\CompetitionStandingData;
+use App\Data\Competition\GroupQualifierData;
 use App\Enums\GameStatus;
 use App\Models\Bracket;
 use App\Models\Competition;
 use App\Models\Game;
-use App\Models\Group;
 use App\Support\Bracket\BracketSupport;
+use App\Support\Bracket\GroupKnockoutDrawBuilder;
+use App\Support\Bracket\GroupQualifiersCollector;
 use App\Support\Game\GameFormatResolver;
-use App\Support\Group\GroupStandingsCalculator;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -20,7 +19,8 @@ final class CreateBracketKnockoutAction
 {
     public function __construct(
         private readonly CreateGameAction $createGame,
-        private readonly GroupStandingsCalculator $groupStandingsCalculator,
+        private readonly GroupQualifiersCollector $groupQualifiersCollector,
+        private readonly GroupKnockoutDrawBuilder $groupKnockoutDrawBuilder,
     ) {}
 
     public function __invoke(Competition $competition, array $payload): Bracket
@@ -82,33 +82,20 @@ final class CreateBracketKnockoutAction
 
     private function createGroupsKnockoutBracket(Competition $competition, array $payload): Bracket
     {
-        $groups = $competition->groups()->get();
-
-        if ($groups->isEmpty()) {
+        if (! $competition->groups()->exists()) {
             throw ValidationException::withMessages([
                 'competition' => ['La competencia no tiene grupos.'],
             ]);
         }
 
         $qualifiersPerGroup = (int) $competition->qualified_per_group;
-        $qualifiers = collect();
+        $groupQualifiers = $this->groupQualifiersCollector->collect($competition);
 
-        foreach ($groups as $group) {
-            $groupQualifiers = $this->qualifiersFromGroup($group, $qualifiersPerGroup);
-            $qualifiers = $qualifiers->concat($groupQualifiers);
-        }
+        $playerIds = $qualifiersPerGroup === 2
+            ? $this->groupKnockoutDrawBuilder->build($groupQualifiers, $qualifiersPerGroup)
+            : $this->legacyGlobalSeededPlayerIds($groupQualifiers);
 
-        $seededQualifiers = $qualifiers
-            ->sort(function (CompetitionStandingData $left, CompetitionStandingData $right): int {
-                return [$right->won, $left->lost, strtolower($left->playerName)]
-                    <=>
-                    [$left->won, $right->lost, strtolower($right->playerName)];
-            })
-            ->values();
-
-        $qualifierCount = $seededQualifiers->count();
-
-        if ($qualifierCount < 2) {
+        if (count($playerIds) < 2) {
             throw ValidationException::withMessages([
                 'qualified_per_group' => [
                     'Se requieren al menos 2 clasificados para generar el cuadro eliminatorio.',
@@ -116,17 +103,30 @@ final class CreateBracketKnockoutAction
             ]);
         }
 
-        $playerIds = $seededQualifiers
-            ->pluck('playerId')
-            ->map(fn (int $playerId) => $playerId)
-            ->all();
-
         return $this->buildBracketFromPlayerIds(
             competition: $competition,
             playerIds: $playerIds,
             qualifiersPerGroup: $qualifiersPerGroup,
             payload: $payload,
         );
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, GroupQualifierData>  $groupQualifiers
+     * @return array<int, int>
+     */
+    private function legacyGlobalSeededPlayerIds($groupQualifiers): array
+    {
+        return $groupQualifiers
+            ->sort(function (GroupQualifierData $left, GroupQualifierData $right): int {
+                return [$right->won, $left->lost, strtolower($left->playerName)]
+                    <=>
+                    [$left->won, $right->lost, strtolower($right->playerName)];
+            })
+            ->pluck('playerId')
+            ->map(fn (int $playerId) => $playerId)
+            ->values()
+            ->all();
     }
 
     /**
@@ -235,106 +235,5 @@ final class CreateBracketKnockoutAction
                 'games.sets',
             ]);
         });
-    }
-
-    /**
-     * @return Collection<int, CompetitionStandingData>
-     */
-    private function qualifiersFromGroup(Group $group, int $qualifiersPerGroup): Collection
-    {
-        $groupPlayers = $group->groupPlayers()
-            ->with('player:id,first_name,last_name')
-            ->get();
-
-        if ($groupPlayers->count() < 2) {
-            throw ValidationException::withMessages([
-                'group' => [sprintf('El grupo "%s" necesita al menos 2 jugadores.', $group->name)],
-            ]);
-        }
-
-        if (! $group->games()->exists()) {
-            throw ValidationException::withMessages([
-                'group' => [sprintf('El grupo "%s" no tiene partidos generados.', $group->name)],
-            ]);
-        }
-
-        $hasUnfinishedGames = $group->games()
-            ->where('status', '!=', GameStatus::Finished)
-            ->exists();
-
-        if ($hasUnfinishedGames) {
-            throw ValidationException::withMessages([
-                'group' => [sprintf('El grupo "%s" todavía tiene partidos sin finalizar.', $group->name)],
-            ]);
-        }
-
-        $standingsResult = $this->groupStandingsCalculator->calculate($group);
-        $eligibleStandings = $standingsResult->standings
-            ->filter(fn (CompetitionStandingData $standing): bool => $standing->eligibleForQualification)
-            ->values();
-
-        $availableQualifiers = min($qualifiersPerGroup, $eligibleStandings->count());
-        $groupQualifiers = $eligibleStandings->take($availableQualifiers);
-
-        if (
-            $standingsResult->requiresManualTiebreak()
-            && $this->manualTieCrossesQualifierCutoff(
-                standings: $eligibleStandings,
-                manualTiebreakGroups: $standingsResult->manualTiebreakGroups,
-                qualifierCutoff: $availableQualifiers,
-            )
-        ) {
-            throw ValidationException::withMessages([
-                'qualified_per_group' => [
-                    sprintf(
-                        'El grupo "%s" requiere desempate manual para definir la clasificación.',
-                        $group->name
-                    ),
-                ],
-            ]);
-        }
-
-        return $groupQualifiers;
-    }
-
-    /**
-     * @param  Collection<int, CompetitionStandingData>  $standings
-     * @param  array<int, array{player_ids: array<int, int>, player_names: array<int, string>}>  $manualTiebreakGroups
-     */
-    private function manualTieCrossesQualifierCutoff(
-        Collection $standings,
-        array $manualTiebreakGroups,
-        int $qualifierCutoff,
-    ): bool {
-        if ($qualifierCutoff <= 0) {
-            return false;
-        }
-
-        $positionByPlayerId = $standings
-            ->values()
-            ->mapWithKeys(fn (CompetitionStandingData $standing, int $index): array => [
-                $standing->playerId => $index,
-            ])
-            ->all();
-
-        foreach ($manualTiebreakGroups as $manualTiebreakGroup) {
-            $positions = collect($manualTiebreakGroup['player_ids'] ?? [])
-                ->map(fn (int $playerId): ?int => $positionByPlayerId[$playerId] ?? null)
-                ->filter(fn (?int $position): bool => $position !== null)
-                ->values();
-
-            if ($positions->isEmpty()) {
-                continue;
-            }
-
-            $minPosition = (int) $positions->min();
-            $maxPosition = (int) $positions->max();
-
-            if ($minPosition < $qualifierCutoff && $maxPosition >= $qualifierCutoff) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

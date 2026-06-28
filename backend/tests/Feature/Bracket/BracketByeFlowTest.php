@@ -49,18 +49,18 @@ class BracketByeFlowTest extends TestCase
         $competition = $context->createCompetition();
         $players = $context->createPlayers(6);
         $context->registerPlayers($competition, $players);
+        $competition->update(['qualified_per_group' => 3]);
+        $competition->refresh();
 
         $groups = [
-            $context->createGroupWithPlayers($competition, array_slice($players, 0, 2), 'Grupo A'),
-            $context->createGroupWithPlayers($competition, array_slice($players, 2, 2), 'Grupo B'),
-            $context->createGroupWithPlayers($competition, array_slice($players, 4, 2), 'Grupo C'),
+            $context->createGroupWithPlayers($competition, array_slice($players, 0, 3), 'Grupo A'),
+            $context->createGroupWithPlayers($competition, array_slice($players, 3, 3), 'Grupo B'),
         ];
 
-        foreach ($groups as $index => $group) {
+        foreach ($groups as $group) {
             $context->generateRoundRobin($group)->assertCreated();
-
-            $game = Game::query()->where('group_id', $group->id)->sole();
-            $context->finishGame($game, $players[$index * 2])->assertOk();
+            $groupPlayers = $group->groupPlayers()->with('player')->get()->pluck('player')->all();
+            $this->finishGroupRoundRobinWithRankOrder($group->id, $groupPlayers);
         }
 
         $response = $context->createBracket($competition);
@@ -78,7 +78,7 @@ class BracketByeFlowTest extends TestCase
 
         $this->assertCount(2, $byeGames);
         $this->assertSame($players[0]->id, $byeGames[0]['player1']['id']);
-        $this->assertSame($players[2]->id, $byeGames[1]['player1']['id']);
+        $this->assertSame($players[3]->id, $byeGames[1]['player1']['id']);
         $this->assertSame('Cuartos de final', $response->json('data.games.0.round'));
     }
 

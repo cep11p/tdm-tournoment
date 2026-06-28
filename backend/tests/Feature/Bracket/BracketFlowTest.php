@@ -181,7 +181,7 @@ class BracketFlowTest extends TestCase
         $this->assertDatabaseCount('brackets', 0);
     }
 
-    public function test_creates_bracket_of_eight_for_six_qualifiers(): void
+    public function test_rejects_bracket_when_total_qualifiers_is_not_power_of_two_for_q2(): void
     {
         $context = $this->tournamentContext();
         $competition = $context->createCompetition();
@@ -204,11 +204,10 @@ class BracketFlowTest extends TestCase
         $response = $context->createBracket($competition);
 
         $response
-            ->assertCreated()
-            ->assertJsonPath('data.bracket_size', 8)
-            ->assertJsonPath('data.byes_count', 2);
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['qualified_per_group']);
 
-        $this->assertDatabaseCount('brackets', 1);
+        $this->assertDatabaseCount('brackets', 0);
     }
 
     public function test_rejects_bracket_when_group_games_are_pending(): void
