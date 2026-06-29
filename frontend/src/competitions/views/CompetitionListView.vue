@@ -3,7 +3,12 @@ import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import CompetitionService from '../services/CompetitionService'
-import { getCompetitionFormatLabel } from '../constants/competitionFormats'
+import {
+  getStatusBadgeClasses,
+  getStatusLabel,
+  getStructurePrimary,
+  getStructureSecondary,
+} from '../utils/competitionListDisplay'
 
 const route = useRoute()
 const tournamentId = route.params.id
@@ -53,7 +58,7 @@ onMounted(loadCompetitions)
 
     <div
       v-else
-      class="overflow-hidden rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+      class="overflow-x-auto rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
     >
       <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
         <thead class="bg-slate-50 dark:bg-slate-800">
@@ -61,27 +66,22 @@ onMounted(loadCompetitions)
             <th
               class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
             >
-              Nombre
+              Competencia
             </th>
             <th
               class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
             >
-              Categoría
-            </th>
-            <th
-              class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
-            >
-              Tipo
-            </th>
-            <th
-              class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
-            >
-              Formato
+              Estructura
             </th>
             <th
               class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
             >
               Estado
+            </th>
+            <th
+              class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
+            >
+              Acciones
             </th>
           </tr>
         </thead>
@@ -92,12 +92,10 @@ onMounted(loadCompetitions)
             class="hover:bg-slate-50 dark:hover:bg-slate-800"
           >
             <td class="px-4 py-3 text-sm">
-              <RouterLink
-                :to="`/competitions/${competition.id}`"
-                class="font-medium text-slate-900 hover:underline dark:text-slate-100"
-              >
-                {{ competition.name }}
-              </RouterLink>
+              <p class="font-medium text-slate-900 dark:text-slate-100">{{ competition.name }}</p>
+              <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                {{ competition.category }} · {{ competition.type }}
+              </p>
               <p
                 v-if="competition.result_summary?.champion?.name"
                 class="mt-0.5 text-xs text-emerald-700 dark:text-emerald-400"
@@ -105,19 +103,32 @@ onMounted(loadCompetitions)
                 Campeón: {{ competition.result_summary.champion.name }}
               </p>
             </td>
-            <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">{{ competition.category }}</td>
-            <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">{{ competition.type }}</td>
-            <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
-              {{ getCompetitionFormatLabel(competition) }}
+            <td class="px-4 py-3 text-sm">
+              <p class="text-slate-900 dark:text-slate-100">{{ getStructurePrimary(competition) }}</p>
+              <p
+                v-if="getStructureSecondary(competition)"
+                class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
+              >
+                {{ getStructureSecondary(competition) }}
+              </p>
             </td>
             <td class="px-4 py-3 text-sm">
               <span
-                v-if="competition.status_summary?.label"
-                class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                v-if="competition.status_summary"
+                class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+                :class="getStatusBadgeClasses(competition)"
               >
-                {{ competition.status_summary.label }}
+                {{ getStatusLabel(competition) }}
               </span>
               <span v-else class="text-slate-400 dark:text-slate-500">-</span>
+            </td>
+            <td class="px-4 py-3 text-sm">
+              <RouterLink
+                :to="`/competitions/${competition.id}`"
+                class="font-medium text-slate-900 hover:underline dark:text-slate-100"
+              >
+                Gestionar
+              </RouterLink>
             </td>
           </tr>
         </tbody>
