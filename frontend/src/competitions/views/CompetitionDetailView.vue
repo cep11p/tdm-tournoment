@@ -1,5 +1,6 @@
 <script setup>
 import {
+  Squares2X2Icon,
   TrophyIcon,
   UserGroupIcon,
   ViewColumnsIcon,
@@ -70,23 +71,6 @@ const canGenerateRandomGroups = computed(
     !hasExistingGroups.value &&
     !isCompetitionCompleted.value &&
     groups.value !== null,
-)
-
-const canGenerateBracket = computed(
-  () =>
-    isKnockoutDirect.value &&
-    !hasBracket.value &&
-    !isCompetitionCompleted.value &&
-    registeredCount.value >= 2,
-)
-
-const needsMoreRegistrationsForBracket = computed(
-  () =>
-    isKnockoutDirect.value &&
-    !hasBracket.value &&
-    !isCompetitionCompleted.value &&
-    registeredCount.value < 2 &&
-    registrations.value !== null,
 )
 
 const groupCount = computed(() => (groups.value === null ? '-' : groups.value.length))
@@ -225,34 +209,101 @@ const groupPhaseCardClasses = (summary) => {
   return 'border-slate-200 bg-slate-50/40 dark:border-slate-700 dark:bg-slate-900/40'
 }
 
-const actionLinks = computed(() => {
-  const links = [
-    {
-      to: `/competitions/${competitionId.value}/registrations`,
-      label: 'Administrar inscripciones',
-      description: 'Gestionar jugadores inscriptos',
-      icon: UserGroupIcon,
-    },
-  ]
+const structureAction = computed(() => {
+  if (!competition.value || statusSummary.value === null) {
+    return null
+  }
 
-  links.push({
+  const code = statusSummary.value.code
+
+  if (hasBracket.value || code === 'knockout_in_progress' || code === 'completed') {
+    return {
+      key: 'view-bracket',
+      type: 'link',
+      to: bracketRoute.value,
+      label: 'Ver llave eliminatoria',
+      description:
+        code === 'completed'
+          ? 'Consultar rondas y campeón'
+          : 'Consultar rondas y partidos eliminatorios',
+      icon: TrophyIcon,
+    }
+  }
+
+  if (code === 'no_groups') {
+    const disabled = !canGenerateRandomGroups.value
+
+    return {
+      key: 'generate-groups',
+      type: disabled ? 'disabled' : 'modal',
+      label: 'Generar grupos',
+      description: disabled
+        ? 'Necesitás al menos 2 jugadores inscriptos'
+        : 'Distribuir jugadores inscriptos en grupos',
+      icon: Squares2X2Icon,
+    }
+  }
+
+  if (code === 'ready_for_bracket') {
+    return {
+      key: 'generate-bracket',
+      type: 'link',
+      to: bracketRoute.value,
+      label: 'Generar bracket',
+      description: 'Crear la llave eliminatoria',
+      icon: TrophyIcon,
+    }
+  }
+
+  if (code === 'awaiting_registrations') {
+    return {
+      key: 'generate-bracket-disabled',
+      type: 'disabled',
+      label: 'Generar bracket',
+      description: 'Necesitás al menos 2 jugadores inscriptos',
+      icon: TrophyIcon,
+    }
+  }
+
+  return null
+})
+
+const secondaryActions = computed(() => [
+  {
+    key: 'registrations',
+    type: 'link',
+    to: `/competitions/${competitionId.value}/registrations`,
+    label: 'Administrar inscripciones',
+    description: 'Gestionar jugadores inscriptos',
+    icon: UserGroupIcon,
+  },
+  {
+    key: 'games',
+    type: 'link',
     to: `/competitions/${competitionId.value}/games`,
     label: 'Ver partidos',
     description: 'Consultar resultados y estado',
     icon: ViewColumnsIcon,
-  })
+  },
+])
 
-  links.push({
-    to: bracketRoute.value,
-    label: hasBracket.value ? 'Ver llave eliminatoria' : 'Generar bracket',
-    description: hasBracket.value
-      ? 'Consultar rondas y partidos eliminatorios'
-      : 'Crear la llave eliminatoria',
-    icon: TrophyIcon,
-  })
+const actionCardClasses =
+  'group flex items-start gap-3 rounded-md border border-slate-200 bg-white p-4 text-sm transition dark:border-slate-700 dark:bg-slate-900'
 
-  return links
-})
+const actionCardInteractiveClasses =
+  'hover:border-slate-300 hover:bg-slate-50 dark:hover:border-slate-600 dark:hover:bg-slate-800/80'
+
+const structureActionCardClasses =
+  'group flex w-full items-start gap-3 rounded-md border border-slate-700 border-blue-500/30 bg-slate-900 p-4 text-left text-sm transition hover:border-blue-400/50 hover:bg-slate-800/70'
+
+const structureActionDisabledClasses =
+  'flex w-full cursor-not-allowed items-start gap-3 rounded-md border border-dashed border-slate-700 bg-slate-900/60 p-4 text-left text-sm opacity-70'
+
+const structureActionIconContainerClasses =
+  'flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-blue-950/40 ring-1 ring-blue-500/20'
+
+const structureActionIconClasses =
+  'h-6 w-6 text-blue-300 group-hover:text-blue-200'
 
 const loadCompetitionSummary = async () => {
   isLoading.value = true
@@ -349,16 +400,6 @@ const openGenerateRandomGroupsModal = () => {
       <div>
         <p class="mb-3 text-sm font-medium text-slate-700 dark:text-slate-200">Acciones principales</p>
 
-        <div v-if="canGenerateRandomGroups" class="mb-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-            @click="openGenerateRandomGroupsModal"
-          >
-            Generar grupos
-          </button>
-        </div>
-
         <p
           v-if="randomGroupsSuccessMessage"
           class="mb-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
@@ -373,19 +414,12 @@ const openGenerateRandomGroupsModal = () => {
           Esta competencia es de eliminación directa. Los jugadores inscriptos pasan directamente a la llave.
         </p>
 
-        <p
-          v-if="needsMoreRegistrationsForBracket"
-          class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
-        >
-          Necesitás al menos 2 jugadores inscriptos para generar la llave.
-        </p>
-
         <div class="grid gap-3 sm:grid-cols-2">
           <RouterLink
-            v-for="action in actionLinks"
-            :key="action.to"
+            v-for="action in secondaryActions"
+            :key="action.key"
             :to="action.to"
-            class="group flex items-start gap-3 rounded-md border border-slate-200 bg-white p-4 text-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600 dark:hover:bg-slate-800/80"
+            :class="[actionCardClasses, actionCardInteractiveClasses]"
           >
             <component
               :is="action.icon"
@@ -396,6 +430,50 @@ const openGenerateRandomGroupsModal = () => {
               <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ action.description }}</p>
             </div>
           </RouterLink>
+        </div>
+
+        <div v-if="structureAction" class="mt-3">
+          <RouterLink
+            v-if="structureAction.type === 'link'"
+            :to="structureAction.to"
+            :class="structureActionCardClasses"
+          >
+            <span :class="structureActionIconContainerClasses">
+              <component :is="structureAction.icon" :class="structureActionIconClasses" />
+            </span>
+            <div>
+              <p class="font-medium text-slate-100">{{ structureAction.label }}</p>
+              <p class="mt-1 text-xs text-slate-400">{{ structureAction.description }}</p>
+            </div>
+          </RouterLink>
+
+          <button
+            v-else-if="structureAction.type === 'modal'"
+            type="button"
+            :class="structureActionCardClasses"
+            @click="openGenerateRandomGroupsModal"
+          >
+            <span :class="structureActionIconContainerClasses">
+              <component :is="structureAction.icon" :class="structureActionIconClasses" />
+            </span>
+            <div>
+              <p class="font-medium text-slate-100">{{ structureAction.label }}</p>
+              <p class="mt-1 text-xs text-slate-400">{{ structureAction.description }}</p>
+            </div>
+          </button>
+
+          <div v-else :class="structureActionDisabledClasses" aria-disabled="true">
+            <span :class="structureActionIconContainerClasses">
+              <component
+                :is="structureAction.icon"
+                class="h-6 w-6 text-slate-500"
+              />
+            </span>
+            <div>
+              <p class="font-medium text-slate-100">{{ structureAction.label }}</p>
+              <p class="mt-1 text-xs text-slate-400">{{ structureAction.description }}</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -700,14 +778,6 @@ const openGenerateRandomGroupsModal = () => {
               {{ warning }}
             </p>
           </div>
-
-          <RouterLink
-            v-if="canGenerateBracket || hasGroupStage"
-            :to="bracketRoute"
-            class="mt-4 inline-flex rounded-md bg-slate-900 px-3 py-2 font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-          >
-            Generar bracket
-          </RouterLink>
         </template>
 
         <template v-else>
@@ -734,13 +804,6 @@ const openGenerateRandomGroupsModal = () => {
               <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ bracketStatus }}</dd>
             </div>
           </dl>
-
-          <RouterLink
-            :to="bracketRoute"
-            class="mt-4 inline-flex rounded-md bg-slate-900 px-3 py-2 font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-          >
-            Ver llave eliminatoria
-          </RouterLink>
         </template>
       </div>
 
