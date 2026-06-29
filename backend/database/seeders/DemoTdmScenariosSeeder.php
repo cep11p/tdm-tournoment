@@ -12,6 +12,7 @@ class DemoTdmScenariosSeeder extends Seeder
             DemoSmallTournamentSeeder::class,
             DemoOnlyWinnersSeeder::class,
             DemoFourGroupsSeeder::class,
+            DemoQ3FourGroupsSeeder::class,
             DemoPendingByesSeeder::class,
         ]);
     }
