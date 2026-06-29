@@ -182,6 +182,10 @@ const handleSave = async () => {
     isSavingResult.value = false
   }
 }
+
+const handleSubmit = () => {
+  handleSave()
+}
 </script>
 
 <template>
@@ -192,74 +196,77 @@ const handleSave = async () => {
       @click.self="handleClose"
     >
       <div
-        class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-md border border-slate-200 bg-white p-4 text-sm shadow-xl dark:border-slate-700 dark:bg-slate-900"
+        class="mx-auto flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-md border border-slate-200 bg-white text-sm shadow-xl dark:border-slate-700 dark:bg-slate-900"
         role="dialog"
         aria-modal="true"
         aria-labelledby="game-result-modal-title"
       >
-        <div class="space-y-4">
-          <div>
-            <h2 id="game-result-modal-title" class="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              Cargar resultado
-            </h2>
-            <p class="mt-1 font-medium text-slate-900 dark:text-slate-100">
-              {{ playerName(activeGame.player1) }} vs {{ playerName(activeGame.player2) }}
-            </p>
-            <p v-if="matchFormatLabel(activeGame)" class="text-slate-600 dark:text-slate-300">
-              {{ matchFormatLabel(activeGame) }}
-            </p>
-          </div>
-
-          <div class="space-y-2">
-            <div
-              v-for="row in setRows"
-              :key="row.setNumber"
-              class="grid grid-cols-[4rem_1fr_1fr] items-center gap-2"
-            >
-              <span class="font-medium text-slate-700 dark:text-slate-200">Set {{ row.setNumber }}</span>
-              <input
-                v-model="row.player1Score"
-                type="number"
-                min="0"
-                :disabled="row.locked || isSavingResult"
-                :placeholder="playerName(activeGame.player1)"
-                class="rounded-md border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-              />
-              <input
-                v-model="row.player2Score"
-                type="number"
-                min="0"
-                :disabled="row.locked || isSavingResult"
-                :placeholder="playerName(activeGame.player2)"
-                class="rounded-md border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-              />
+        <div class="overflow-y-auto overflow-x-hidden p-4">
+          <form class="space-y-4" @submit.prevent="handleSubmit">
+            <div class="min-w-0">
+              <h2 id="game-result-modal-title" class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                Cargar resultado
+              </h2>
+              <p class="mt-1 break-words font-medium text-slate-900 dark:text-slate-100">
+                {{ playerName(activeGame.player1) }} vs {{ playerName(activeGame.player2) }}
+              </p>
+              <p v-if="matchFormatLabel(activeGame)" class="text-slate-600 dark:text-slate-300">
+                {{ matchFormatLabel(activeGame) }}
+              </p>
             </div>
-          </div>
 
-          <p class="text-xs text-slate-500 dark:text-slate-400">
-            Completá los sets en orden. No hace falta llenar todos si el partido se define antes.
-          </p>
+            <div class="min-w-0 space-y-2">
+              <div
+                v-for="row in setRows"
+                :key="row.setNumber"
+                class="grid min-w-0 grid-cols-[auto_1fr_1fr] items-center gap-2"
+              >
+                <span class="shrink-0 font-medium text-slate-700 dark:text-slate-200">
+                  Set {{ row.setNumber }}
+                </span>
+                <input
+                  v-model="row.player1Score"
+                  type="number"
+                  min="0"
+                  :disabled="row.locked || isSavingResult"
+                  :placeholder="playerName(activeGame.player1)"
+                  class="min-w-0 w-full rounded-md border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                />
+                <input
+                  v-model="row.player2Score"
+                  type="number"
+                  min="0"
+                  :disabled="row.locked || isSavingResult"
+                  :placeholder="playerName(activeGame.player2)"
+                  class="min-w-0 w-full rounded-md border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                />
+              </div>
+            </div>
 
-          <p v-if="resultError" class="text-red-600 dark:text-red-400">{{ resultError }}</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">
+              Completá los sets en orden. No hace falta llenar todos si el partido se define antes.
+            </p>
 
-          <div class="flex justify-end gap-2">
-            <button
-              type="button"
-              class="rounded-md border border-slate-300 px-3 py-2 font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-              :disabled="isSavingResult"
-              @click="handleClose"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              class="rounded-md bg-emerald-700 px-3 py-2 font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
-              :disabled="isSavingResult"
-              @click="handleSave"
-            >
-              {{ isSavingResult ? 'Guardando...' : 'Guardar resultado' }}
-            </button>
-          </div>
+            <p v-if="resultError" class="text-red-600 dark:text-red-400">{{ resultError }}</p>
+
+            <div class="flex justify-end gap-2">
+              <button
+                type="button"
+                class="rounded-md border border-slate-300 px-3 py-2 font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                :disabled="isSavingResult"
+                @click="handleClose"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                class="rounded-md bg-emerald-700 px-3 py-2 font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                :disabled="isSavingResult"
+              >
+                {{ isSavingResult ? 'Guardando...' : 'Guardar resultado' }}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </div>

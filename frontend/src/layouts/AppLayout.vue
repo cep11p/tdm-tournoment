@@ -1,14 +1,41 @@
 <script setup>
 import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { HomeIcon, TrophyIcon, UsersIcon } from '@heroicons/vue/24/outline'
 
 import { useTheme } from '../composables/useTheme'
+
+const route = useRoute()
 
 const navigationLinks = [
   { name: 'Dashboard', to: '/', icon: HomeIcon },
   { name: 'Tournaments', to: '/tournaments', icon: TrophyIcon },
   { name: 'Jugadores', to: '/players', icon: UsersIcon },
 ]
+
+const navLinkBaseClasses =
+  'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100'
+
+const navLinkActiveClasses =
+  'bg-slate-900 text-white hover:bg-slate-900 hover:text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-100 dark:hover:text-slate-900'
+
+const isNavItemActive = (item) => {
+  if (item.to === '/tournaments') {
+    return route.path.startsWith('/tournaments')
+  }
+
+  if (item.to === '/players') {
+    return route.path.startsWith('/players')
+  }
+
+  if (item.to === '/') {
+    return route.path === '/'
+  }
+
+  return route.path === item.to
+}
+
+const navLinkClasses = (item) => [navLinkBaseClasses, isNavItemActive(item) ? navLinkActiveClasses : '']
 
 const { theme, toggle } = useTheme()
 const isDarkMode = computed(() => theme.value === 'dark')
@@ -25,8 +52,7 @@ const isDarkMode = computed(() => theme.value === 'dark')
             v-for="item in navigationLinks"
             :key="item.to"
             :to="item.to"
-            class="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-            active-class="bg-slate-900 text-white hover:bg-slate-900 hover:text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-100 dark:hover:text-slate-900"
+            :class="navLinkClasses(item)"
           >
             <component :is="item.icon" class="h-5 w-5" />
             <span>{{ item.name }}</span>
