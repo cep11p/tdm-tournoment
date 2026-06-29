@@ -61,7 +61,8 @@ const resolveIsQualified = (standing, position) => {
 
 const isPlayerActive = (groupPlayer) => (groupPlayer?.status ?? 'active') === 'active'
 
-const canChangePlayerStatus = (groupPlayer) => isPlayerActive(groupPlayer) && !hasBracket.value
+const canChangePlayerStatus = (groupPlayer) =>
+  isPlayerActive(groupPlayer) && !hasBracket.value && !hasGroupGames.value
 
 const loadGroupPlayers = async () => {
   isLoadingGroupPlayers.value = true
@@ -279,6 +280,12 @@ const isLoadingGames = ref(false)
 const gamesError = ref('')
 const selectedGame = ref(null)
 const resultSuccessMessage = ref('')
+
+const hasGroupGames = computed(() => games.value.length > 0)
+
+const groupPlayersTitle = computed(() =>
+  hasGroupGames.value ? 'Jugadores del grupo' : 'Jugadores asignados',
+)
 
 const loadGroupGames = async () => {
   if (!competitionId.value || !groupId.value) {
@@ -523,6 +530,7 @@ onMounted(async () => {
     </div>
 
     <div
+      v-if="!hasGroupGames"
       class="space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
     >
       <p class="font-medium text-slate-700 dark:text-slate-200">Asignar jugador registrado</p>
@@ -570,12 +578,20 @@ onMounted(async () => {
       </template>
     </div>
 
+    <p
+      v-if="hasGroupGames"
+      class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
+    >
+      El fixture del grupo ya fue generado. La asignación de jugadores queda bloqueada para preservar la
+      consistencia de los partidos.
+    </p>
+
     <div
       class="space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
     >
       <div class="flex items-center justify-between gap-3">
         <div>
-          <p class="font-medium text-slate-700 dark:text-slate-200">Jugadores asignados</p>
+          <p class="font-medium text-slate-700 dark:text-slate-200">{{ groupPlayersTitle }}</p>
           <p
             v-if="!isLoadingGroupPlayers && !isLoadingStandings && standings.length > 0"
             class="mt-1 text-xs text-slate-500 dark:text-slate-400"
@@ -585,6 +601,7 @@ onMounted(async () => {
         </div>
 
         <button
+          v-if="!hasGroupGames"
           type="button"
           class="rounded-md bg-emerald-700 px-3 py-2 font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-emerald-600 dark:hover:bg-emerald-500"
           :disabled="isGeneratingRoundRobin"
