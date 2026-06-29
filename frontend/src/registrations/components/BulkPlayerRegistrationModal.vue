@@ -40,6 +40,24 @@ const selectablePlayers = computed(() =>
 
 const selectedCount = computed(() => selectedIds.value.size)
 
+const allFilteredSelected = computed(() => {
+  if (selectablePlayers.value.length === 0) {
+    return false
+  }
+
+  return selectablePlayers.value.every((player) => selectedIds.value.has(player.id))
+})
+
+const someFilteredSelected = computed(() => {
+  if (allFilteredSelected.value) {
+    return false
+  }
+
+  return selectablePlayers.value.some((player) => selectedIds.value.has(player.id))
+})
+
+const selectAllCheckbox = ref(null)
+
 const isConfirmDisabled = computed(() => selectedCount.value === 0 || isSubmitting.value)
 
 const playerDisplayName = (player) => {
@@ -105,6 +123,21 @@ const selectAllVisible = () => {
   selectedIds.value = next
 }
 
+const toggleSelectAllFiltered = () => {
+  if (allFilteredSelected.value) {
+    const next = new Set(selectedIds.value)
+
+    for (const player of selectablePlayers.value) {
+      next.delete(player.id)
+    }
+
+    selectedIds.value = next
+    return
+  }
+
+  selectAllVisible()
+}
+
 const clearSelection = () => {
   selectedIds.value = new Set()
 }
@@ -165,6 +198,14 @@ watch(
     loadPlayers()
   },
 )
+
+watch([allFilteredSelected, someFilteredSelected, selectablePlayers], () => {
+  if (!selectAllCheckbox.value) {
+    return
+  }
+
+  selectAllCheckbox.value.indeterminate = someFilteredSelected.value
+})
 </script>
 
 <template>
@@ -219,9 +260,13 @@ watch(
               type="button"
               class="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
               :disabled="selectablePlayers.length === 0 || isSubmitting"
-              @click="selectAllVisible"
+              @click="toggleSelectAllFiltered"
             >
-              Seleccionar visibles
+              {{
+                allFilteredSelected
+                  ? 'Deseleccionar filtrados'
+                  : `Seleccionar todos los filtrados (${selectablePlayers.length})`
+              }}
             </button>
 
             <button
@@ -259,7 +304,16 @@ watch(
               <thead class="bg-slate-50 dark:bg-slate-800/60">
                 <tr>
                   <th scope="col" class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    Seleccionar
+                    <label class="inline-flex items-center gap-2 normal-case">
+                      <input
+                        ref="selectAllCheckbox"
+                        type="checkbox"
+                        :checked="allFilteredSelected"
+                        :disabled="selectablePlayers.length === 0 || isSubmitting"
+                        @change="toggleSelectAllFiltered"
+                      />
+                      <span>Todos</span>
+                    </label>
                   </th>
                   <th scope="col" class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     Jugador

@@ -6,6 +6,7 @@ import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import CompetitionService from '../../competitions/services/CompetitionService'
 import PlayerService from '../../players/services/PlayerService'
+import BulkPlayerRegistrationModal from '../components/BulkPlayerRegistrationModal.vue'
 import RegistrationService from '../services/RegistrationService'
 
 const route = useRoute()
@@ -17,11 +18,34 @@ const isLoadingRegistrations = ref(false)
 const registrationListError = ref('')
 
 const showRegistrationForm = ref(false)
+const showBulkRegistrationModal = ref(false)
+const bulkRegistrationSuccessMessage = ref('')
 const isSubmittingRegistration = ref(false)
 const registrationSubmitError = ref('')
 const registrationSuccessMessage = ref('')
 
-const searchQuery = ref('')
+const registeredPlayerIds = computed(() =>
+  registrations.value.map((registration) => registration.player?.id).filter(Boolean),
+)
+
+const openBulkRegistrationModal = () => {
+  bulkRegistrationSuccessMessage.value = ''
+  registrationSuccessMessage.value = ''
+  showBulkRegistrationModal.value = true
+}
+
+const handleBulkRegistrationSaved = async (result) => {
+  bulkRegistrationSuccessMessage.value =
+    result?.message ||
+    `Inscripción masiva procesada: ${result?.created ?? 0} inscriptos, ${result?.skipped ?? 0} omitidos.`
+  showBulkRegistrationModal.value = false
+  await loadRegistrations()
+}
+
+const handleBulkRegistrationClose = () => {
+  showBulkRegistrationModal.value = false
+}
+
 const searchedOnce = ref(false)
 const isSearchingPlayers = ref(false)
 const playerSearchError = ref('')
@@ -168,7 +192,7 @@ onMounted(async () => {
       <AppBackButton :fallback-to="`/competitions/${competitionId}`" />
     </div>
 
-    <div>
+    <div class="flex flex-wrap gap-2">
       <button
         type="button"
         class="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
@@ -176,7 +200,22 @@ onMounted(async () => {
       >
         Inscribir jugador
       </button>
+
+      <button
+        type="button"
+        class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+        @click="openBulkRegistrationModal"
+      >
+        Inscripción masiva
+      </button>
     </div>
+
+    <p
+      v-if="bulkRegistrationSuccessMessage"
+      class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
+    >
+      {{ bulkRegistrationSuccessMessage }}
+    </p>
 
     <div
       v-if="showRegistrationForm"
@@ -325,5 +364,13 @@ onMounted(async () => {
         <p class="text-slate-600 dark:text-slate-400">Nickname: {{ registration.player.nickname || '-' }}</p>
       </article>
     </div>
+
+    <BulkPlayerRegistrationModal
+      :show="showBulkRegistrationModal"
+      :competition-id="competitionId"
+      :registered-player-ids="registeredPlayerIds"
+      @close="handleBulkRegistrationClose"
+      @saved="handleBulkRegistrationSaved"
+    />
   </section>
 </template>

@@ -1,6 +1,5 @@
 <script setup>
 import {
-  RectangleGroupIcon,
   TrophyIcon,
   UserGroupIcon,
   ViewColumnsIcon,
@@ -235,15 +234,6 @@ const actionLinks = computed(() => {
       icon: UserGroupIcon,
     },
   ]
-
-  if (hasGroupStage.value) {
-    links.push({
-      to: `/competitions/${competitionId.value}/groups`,
-      label: 'Administrar grupos',
-      description: 'Crear grupos y asignar jugadores',
-      icon: RectangleGroupIcon,
-    })
-  }
 
   links.push({
     to: `/competitions/${competitionId.value}/games`,
