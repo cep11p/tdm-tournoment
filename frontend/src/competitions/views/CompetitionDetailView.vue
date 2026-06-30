@@ -446,14 +446,22 @@ const openGenerateRandomGroupsModal = () => {
       <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
         {{ competition?.name || `Competencia #${competitionId}` }}
       </h1>
-      <RouterLink
-        v-if="competition?.tournament_id"
-        :to="fallbackBackRoute"
-        class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-      >
-        {{ backButtonLabel }}
-      </RouterLink>
-      <AppBackButton v-else :fallback-to="fallbackBackRoute" :label="backButtonLabel" />
+      <div class="flex items-center gap-3">
+        <RouterLink
+          :to="`/competitions/${competitionId}/edit`"
+          class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          Editar competencia
+        </RouterLink>
+        <RouterLink
+          v-if="competition?.tournament_id"
+          :to="fallbackBackRoute"
+          class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          {{ backButtonLabel }}
+        </RouterLink>
+        <AppBackButton v-else :fallback-to="fallbackBackRoute" :label="backButtonLabel" />
+      </div>
     </div>
 
     <p v-if="isLoading" class="text-sm text-slate-600 dark:text-slate-300">Cargando competencia...</p>
