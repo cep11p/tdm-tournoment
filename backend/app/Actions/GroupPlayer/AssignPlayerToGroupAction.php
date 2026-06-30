@@ -5,6 +5,7 @@ namespace App\Actions\GroupPlayer;
 use App\Models\Group;
 use App\Models\GroupPlayer;
 use App\Support\Competition\CompetitionFormatGuard;
+use App\Support\Competition\CompetitionStructureGuard;
 use Illuminate\Database\QueryException;
 use Illuminate\Validation\ValidationException;
 
@@ -15,6 +16,7 @@ final class AssignPlayerToGroupAction
         $group = Group::query()->findOrFail($payload['group_id']);
         $group->loadMissing('competition');
         CompetitionFormatGuard::ensureGroupStage($group->competition);
+        CompetitionStructureGuard::ensureEditable($group->competition);
         $playerId = (int) $payload['player_id'];
 
         $alreadyAssigned = GroupPlayer::query()

@@ -5,6 +5,7 @@ namespace App\Actions\Group;
 use App\Models\Group;
 use App\Models\Competition;
 use App\Support\Competition\CompetitionFormatGuard;
+use App\Support\Competition\CompetitionStructureGuard;
 use Illuminate\Database\QueryException;
 use Illuminate\Validation\ValidationException;
 
@@ -14,6 +15,7 @@ final class CreateGroupAction
     {
         $competition = Competition::query()->findOrFail($payload['competition_id']);
         CompetitionFormatGuard::ensureGroupStage($competition);
+        CompetitionStructureGuard::ensureEditable($competition);
 
         try {
             return Group::query()->create($payload);

@@ -2,7 +2,9 @@
 
 namespace App\Actions\Registration;
 
+use App\Models\Competition;
 use App\Models\Registration;
+use App\Support\Competition\CompetitionStructureGuard;
 use Illuminate\Database\QueryException;
 use Illuminate\Validation\ValidationException;
 
@@ -10,6 +12,9 @@ final class RegisterPlayerToCompetitionAction
 {
     public function __invoke(array $payload): Registration
     {
+        $competition = Competition::query()->findOrFail($payload['competition_id']);
+        CompetitionStructureGuard::ensureEditable($competition);
+
         try {
             return Registration::query()->create($payload);
         } catch (QueryException $exception) {

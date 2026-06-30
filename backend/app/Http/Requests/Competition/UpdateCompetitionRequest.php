@@ -5,6 +5,7 @@ namespace App\Http\Requests\Competition;
 use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
 use App\Models\Competition;
+use App\Support\Competition\CompetitionStructureGuard;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -14,7 +15,11 @@ class UpdateCompetitionRequest extends FormRequest
     /**
      * @var array<int, string>
      */
-    private const FORMAT_FIELDS = [
+    private const STRUCTURAL_FIELDS = [
+        'type',
+        'format',
+        'points_per_set',
+        'qualified_per_group',
         'group_stage_best_of',
         'knockout_stage_best_of',
         'semifinal_best_of',
@@ -51,56 +56,44 @@ class UpdateCompetitionRequest extends FormRequest
                 return;
             }
 
-            if ($this->has('format')) {
-                $newFormat = CompetitionFormat::from((string) $this->input('format'));
-
-                if ($newFormat->normalized() !== $competition->format->normalized()) {
-                    if (
-                        $competition->groups()->exists()
-                        || $competition->games()->exists()
-                        || $competition->brackets()->exists()
-                    ) {
-                        $validator->errors()->add(
-                            'format',
-                            'No se puede cambiar el formato porque la competencia ya tiene grupos, partidos o un cuadro eliminatorio.'
-                        );
-                    }
-                }
-            }
-
-            if ($this->has('qualified_per_group')) {
-                if ($competition->brackets()->exists()) {
-                    $newValue = (int) $this->input('qualified_per_group');
-                    $currentValue = (int) $competition->qualified_per_group;
-
-                    if ($newValue !== $currentValue) {
-                        $validator->errors()->add(
-                            'qualified_per_group',
-                            'No se puede cambiar la cantidad de clasificados por grupo porque ya existe un cuadro eliminatorio.'
-                        );
-                    }
-                }
-            }
-
-            if (! $competition->games()->exists()) {
+            if (CompetitionStructureGuard::isStructureEditable($competition)) {
                 return;
             }
 
-            foreach (self::FORMAT_FIELDS as $field) {
+            foreach (self::STRUCTURAL_FIELDS as $field) {
                 if (! $this->has($field)) {
                     continue;
                 }
 
-                $newValue = (int) $this->input($field);
-                $currentValue = (int) $competition->{$field};
-
-                if ($newValue !== $currentValue) {
-                    $validator->errors()->add(
-                        $field,
-                        'No se puede cambiar el formato de sets porque ya existen partidos generados.'
-                    );
+                if (! $this->structuralFieldChanged($competition, $field)) {
+                    continue;
                 }
+
+                $validator->errors()->add(
+                    $field,
+                    CompetitionStructureGuard::LOCK_MESSAGE,
+                );
             }
         });
+    }
+
+    private function structuralFieldChanged(Competition $competition, string $field): bool
+    {
+        if ($field === 'format') {
+            $newFormat = CompetitionFormat::from((string) $this->input('format'));
+
+            return $newFormat->normalized() !== $competition->format->normalized();
+        }
+
+        if ($field === 'type') {
+            $newType = CompetitionType::from((string) $this->input('type'));
+            $currentType = $competition->type instanceof CompetitionType
+                ? $competition->type
+                : CompetitionType::from((string) $competition->type);
+
+            return $newType !== $currentType;
+        }
+
+        return (int) $this->input($field) !== (int) $competition->{$field};
     }
 }

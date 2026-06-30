@@ -6,6 +6,7 @@ use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
 use App\Support\Competition\CompetitionResultResolver;
 use App\Support\Competition\CompetitionStatusResolver;
+use App\Support\Competition\CompetitionStructureGuard;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -40,6 +41,8 @@ class CompetitionResource extends JsonResource
             'semifinal_best_of' => $this->semifinal_best_of,
             'final_best_of' => $this->final_best_of,
             'qualified_per_group' => $this->qualified_per_group,
+            'is_structure_editable' => CompetitionStructureGuard::isStructureEditable($this->resource),
+            'structure_lock_reason' => CompetitionStructureGuard::structureLockReason($this->resource),
             'status_summary' => CompetitionStatusResolver::resolve($this->resource),
             'result_summary' => CompetitionResultResolver::resolve($this->resource),
             'created_at' => optional($this->created_at)->toISOString(),

@@ -240,10 +240,25 @@ class GameFormatFlowTest extends TestCase
             ->assertJsonValidationErrors(['set_number']);
     }
 
-    public function test_updating_competition_format_is_blocked_when_games_exist(): void
+    public function test_allows_updating_competition_best_of_when_only_pending_games_exist(): void
     {
         $context = $this->tournamentContext();
         $setup = $context->createPendingSinglesGame();
+
+        $response = $context->updateCompetitionViaApi($setup['competition'], [
+            'group_stage_best_of' => 7,
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.group_stage_best_of', 7);
+    }
+
+    public function test_blocks_updating_competition_best_of_when_real_activity_started(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $context->createPendingSinglesGame();
+        $context->finishGame($setup['game'], $setup['playerOne'])->assertOk();
 
         $response = $context->updateCompetitionViaApi($setup['competition'], [
             'group_stage_best_of' => 7,

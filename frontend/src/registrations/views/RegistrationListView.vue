@@ -5,6 +5,10 @@ import { useRoute } from 'vue-router'
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import CompetitionService from '../../competitions/services/CompetitionService'
+import {
+  isStructureEditable,
+  structureLockReason,
+} from '../../competitions/utils/competitionStructure'
 import PlayerService from '../../players/services/PlayerService'
 import BulkPlayerRegistrationModal from '../components/BulkPlayerRegistrationModal.vue'
 import RegistrationService from '../services/RegistrationService'
@@ -27,6 +31,10 @@ const registrationSuccessMessage = ref('')
 const registeredPlayerIds = computed(() =>
   registrations.value.map((registration) => registration.player?.id).filter(Boolean),
 )
+
+const competitionStructureEditable = computed(() => isStructureEditable(competition.value))
+
+const competitionStructureLockReason = computed(() => structureLockReason(competition.value))
 
 const openBulkRegistrationModal = () => {
   bulkRegistrationSuccessMessage.value = ''
@@ -118,6 +126,7 @@ const handleRegisterSelectedPlayer = async () => {
   } catch (error) {
     registrationSubmitError.value =
       error?.response?.data?.errors?.player_id?.[0] ||
+      error?.response?.data?.errors?.competition?.[0] ||
       error?.response?.data?.message ||
       'No se pudo inscribir el jugador.'
   } finally {
@@ -194,6 +203,7 @@ onMounted(async () => {
 
     <div class="flex flex-wrap gap-2">
       <button
+        v-if="competitionStructureEditable"
         type="button"
         class="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
         @click="showRegistrationForm = !showRegistrationForm"
@@ -202,6 +212,7 @@ onMounted(async () => {
       </button>
 
       <button
+        v-if="competitionStructureEditable"
         type="button"
         class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
         @click="openBulkRegistrationModal"
@@ -209,6 +220,13 @@ onMounted(async () => {
         Inscripción masiva
       </button>
     </div>
+
+    <p
+      v-if="!competitionStructureEditable && competitionStructureLockReason"
+      class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+    >
+      {{ competitionStructureLockReason }}
+    </p>
 
     <p
       v-if="bulkRegistrationSuccessMessage"

@@ -24,6 +24,10 @@ import {
   getCompetitionFormatLabel,
 } from '../constants/competitionFormats'
 import CompetitionService from '../services/CompetitionService'
+import {
+  isStructureEditable,
+  structureLockReason,
+} from '../utils/competitionStructure'
 
 const route = useRoute()
 
@@ -105,8 +109,13 @@ const formatLabel = computed(() => getCompetitionFormatLabel(competition.value))
 
 const isCompetitionCompleted = computed(() => statusSummary.value?.code === 'completed')
 
+const competitionStructureEditable = computed(() => isStructureEditable(competition.value))
+
+const competitionStructureLockReason = computed(() => structureLockReason(competition.value))
+
 const canGenerateRandomGroups = computed(
   () =>
+    competitionStructureEditable.value &&
     hasGroupStage.value &&
     registeredCount.value >= 2 &&
     !hasExistingGroups.value &&
@@ -272,6 +281,16 @@ const structureAction = computed(() => {
   }
 
   if (code === 'no_groups') {
+    if (!competitionStructureEditable.value) {
+      return {
+        key: 'generate-groups',
+        type: 'disabled',
+        label: 'Generar grupos',
+        description: competitionStructureLockReason.value,
+        icon: Squares2X2Icon,
+      }
+    }
+
     const disabled = !canGenerateRandomGroups.value
 
     return {
@@ -312,10 +331,12 @@ const structureAction = computed(() => {
 const secondaryActions = computed(() => [
   {
     key: 'registrations',
-    type: 'link',
+    type: competitionStructureEditable.value ? 'link' : 'disabled',
     to: `/competitions/${competitionId.value}/registrations`,
     label: 'Administrar inscripciones',
-    description: 'Gestionar jugadores inscriptos',
+    description: competitionStructureEditable.value
+      ? 'Gestionar jugadores inscriptos'
+      : competitionStructureLockReason.value,
     icon: UserGroupIcon,
   },
   {
@@ -443,6 +464,13 @@ const openGenerateRandomGroupsModal = () => {
         <p class="mb-3 text-sm font-medium text-slate-700 dark:text-slate-200">Acciones principales</p>
 
         <p
+          v-if="!competitionStructureEditable && competitionStructureLockReason"
+          class="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+        >
+          {{ competitionStructureLockReason }}
+        </p>
+
+        <p
           v-if="randomGroupsSuccessMessage"
           class="mb-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
         >
@@ -457,21 +485,37 @@ const openGenerateRandomGroupsModal = () => {
         </p>
 
         <div class="grid gap-3 sm:grid-cols-2">
-          <RouterLink
-            v-for="action in secondaryActions"
-            :key="action.key"
-            :to="action.to"
-            :class="[actionCardClasses, actionCardInteractiveClasses]"
-          >
-            <component
-              :is="action.icon"
-              class="mt-0.5 h-6 w-6 shrink-0 text-slate-500 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200"
-            />
-            <div>
-              <p class="font-medium text-slate-900 dark:text-slate-100">{{ action.label }}</p>
-              <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ action.description }}</p>
+          <template v-for="action in secondaryActions" :key="action.key">
+            <RouterLink
+              v-if="action.type === 'link'"
+              :to="action.to"
+              :class="[actionCardClasses, actionCardInteractiveClasses]"
+            >
+              <component
+                :is="action.icon"
+                class="mt-0.5 h-6 w-6 shrink-0 text-slate-500 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200"
+              />
+              <div>
+                <p class="font-medium text-slate-900 dark:text-slate-100">{{ action.label }}</p>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ action.description }}</p>
+              </div>
+            </RouterLink>
+
+            <div
+              v-else
+              :class="[actionCardClasses, 'cursor-not-allowed opacity-70']"
+              aria-disabled="true"
+            >
+              <component
+                :is="action.icon"
+                class="mt-0.5 h-6 w-6 shrink-0 text-slate-500 dark:text-slate-400"
+              />
+              <div>
+                <p class="font-medium text-slate-900 dark:text-slate-100">{{ action.label }}</p>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ action.description }}</p>
+              </div>
             </div>
-          </RouterLink>
+          </template>
         </div>
 
         <div v-if="structureAction" class="mt-3">

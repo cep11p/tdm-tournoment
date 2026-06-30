@@ -72,7 +72,7 @@ class CompetitionQualifiedPerGroupTest extends TestCase
         $this->assertSame(3, $competition->fresh()->qualified_per_group);
     }
 
-    public function test_rejects_updating_qualified_per_group_when_bracket_exists(): void
+    public function test_rejects_updating_qualified_per_group_when_structure_is_locked(): void
     {
         $context = $this->tournamentContext();
         $setup = $context->createFourQualifierGroupPhase();
@@ -88,6 +88,24 @@ class CompetitionQualifiedPerGroupTest extends TestCase
             ->assertJsonValidationErrors(['qualified_per_group']);
 
         $this->assertSame(2, $setup['competition']->fresh()->qualified_per_group);
+    }
+
+    public function test_allows_updating_qualified_per_group_when_bracket_has_only_byes_and_pending_games(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createKnockoutDirectCompetition();
+        $players = $context->createPlayers(3);
+        $context->registerPlayers($competition, $players);
+        $context->createBracket($competition)->assertCreated();
+
+        $response = $context->updateCompetitionViaApi($competition, [
+            'qualified_per_group' => 1,
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.qualified_per_group', 1)
+            ->assertJsonPath('data.is_structure_editable', true);
     }
 
     public function test_allows_updating_other_fields_when_bracket_exists(): void

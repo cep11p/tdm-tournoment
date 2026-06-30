@@ -6,6 +6,10 @@ import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import BracketService from '../../brackets/services/BracketService'
 import CompetitionService from '../../competitions/services/CompetitionService'
+import {
+  isStructureEditable,
+  structureLockReason,
+} from '../../competitions/utils/competitionStructure'
 import GameResultModal from '../../games/components/GameResultModal.vue'
 import GameService from '../../games/services/GameService'
 import RegistrationService from '../../registrations/services/RegistrationService'
@@ -23,6 +27,10 @@ const competition = ref(null)
 const hasBracket = ref(false)
 
 const qualifiedPerGroup = computed(() => competition.value?.qualified_per_group ?? 2)
+
+const competitionStructureEditable = computed(() => isStructureEditable(competition.value))
+
+const competitionStructureLockReason = computed(() => structureLockReason(competition.value))
 
 const groupPlayers = ref([])
 const isLoadingGroupPlayers = ref(false)
@@ -268,6 +276,7 @@ const handleAssignPlayer = async () => {
   } catch (error) {
     assignError.value =
       error?.response?.data?.errors?.player_id?.[0] ||
+      error?.response?.data?.errors?.competition?.[0] ||
       error?.response?.data?.message ||
       'No se pudo asignar el jugador.'
   } finally {
@@ -530,7 +539,7 @@ onMounted(async () => {
     </div>
 
     <div
-      v-if="!hasGroupGames"
+      v-if="competitionStructureEditable"
       class="space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
     >
       <p class="font-medium text-slate-700 dark:text-slate-200">Asignar jugador registrado</p>
@@ -579,11 +588,10 @@ onMounted(async () => {
     </div>
 
     <p
-      v-if="hasGroupGames"
-      class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
+      v-if="!competitionStructureEditable && competitionStructureLockReason"
+      class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
     >
-      El fixture del grupo ya fue generado. La asignación de jugadores queda bloqueada para preservar la
-      consistencia de los partidos.
+      {{ competitionStructureLockReason }}
     </p>
 
     <div
