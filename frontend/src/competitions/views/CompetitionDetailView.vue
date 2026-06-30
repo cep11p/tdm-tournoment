@@ -15,7 +15,9 @@ import GameService from '../../games/services/GameService'
 import GroupService from '../../groups/services/GroupService'
 import RegistrationService from '../../registrations/services/RegistrationService'
 import GenerateRandomGroupsModal from '../../groups/components/GenerateRandomGroupsModal.vue'
+import RegenerateRandomGroupsModal from '../../groups/components/RegenerateRandomGroupsModal.vue'
 import { buildRandomGroupsSuccessMessage } from '../../groups/utils/buildRandomGroupsSuccessMessage'
+import { buildRegenerateRandomGroupsSuccessMessage } from '../../groups/utils/buildRegenerateRandomGroupsSuccessMessage'
 import StandingService from '../../standings/services/StandingService'
 import { buildBracketGenerationPreview } from '../utils/buildBracketGenerationPreview'
 import { buildGroupPhaseAlert } from '../utils/buildGroupPhaseAlert'
@@ -43,6 +45,7 @@ const isLoading = ref(false)
 const errorMessage = ref('')
 const randomGroupsSuccessMessage = ref('')
 const showGenerateRandomGroupsModal = ref(false)
+const showRegenerateRandomGroupsModal = ref(false)
 
 const competitionId = computed(() => route.params.id)
 
@@ -122,6 +125,18 @@ const canGenerateRandomGroups = computed(
     !isCompetitionCompleted.value &&
     groups.value !== null,
 )
+
+const canRegenerateRandomGroups = computed(
+  () =>
+    competitionStructureEditable.value &&
+    hasGroupStage.value &&
+    hasExistingGroups.value &&
+    registeredCount.value >= 2 &&
+    !isCompetitionCompleted.value &&
+    groups.value !== null,
+)
+
+const existingGroupsCount = computed(() => groups.value?.length ?? 0)
 
 const groupCount = computed(() => (groups.value === null ? '-' : groups.value.length))
 
@@ -436,6 +451,17 @@ const openGenerateRandomGroupsModal = () => {
   randomGroupsSuccessMessage.value = ''
   showGenerateRandomGroupsModal.value = true
 }
+
+const handleRegenerateRandomGroupsSaved = async (result) => {
+  showRegenerateRandomGroupsModal.value = false
+  randomGroupsSuccessMessage.value = buildRegenerateRandomGroupsSuccessMessage(result)
+  await loadCompetitionSummary()
+}
+
+const openRegenerateRandomGroupsModal = () => {
+  randomGroupsSuccessMessage.value = ''
+  showRegenerateRandomGroupsModal.value = true
+}
 </script>
 
 <template>
@@ -568,6 +594,16 @@ const openGenerateRandomGroupsModal = () => {
               <p class="mt-1 text-xs text-slate-400">{{ structureAction.description }}</p>
             </div>
           </div>
+        </div>
+
+        <div v-if="canRegenerateRandomGroups" class="mt-3">
+          <button
+            type="button"
+            class="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-950/50"
+            @click="openRegenerateRandomGroupsModal"
+          >
+            Regenerar grupos y partidos
+          </button>
         </div>
       </div>
 
@@ -910,6 +946,17 @@ const openGenerateRandomGroupsModal = () => {
         :is-competition-completed="isCompetitionCompleted"
         @close="showGenerateRandomGroupsModal = false"
         @saved="handleRandomGroupsSaved"
+      />
+
+      <RegenerateRandomGroupsModal
+        v-if="hasGroupStage"
+        :show="showRegenerateRandomGroupsModal"
+        :competition-id="competitionId"
+        :registered-count="registeredCount"
+        :existing-groups-count="existingGroupsCount"
+        :is-competition-completed="isCompetitionCompleted"
+        @close="showRegenerateRandomGroupsModal = false"
+        @saved="handleRegenerateRandomGroupsSaved"
       />
     </template>
   </section>

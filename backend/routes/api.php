@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\CompetitionStandingsController;
 use App\Http\Controllers\Api\V1\GameController;
 use App\Http\Controllers\Api\V1\GroupController;
 use App\Http\Controllers\Api\V1\GroupRandomGenerateController;
+use App\Http\Controllers\Api\V1\GroupRandomRegenerateController;
 use App\Http\Controllers\Api\V1\GroupPlayerController;
 use App\Http\Controllers\Api\V1\GroupManualTiebreakController;
 use App\Http\Controllers\Api\V1\GroupPlayerStatusController;
@@ -52,6 +53,11 @@ Route::prefix(config('api.version_prefix', 'v1'))
             'competitions/{competition}/groups/random-generate',
             GroupRandomGenerateController::class,
         )->name('competitions.groups.random-generate');
+
+        Route::post(
+            'competitions/{competition}/groups/regenerate-random',
+            GroupRandomRegenerateController::class,
+        )->name('competitions.groups.regenerate-random');
 
         Route::apiResource('competitions.groups', GroupController::class)
             ->only(['store', 'index']);

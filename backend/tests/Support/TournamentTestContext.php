@@ -232,6 +232,14 @@ final class TournamentTestContext
         );
     }
 
+    public function regenerateRandomGroups(Competition $competition, int $groupsCount): TestResponse
+    {
+        return $this->test->postJson(
+            $this->apiUrl("competitions/{$competition->id}/groups/regenerate-random"),
+            ['groups_count' => $groupsCount],
+        );
+    }
+
     public function createBracket(Competition $competition, ?int $qualifiedPerGroup = null): TestResponse
     {
         if ($qualifiedPerGroup !== null) {

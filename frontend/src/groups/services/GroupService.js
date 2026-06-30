@@ -48,6 +48,27 @@ const GroupService = {
     return response?.data
   },
 
+  /**
+   * @returns {Promise<{
+   *   message?: string,
+   *   groups_removed?: number,
+   *   games_removed?: number,
+   *   bracket_removed?: boolean,
+   *   groups_created?: number,
+   *   players_assigned?: number,
+   *   games_created?: number,
+   *   groups?: unknown[],
+   * }|undefined>}
+   */
+  async regenerateRandomGroups(competitionId, { groups_count }) {
+    const response = await httpClient.post(
+      `/competitions/${competitionId}/groups/regenerate-random`,
+      { groups_count },
+    )
+
+    return response?.data
+  },
+
   async setGroupPlayerStatus(groupId, payload) {
     const response = await httpClient.post(`/groups/${groupId}/player-status`, payload)
     return unwrap(response) ?? null
