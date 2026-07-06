@@ -50,41 +50,11 @@ const showRegenerateRandomGroupsModal = ref(false)
 
 const competitionId = computed(() => route.params.id)
 
-const HUMANIZED_CATEGORIES = {
-  primera: 'Primera',
-  segunda: 'Segunda',
-  tercera: 'Tercera',
-  cuarta: 'Cuarta',
-}
-
-const humanizeCategory = (category) => {
-  if (!category) {
-    return null
-  }
-
-  const normalized = String(category).trim().toLowerCase()
-
-  return HUMANIZED_CATEGORIES[normalized] ?? category
-}
-
-const competitionBreadcrumbLabel = computed(() => {
-  if (!competition.value) {
-    return 'Competencia'
-  }
-
-  const humanizedCategory = humanizeCategory(competition.value.category)
-
-  if (humanizedCategory) {
-    return humanizedCategory
-  }
-
-  return competition.value.name || 'Competencia'
-})
-
 const breadcrumbContext = computed(() => ({
   tournamentId: competition.value?.tournament_id,
+  tournamentName: competition.value?.tournament?.name,
   competitionId: competition.value?.id || competitionId.value,
-  competitionName: competitionBreadcrumbLabel.value,
+  competitionName: competition.value?.name || 'Competencia',
 }))
 
 const fallbackBackRoute = computed(() =>
