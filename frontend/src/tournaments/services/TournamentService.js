@@ -17,6 +17,11 @@ const TournamentService = {
     const response = await httpClient.post('/tournaments', payload)
     return unwrap(response) ?? null
   },
+
+  async update(id, payload) {
+    const response = await httpClient.put(`/tournaments/${id}`, payload)
+    return unwrap(response) ?? null
+  },
 }
 
 export default TournamentService

@@ -19,12 +19,15 @@ import {
   getStructureSecondary,
 } from '../../competitions/utils/competitionListDisplay'
 import TournamentService from '../services/TournamentService'
+import TournamentFormModal from '../components/TournamentFormModal.vue'
 
 const route = useRoute()
 
 const tournament = ref(null)
 const isLoading = ref(false)
 const errorMessage = ref('')
+const showEditModal = ref(false)
+const editSuccessMessage = ref('')
 
 const competitions = ref([])
 const isLoadingCompetitions = ref(false)
@@ -106,6 +109,21 @@ const loadCompetitions = async () => {
 onMounted(async () => {
   await Promise.all([loadTournament(), loadCompetitions()])
 })
+
+const openEditModal = () => {
+  editSuccessMessage.value = ''
+  showEditModal.value = true
+}
+
+const handleEditClose = () => {
+  showEditModal.value = false
+}
+
+const handleEditSaved = async () => {
+  showEditModal.value = false
+  editSuccessMessage.value = 'Torneo actualizado correctamente.'
+  await loadTournament()
+}
 </script>
 
 <template>
@@ -116,13 +134,30 @@ onMounted(async () => {
       <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
         {{ tournament?.name || `Torneo #${route.params.id}` }}
       </h1>
-      <RouterLink
-        to="/tournaments"
-        class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-      >
-        Volver a torneos
-      </RouterLink>
+      <div class="flex items-center gap-3">
+        <button
+          v-if="tournament"
+          type="button"
+          class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          @click="openEditModal"
+        >
+          Editar torneo
+        </button>
+        <RouterLink
+          to="/tournaments"
+          class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          Volver a torneos
+        </RouterLink>
+      </div>
     </div>
+
+    <p
+      v-if="editSuccessMessage"
+      class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
+    >
+      {{ editSuccessMessage }}
+    </p>
 
     <p v-if="isLoading" class="text-sm text-slate-600 dark:text-slate-400">Cargando torneo...</p>
     <p v-else-if="errorMessage" class="text-sm text-red-600 dark:text-red-400">{{ errorMessage }}</p>
@@ -328,5 +363,14 @@ onMounted(async () => {
         </div>
       </div>
     </template>
+
+    <TournamentFormModal
+      :show="showEditModal"
+      mode="edit"
+      :tournament="tournament"
+      :tournament-id="route.params.id"
+      @close="handleEditClose"
+      @saved="handleEditSaved"
+    />
   </section>
 </template>

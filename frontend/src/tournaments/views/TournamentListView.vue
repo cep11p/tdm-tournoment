@@ -2,11 +2,14 @@
 import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
+import TournamentFormModal from '../components/TournamentFormModal.vue'
 import TournamentService from '../services/TournamentService'
 
 const tournaments = ref([])
 const isLoading = ref(false)
 const errorMessage = ref('')
+const successMessage = ref('')
+const showCreateModal = ref(false)
 
 const loadTournaments = async () => {
   isLoading.value = true
@@ -22,6 +25,21 @@ const loadTournaments = async () => {
   }
 }
 
+const openCreateModal = () => {
+  successMessage.value = ''
+  showCreateModal.value = true
+}
+
+const handleCreateClose = () => {
+  showCreateModal.value = false
+}
+
+const handleCreateSaved = async () => {
+  showCreateModal.value = false
+  successMessage.value = 'Torneo creado correctamente.'
+  await loadTournaments()
+}
+
 onMounted(loadTournaments)
 </script>
 
@@ -29,13 +47,21 @@ onMounted(loadTournaments)
   <section class="space-y-4">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">Tournaments</h1>
-      <RouterLink
-        to="/tournaments/create"
+      <button
+        type="button"
         class="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+        @click="openCreateModal"
       >
         Nuevo torneo
-      </RouterLink>
+      </button>
     </div>
+
+    <p
+      v-if="successMessage"
+      class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
+    >
+      {{ successMessage }}
+    </p>
 
     <p v-if="isLoading" class="text-sm text-slate-600 dark:text-slate-300">Cargando torneos...</p>
     <p v-else-if="errorMessage" class="text-sm text-red-600 dark:text-red-400">{{ errorMessage }}</p>
@@ -95,5 +121,12 @@ onMounted(loadTournaments)
         </tbody>
       </table>
     </div>
+
+    <TournamentFormModal
+      :show="showCreateModal"
+      mode="create"
+      @close="handleCreateClose"
+      @saved="handleCreateSaved"
+    />
   </section>
 </template>
