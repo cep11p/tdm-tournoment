@@ -110,6 +110,14 @@ const rowClasses = (standing) => {
     return 'border-t border-slate-200 bg-slate-50/60 opacity-80 dark:border-slate-700 dark:bg-slate-800/40'
   }
 
+  if (standingsAreProvisional.value) {
+    if (isQualified(standing)) {
+      return 'border-t border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-900/30'
+    }
+
+    return 'border-t border-slate-200 dark:border-slate-700'
+  }
+
   if (isQualified(standing)) {
     return 'border-t border-slate-200 bg-emerald-50/40 dark:border-slate-700 dark:bg-emerald-950/20'
   }
@@ -118,6 +126,14 @@ const rowClasses = (standing) => {
 }
 
 const qualificationBadgeClasses = (standing) => {
+  if (standingsAreProvisional.value) {
+    if (isQualified(standing)) {
+      return 'bg-slate-100 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-600'
+    }
+
+    return 'bg-slate-50 text-slate-500 ring-1 ring-slate-200 dark:bg-slate-900/60 dark:text-slate-400 dark:ring-slate-700'
+  }
+
   if (isQualified(standing)) {
     return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
   }
@@ -125,7 +141,23 @@ const qualificationBadgeClasses = (standing) => {
   return 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200'
 }
 
-const qualificationLabel = (standing) => (isQualified(standing) ? 'Clasifica' : 'Eliminado')
+const qualificationLabel = (standing) => {
+  const qualified = isQualified(standing)
+
+  if (standingsAreProvisional.value) {
+    return qualified ? 'Clasifica provisoriamente' : 'Fuera provisoriamente'
+  }
+
+  return qualified ? 'Clasifica' : 'Eliminado'
+}
+
+const qualificationIcon = (standing) => {
+  if (standingsAreProvisional.value) {
+    return ''
+  }
+
+  return isQualified(standing) ? '✓' : '✗'
+}
 
 const playerStatusBadgeClasses = (status) => {
   if (status === 'withdrawn') {
@@ -314,7 +346,7 @@ onMounted(async () => {
                 <div class="flex flex-wrap items-center gap-2">
                   <span>{{ standing.player_name }}</span>
                   <span
-                    v-if="standing.manual_tiebreak_applied"
+                    v-if="standing.manual_tiebreak_applied && !standingsAreProvisional"
                     class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-200"
                   >
                     Desempate manual
@@ -336,7 +368,9 @@ onMounted(async () => {
                   class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
                   :class="qualificationBadgeClasses(standing)"
                 >
-                  <span aria-hidden="true">{{ isQualified(standing) ? '✓' : '✗' }}</span>
+                  <span v-if="qualificationIcon(standing)" aria-hidden="true">
+                    {{ qualificationIcon(standing) }}
+                  </span>
                   {{ qualificationLabel(standing) }}
                 </span>
               </td>
