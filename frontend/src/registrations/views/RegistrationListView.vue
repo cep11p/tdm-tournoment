@@ -100,7 +100,7 @@ onMounted(async () => {
         class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
         @click="openBulkRegistrationModal"
       >
-        Inscripción masiva
+        Inscripción
       </button>
     </div>
 
