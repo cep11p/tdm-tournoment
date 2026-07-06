@@ -1,6 +1,7 @@
 <script setup>
 import {
   ChevronDownIcon,
+  Cog6ToothIcon,
   Squares2X2Icon,
   TrophyIcon,
   UserGroupIcon,
@@ -923,52 +924,68 @@ const openRegenerateRandomGroupsModal = () => {
       </div>
 
       <details
-        class="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
+        class="group/config overflow-hidden rounded-md border border-slate-200 bg-white text-sm dark:border-slate-700 dark:bg-slate-900"
       >
-        <summary class="cursor-pointer text-sm font-semibold text-slate-900 dark:text-slate-100">
-          Configuración de la competencia
+        <summary :class="groupPhaseAccordionSummaryClasses">
+          <span :class="groupPhaseAccordionIconContainerClasses">
+            <Cog6ToothIcon :class="groupPhaseAccordionIconClasses" />
+          </span>
+
+          <div class="min-w-0 flex-1">
+            <p class="font-medium text-slate-900 dark:text-slate-100">
+              Reglas y configuración
+            </p>
+            <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Formato, categoría y reglas de partidos
+            </p>
+          </div>
+
+          <ChevronDownIcon
+            class="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200 group-open/config:rotate-180"
+            aria-hidden="true"
+          />
         </summary>
 
-        <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <p class="text-sm text-slate-500 dark:text-slate-400">Nombre</p>
-            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">{{ competition.name }}</p>
-          </div>
+        <div class="border-t border-slate-200 px-4 pb-4 pt-3 dark:border-slate-700">
+          <dl class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Nombre</dt>
+              <dd class="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{{ competition.name }}</dd>
+            </div>
 
-          <div>
-            <p class="text-sm text-slate-500 dark:text-slate-400">Categoría</p>
-            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">{{ competition.category }}</p>
-          </div>
+            <div>
+              <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Categoría</dt>
+              <dd class="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{{ competition.category }}</dd>
+            </div>
 
-          <div>
-            <p class="text-sm text-slate-500 dark:text-slate-400">Tipo</p>
-            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">{{ competition.type }}</p>
-          </div>
+            <div>
+              <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Tipo</dt>
+              <dd class="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{{ competition.type }}</dd>
+            </div>
 
-          <div>
-            <p class="text-sm text-slate-500 dark:text-slate-400">Formato</p>
-            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">{{ formatLabel }}</p>
-          </div>
+            <div>
+              <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Formato</dt>
+              <dd class="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{{ formatLabel }}</dd>
+            </div>
 
-          <div class="space-y-1 border-t border-slate-200 pt-3 dark:border-slate-700 sm:col-span-2 lg:col-span-4">
-            <p class="text-sm font-medium text-slate-700 dark:text-slate-200">Formato de partidos</p>
-            <p v-if="hasGroupStage" class="text-sm text-slate-600 dark:text-slate-400">
-              Grupos: mejor de {{ formatCount(competition.group_stage_best_of) }}
+            <div>
+              <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Puntos por set</dt>
+              <dd class="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{{ competition.points_per_set }}</dd>
+            </div>
+          </dl>
+
+          <div class="mt-3 border-t border-slate-200 pt-3 dark:border-slate-700">
+            <p class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Formato de partidos
             </p>
-            <p class="text-sm text-slate-600 dark:text-slate-400">
-              Eliminatorias: mejor de {{ formatCount(competition.knockout_stage_best_of) }}
-            </p>
-            <p class="text-sm text-slate-600 dark:text-slate-400">
-              Semifinal: mejor de {{ formatCount(competition.semifinal_best_of) }}
-            </p>
-            <p class="text-sm text-slate-600 dark:text-slate-400">
-              Final: mejor de {{ formatCount(competition.final_best_of) }}
-            </p>
-          </div>
-
-          <div>
-            <p class="text-sm text-slate-500 dark:text-slate-400">Puntos por set</p>
-            <p class="text-sm font-medium text-slate-900 dark:text-slate-100">{{ competition.points_per_set }}</p>
+            <ul class="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-400">
+              <li v-if="hasGroupStage">
+                Grupos: mejor de {{ formatCount(competition.group_stage_best_of) }}
+              </li>
+              <li>Eliminatorias: mejor de {{ formatCount(competition.knockout_stage_best_of) }}</li>
+              <li>Semifinal: mejor de {{ formatCount(competition.semifinal_best_of) }}</li>
+              <li>Final: mejor de {{ formatCount(competition.final_best_of) }}</li>
+            </ul>
           </div>
         </div>
       </details>
