@@ -4,12 +4,10 @@ import DashboardView from '../views/DashboardView.vue'
 import TournamentListView from '../tournaments/views/TournamentListView.vue'
 import TournamentCreateView from '../tournaments/views/TournamentCreateView.vue'
 import TournamentDetailView from '../tournaments/views/TournamentDetailView.vue'
-import CompetitionListView from '../competitions/views/CompetitionListView.vue'
 import CompetitionCreateView from '../competitions/views/CompetitionCreateView.vue'
 import CompetitionDetailView from '../competitions/views/CompetitionDetailView.vue'
 import CompetitionEditView from '../competitions/views/CompetitionEditView.vue'
 import RegistrationListView from '../registrations/views/RegistrationListView.vue'
-import GroupListView from '../groups/views/GroupListView.vue'
 import GroupDetailView from '../groups/views/GroupDetailView.vue'
 import GameListView from '../games/views/GameListView.vue'
 import GameDetailView from '../games/views/GameDetailView.vue'
@@ -42,8 +40,7 @@ const routes = [
   },
   {
     path: '/tournaments/:id/competitions',
-    name: 'competitions',
-    component: CompetitionListView,
+    redirect: (to) => `/tournaments/${to.params.id}`,
   },
   {
     path: '/tournaments/:id/competitions/create',
@@ -67,8 +64,7 @@ const routes = [
   },
   {
     path: '/competitions/:id/groups',
-    name: 'competitions-groups',
-    component: GroupListView,
+    redirect: (to) => `/competitions/${to.params.id}`,
   },
   {
     path: '/competitions/:id/games',

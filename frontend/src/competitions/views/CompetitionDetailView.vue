@@ -87,11 +87,11 @@ const breadcrumbContext = computed(() => ({
 }))
 
 const fallbackBackRoute = computed(() =>
-  competition.value?.tournament_id ? `/tournaments/${competition.value.tournament_id}/competitions` : '/tournaments',
+  competition.value?.tournament_id ? `/tournaments/${competition.value.tournament_id}` : '/tournaments',
 )
 
 const backButtonLabel = computed(() =>
-  competition.value?.tournament_id ? 'Volver a competencias' : 'Volver',
+  competition.value?.tournament_id ? 'Volver al torneo' : 'Volver',
 )
 
 const formatCount = (value) => (value === null || value === undefined ? '-' : value)

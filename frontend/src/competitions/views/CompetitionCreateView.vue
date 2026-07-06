@@ -50,7 +50,7 @@ const submit = async () => {
 
   try {
     await CompetitionService.create(tournamentId, payload)
-    await router.push(`/tournaments/${tournamentId}/competitions`)
+    await router.push(`/tournaments/${tournamentId}`)
   } catch (error) {
     errorMessage.value =
       error?.response?.data?.message || 'No se pudo crear la competencia.'
@@ -239,7 +239,7 @@ const submit = async () => {
         </button>
 
         <RouterLink
-          :to="`/tournaments/${tournamentId}/competitions`"
+          :to="`/tournaments/${tournamentId}`"
           class="text-sm font-medium text-slate-700 dark:text-slate-200 hover:underline"
         >
           Cancelar

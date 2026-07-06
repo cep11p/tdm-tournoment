@@ -38,10 +38,6 @@ const breadcrumbItems = computed(() => {
           label: tournamentName || `Torneo #${tournamentId}`,
           to: `/tournaments/${tournamentId}`,
         })
-        items.push({
-          label: 'Competencias',
-          to: `/tournaments/${tournamentId}/competitions`,
-        })
       }
 
       items.push({
@@ -54,10 +50,6 @@ const breadcrumbItems = computed(() => {
         items.push({
           label: tournamentName || `Torneo #${tournamentId}`,
           to: `/tournaments/${tournamentId}`,
-        })
-        items.push({
-          label: 'Competencias',
-          to: `/tournaments/${tournamentId}/competitions`,
         })
       }
 
@@ -73,10 +65,6 @@ const breadcrumbItems = computed(() => {
         items.push({
           label: tournamentName || `Torneo #${tournamentId}`,
           to: `/tournaments/${tournamentId}`,
-        })
-        items.push({
-          label: 'Competencias',
-          to: `/tournaments/${tournamentId}/competitions`,
         })
       }
 
@@ -97,10 +85,6 @@ const breadcrumbItems = computed(() => {
         items.push({
           label: tournamentName || `Torneo #${tournamentId}`,
           to: `/tournaments/${tournamentId}`,
-        })
-        items.push({
-          label: 'Competencias',
-          to: `/tournaments/${tournamentId}/competitions`,
         })
       }
 
@@ -126,10 +110,6 @@ const breadcrumbItems = computed(() => {
           label: tournamentName || `Torneo #${tournamentId}`,
           to: `/tournaments/${tournamentId}`,
         })
-        items.push({
-          label: 'Competencias',
-          to: `/tournaments/${tournamentId}/competitions`,
-        })
       }
 
       if (competitionId) {
@@ -153,10 +133,6 @@ const breadcrumbItems = computed(() => {
         items.push({
           label: tournamentName || `Torneo #${tournamentId}`,
           to: `/tournaments/${tournamentId}`,
-        })
-        items.push({
-          label: 'Competencias',
-          to: `/tournaments/${tournamentId}/competitions`,
         })
       }
 

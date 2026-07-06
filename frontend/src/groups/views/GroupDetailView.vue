@@ -527,7 +527,7 @@ onMounted(async () => {
       </h1>
 
       <div class="flex items-center gap-3">
-        <AppBackButton :fallback-to="competitionId ? `/competitions/${competitionId}/groups` : '/competitions'" />
+        <AppBackButton :fallback-to="competitionId ? `/competitions/${competitionId}` : '/competitions'" />
 
         <RouterLink
           :to="`/groups/${groupId}/standings?competitionId=${competitionId}&groupName=${encodeURIComponent(groupName)}`"
