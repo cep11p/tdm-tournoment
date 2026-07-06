@@ -195,6 +195,30 @@ const bracketStatus = computed(() => {
 
 const bracketRoute = computed(() => `/competitions/${competitionId.value}/bracket`)
 
+const registrationsRoute = computed(
+  () => `/competitions/${competitionId.value}/registrations`,
+)
+
+const PARTICIPANTS_PREVIEW_LIMIT = 8
+
+const participantPreview = computed(() =>
+  registrations.value?.slice(0, PARTICIPANTS_PREVIEW_LIMIT) ?? [],
+)
+
+const hasMoreParticipants = computed(
+  () => (registrations.value?.length ?? 0) > PARTICIPANTS_PREVIEW_LIMIT,
+)
+
+const formatParticipantName = (registration) => {
+  const player = registration?.player
+
+  if (!player) {
+    return 'Jugador desconocido'
+  }
+
+  return `${player.first_name ?? ''} ${player.last_name ?? ''}`.trim()
+}
+
 const resultSummary = computed(() => competition.value?.result_summary ?? null)
 
 const statusSummary = computed(() => competition.value?.status_summary ?? null)
@@ -343,18 +367,31 @@ const structureAction = computed(() => {
   return null
 })
 
-const primaryActions = computed(() => [
-  {
-    key: 'registrations',
-    type: competitionStructureEditable.value ? 'link' : 'disabled',
-    to: `/competitions/${competitionId.value}/registrations`,
-    label: 'Administrar inscripciones',
-    description: competitionStructureEditable.value
-      ? 'Gestionar jugadores inscriptos'
-      : competitionStructureLockReason.value,
-    icon: UserGroupIcon,
-  },
-])
+const primaryActions = computed(() => {
+  if (competitionStructureEditable.value) {
+    return [
+      {
+        key: 'registrations',
+        type: 'link',
+        to: registrationsRoute.value,
+        label: 'Administrar inscripciones',
+        description: 'Gestionar jugadores inscriptos',
+        icon: UserGroupIcon,
+      },
+    ]
+  }
+
+  return [
+    {
+      key: 'view-participants',
+      type: 'link',
+      to: registrationsRoute.value,
+      label: 'Ver participantes',
+      description: 'Consultar jugadores inscriptos',
+      icon: UserGroupIcon,
+    },
+  ]
+})
 
 const actionCardClasses =
   'group flex items-start gap-3 rounded-md border border-slate-200 bg-white p-4 text-sm transition dark:border-slate-700 dark:bg-slate-900'
@@ -662,6 +699,72 @@ const openRegenerateRandomGroupsModal = () => {
           </RouterLink>
         </p>
       </div>
+
+      <details
+        v-if="registrations !== null"
+        class="group/participants overflow-hidden rounded-md border border-slate-200 bg-white text-sm dark:border-slate-700 dark:bg-slate-900"
+      >
+        <summary :class="groupPhaseAccordionSummaryClasses">
+          <span :class="groupPhaseAccordionIconContainerClasses">
+            <UserGroupIcon :class="groupPhaseAccordionIconClasses" />
+          </span>
+
+          <div class="min-w-0 flex-1">
+            <p class="font-medium text-slate-900 dark:text-slate-100">Participantes</p>
+            <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Jugadores inscriptos en esta competencia
+            </p>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {{ registeredCount }} jugador{{ registeredCount === 1 ? '' : 'es' }}
+            </p>
+          </div>
+
+          <ChevronDownIcon
+            class="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200 group-open/participants:rotate-180"
+            aria-hidden="true"
+          />
+        </summary>
+
+        <div class="space-y-3 border-t border-slate-200 px-4 pb-4 pt-3 dark:border-slate-700">
+          <p
+            v-if="registeredCount === 0"
+            class="text-sm text-slate-600 dark:text-slate-300"
+          >
+            Todavía no hay jugadores inscriptos.
+          </p>
+
+          <div v-else class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <article
+              v-for="registration in participantPreview"
+              :key="registration.id"
+              class="rounded-md border border-slate-200 p-3 dark:border-slate-700 dark:bg-slate-950/30"
+            >
+              <p class="font-medium text-slate-900 dark:text-slate-100">
+                {{ formatParticipantName(registration) }}
+              </p>
+              <p
+                v-if="registration.player?.nickname"
+                class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
+              >
+                {{ registration.player.nickname }}
+              </p>
+            </article>
+          </div>
+
+          <p v-if="registeredCount > 0">
+            <RouterLink
+              :to="registrationsRoute"
+              class="text-xs text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline dark:text-slate-400 dark:hover:text-slate-300"
+            >
+              {{
+                hasMoreParticipants
+                  ? 'Ver todos los participantes'
+                  : 'Ver listado completo'
+              }}
+            </RouterLink>
+          </p>
+        </div>
+      </details>
 
       <details
         v-if="hasGroupStage && groups !== null && groups.length > 0"
