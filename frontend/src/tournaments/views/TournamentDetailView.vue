@@ -1,8 +1,16 @@
 <script setup>
+import {
+  Cog6ToothIcon,
+  EyeIcon,
+  PencilSquareIcon,
+  PlusIcon,
+  TrashIcon,
+} from '@heroicons/vue/24/outline'
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
+import AppTooltip from '../../components/AppTooltip.vue'
 import CompetitionService from '../../competitions/services/CompetitionService'
 import {
   getStatusBadgeClasses,
@@ -48,13 +56,24 @@ const getTournamentStatusBadgeClasses = (status) => {
   }
 }
 
-const competitionsRoute = computed(() =>
-  tournament.value?.id ? `/tournaments/${tournament.value.id}/competitions` : null,
-)
-
 const createCompetitionRoute = computed(() =>
   tournament.value?.id ? `/tournaments/${tournament.value.id}/competitions/create` : null,
 )
+
+const addButtonClasses =
+  'inline-flex rounded-md border border-emerald-300 bg-emerald-50 p-2 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/60'
+
+const viewButtonClasses =
+  'inline-flex rounded-md border border-blue-300 bg-blue-50 p-1.5 text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/60'
+
+const editButtonClasses =
+  'inline-flex rounded-md border border-amber-300 bg-amber-50 p-1.5 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/60'
+
+const deleteButtonClasses =
+  'inline-flex cursor-not-allowed rounded-md border border-red-300 bg-red-50 p-1.5 text-red-700 opacity-50 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300'
+
+const manageButtonClasses =
+  'inline-flex rounded-md border border-violet-400 bg-violet-600 p-1.5 text-white hover:bg-violet-700 dark:border-violet-500 dark:bg-violet-600 dark:hover:bg-violet-500'
 
 const loadTournament = async () => {
   isLoading.value = true
@@ -90,7 +109,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="space-y-4">
+  <section class="min-w-0 space-y-4">
     <AppBreadcrumbs :context="{ tournamentId: route.params.id, tournamentName: tournament?.name }" />
 
     <div class="flex items-center justify-between">
@@ -153,15 +172,22 @@ onMounted(async () => {
       </div>
 
       <div class="space-y-3">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Competencias del torneo</h2>
-          <RouterLink
-            v-if="competitionsRoute"
-            :to="competitionsRoute"
-            class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-          >
-            Administrar competencias
-          </RouterLink>
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Competencias</h2>
+            <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              Gestioná las categorías, formatos y fases de este torneo.
+            </p>
+          </div>
+          <AppTooltip v-if="createCompetitionRoute" label="Nueva competencia">
+            <RouterLink
+              :to="createCompetitionRoute"
+              :class="addButtonClasses"
+              aria-label="Nueva competencia"
+            >
+              <PlusIcon class="h-4 w-4" aria-hidden="true" />
+            </RouterLink>
+          </AppTooltip>
         </div>
 
         <p v-if="isLoadingCompetitions" class="text-sm text-slate-600 dark:text-slate-400">
@@ -178,20 +204,22 @@ onMounted(async () => {
           <p class="text-slate-600 dark:text-slate-300">
             Este torneo todavía no tiene competencias cargadas.
           </p>
-          <RouterLink
-            v-if="createCompetitionRoute"
-            :to="createCompetitionRoute"
-            class="mt-3 inline-flex rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-          >
-            Crear competencia
-          </RouterLink>
+          <AppTooltip v-if="createCompetitionRoute" label="Nueva competencia">
+            <RouterLink
+              :to="createCompetitionRoute"
+              :class="['mt-3', addButtonClasses]"
+              aria-label="Nueva competencia"
+            >
+              <PlusIcon class="h-4 w-4" aria-hidden="true" />
+            </RouterLink>
+          </AppTooltip>
         </div>
 
         <div
           v-else
-          class="overflow-x-auto rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+          class="w-full overflow-hidden rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
         >
-          <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+          <table class="w-full divide-y divide-slate-200 dark:divide-slate-700">
             <thead class="bg-slate-50 dark:bg-slate-800">
               <tr>
                 <th
@@ -202,7 +230,7 @@ onMounted(async () => {
                 <th
                   class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
                 >
-                  Estructura
+                  Formato
                 </th>
                 <th
                   class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
@@ -210,7 +238,7 @@ onMounted(async () => {
                   Estado
                 </th>
                 <th
-                  class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
+                  class="w-40 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
                 >
                   Acciones
                 </th>
@@ -250,13 +278,49 @@ onMounted(async () => {
                   </span>
                   <span v-else class="text-slate-400 dark:text-slate-500">-</span>
                 </td>
-                <td class="px-4 py-3 text-sm">
-                  <RouterLink
-                    :to="`/competitions/${competition.id}`"
-                    class="font-medium text-slate-900 hover:underline dark:text-slate-100"
-                  >
-                    Gestionar
-                  </RouterLink>
+                <td class="w-40 px-4 py-3 text-sm">
+                  <div class="flex flex-nowrap items-center justify-end gap-1.5">
+                    <AppTooltip label="Ver detalle">
+                      <RouterLink
+                        :to="`/competitions/${competition.id}`"
+                        :class="viewButtonClasses"
+                        aria-label="Ver detalle de la competencia"
+                      >
+                        <EyeIcon class="h-4 w-4" aria-hidden="true" />
+                      </RouterLink>
+                    </AppTooltip>
+
+                    <AppTooltip label="Editar">
+                      <RouterLink
+                        :to="`/competitions/${competition.id}/edit`"
+                        :class="editButtonClasses"
+                        aria-label="Editar competencia"
+                      >
+                        <PencilSquareIcon class="h-4 w-4" aria-hidden="true" />
+                      </RouterLink>
+                    </AppTooltip>
+
+                    <AppTooltip label="Eliminación no disponible aún">
+                      <button
+                        type="button"
+                        disabled
+                        :class="deleteButtonClasses"
+                        aria-label="Eliminar competencia"
+                      >
+                        <TrashIcon class="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </AppTooltip>
+
+                    <AppTooltip label="Gestionar">
+                      <RouterLink
+                        :to="`/competitions/${competition.id}`"
+                        :class="manageButtonClasses"
+                        aria-label="Gestionar competencia"
+                      >
+                        <Cog6ToothIcon class="h-4 w-4" aria-hidden="true" />
+                      </RouterLink>
+                    </AppTooltip>
+                  </div>
                 </td>
               </tr>
             </tbody>

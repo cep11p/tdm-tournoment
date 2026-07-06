@@ -60,7 +60,7 @@ const isDarkMode = computed(() => theme.value === 'dark')
         </nav>
       </aside>
 
-      <div class="flex min-h-screen flex-1 flex-col">
+      <div class="flex min-h-screen min-w-0 flex-1 flex-col">
         <header
           class="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4 dark:border-slate-800 dark:bg-slate-900"
         >
@@ -77,7 +77,7 @@ const isDarkMode = computed(() => theme.value === 'dark')
           </button>
         </header>
 
-        <main class="flex-1 bg-slate-100 p-6 dark:bg-slate-950">
+        <main class="min-w-0 flex-1 bg-slate-100 p-6 dark:bg-slate-950">
           <slot />
         </main>
       </div>
