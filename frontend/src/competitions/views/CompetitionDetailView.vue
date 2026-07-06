@@ -28,7 +28,9 @@ import {
 } from '../constants/competitionFormats'
 import CompetitionService from '../services/CompetitionService'
 import {
+  isRegistrationsEditable,
   isStructureEditable,
+  registrationsLockReason,
   structureLockReason,
 } from '../utils/competitionStructure'
 
@@ -86,6 +88,10 @@ const isCompetitionCompleted = computed(() => statusSummary.value?.code === 'com
 const competitionStructureEditable = computed(() => isStructureEditable(competition.value))
 
 const competitionStructureLockReason = computed(() => structureLockReason(competition.value))
+
+const registrationsEditable = computed(() => isRegistrationsEditable(competition.value))
+
+const registrationsLockMessage = computed(() => registrationsLockReason(competition.value))
 
 const canGenerateRandomGroups = computed(
   () =>
@@ -339,18 +345,28 @@ const structureAction = computed(() => {
 })
 
 const primaryActions = computed(() => {
-  if (!competitionStructureEditable.value) {
-    return []
+  const base = {
+    key: 'registrations',
+    type: 'link',
+    to: registrationsRoute.value,
+    icon: UserGroupIcon,
+  }
+
+  if (!registrationsEditable.value) {
+    return [
+      {
+        ...base,
+        label: 'Ver participantes',
+        description: registrationsLockMessage.value ?? 'Consultar jugadores inscriptos',
+      },
+    ]
   }
 
   return [
     {
-      key: 'registrations',
-      type: 'link',
-      to: registrationsRoute.value,
+      ...base,
       label: 'Administrar inscripciones',
       description: 'Gestionar jugadores inscriptos',
-      icon: UserGroupIcon,
     },
   ]
 })

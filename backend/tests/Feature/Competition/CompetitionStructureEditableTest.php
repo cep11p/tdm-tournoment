@@ -6,6 +6,7 @@ use App\Enums\CompetitionFormat;
 use App\Enums\GameStatus;
 use App\Models\Game;
 use App\Support\Competition\CompetitionStructureGuard;
+use App\Support\Competition\RegistrationGuard;
 use Tests\TestCase;
 
 class CompetitionStructureEditableTest extends TestCase
@@ -97,7 +98,9 @@ class CompetitionStructureEditableTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath('data.is_structure_editable', true)
-            ->assertJsonPath('data.structure_lock_reason', null);
+            ->assertJsonPath('data.structure_lock_reason', null)
+            ->assertJsonPath('data.is_registrations_editable', false)
+            ->assertJsonPath('data.registrations_lock_reason', RegistrationGuard::LOCK_MESSAGE);
     }
 
     public function test_competition_with_bye_game_in_progress_does_not_block_structure(): void

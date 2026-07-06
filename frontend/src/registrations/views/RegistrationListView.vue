@@ -6,8 +6,8 @@ import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import CompetitionService from '../../competitions/services/CompetitionService'
 import {
-  isStructureEditable,
-  structureLockReason,
+  isRegistrationsEditable,
+  registrationsLockReason,
 } from '../../competitions/utils/competitionStructure'
 import PlayerService from '../../players/services/PlayerService'
 import BulkPlayerRegistrationModal from '../components/BulkPlayerRegistrationModal.vue'
@@ -32,9 +32,9 @@ const registeredPlayerIds = computed(() =>
   registrations.value.map((registration) => registration.player?.id).filter(Boolean),
 )
 
-const competitionStructureEditable = computed(() => isStructureEditable(competition.value))
+const registrationsEditable = computed(() => isRegistrationsEditable(competition.value))
 
-const competitionStructureLockReason = computed(() => structureLockReason(competition.value))
+const registrationsLockMessage = computed(() => registrationsLockReason(competition.value))
 
 const openBulkRegistrationModal = () => {
   bulkRegistrationSuccessMessage.value = ''
@@ -203,7 +203,7 @@ onMounted(async () => {
 
     <div class="flex flex-wrap gap-2">
       <button
-        v-if="competitionStructureEditable"
+        v-if="registrationsEditable"
         type="button"
         class="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
         @click="showRegistrationForm = !showRegistrationForm"
@@ -212,7 +212,7 @@ onMounted(async () => {
       </button>
 
       <button
-        v-if="competitionStructureEditable"
+        v-if="registrationsEditable"
         type="button"
         class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
         @click="openBulkRegistrationModal"
@@ -222,10 +222,10 @@ onMounted(async () => {
     </div>
 
     <p
-      v-if="!competitionStructureEditable && competitionStructureLockReason"
+      v-if="!registrationsEditable && registrationsLockMessage"
       class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
     >
-      {{ competitionStructureLockReason }}
+      {{ registrationsLockMessage }}
     </p>
 
     <p

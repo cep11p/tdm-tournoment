@@ -7,6 +7,7 @@ use App\Enums\CompetitionType;
 use App\Support\Competition\CompetitionResultResolver;
 use App\Support\Competition\CompetitionStatusResolver;
 use App\Support\Competition\CompetitionStructureGuard;
+use App\Support\Competition\RegistrationGuard;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -43,6 +44,8 @@ class CompetitionResource extends JsonResource
             'qualified_per_group' => $this->qualified_per_group,
             'is_structure_editable' => CompetitionStructureGuard::isStructureEditable($this->resource),
             'structure_lock_reason' => CompetitionStructureGuard::structureLockReason($this->resource),
+            'is_registrations_editable' => RegistrationGuard::isEditable($this->resource),
+            'registrations_lock_reason' => RegistrationGuard::lockReason($this->resource),
             'status_summary' => CompetitionStatusResolver::resolve($this->resource),
             'result_summary' => CompetitionResultResolver::resolve($this->resource),
             'created_at' => optional($this->created_at)->toISOString(),

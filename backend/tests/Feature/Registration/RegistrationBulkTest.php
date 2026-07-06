@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Registration;
 
+use App\Support\Competition\RegistrationGuard;
 use Tests\TestCase;
 
 class RegistrationBulkTest extends TestCase
@@ -150,5 +151,29 @@ class RegistrationBulkTest extends TestCase
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['player_ids.1']);
+    }
+
+    public function test_rejects_bulk_registration_when_bracket_exists(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createKnockoutDirectCompetition();
+        $players = $context->createPlayers(3);
+        $context->registerPlayers($competition, $players);
+        $context->createBracket($competition)->assertCreated();
+
+        $newPlayers = $context->createPlayers(2);
+        $playerIds = array_map(static fn ($player) => $player->id, $newPlayers);
+
+        $response = $this->postJson(
+            $context->apiUrl("competitions/{$competition->id}/registrations/bulk"),
+            ['player_ids' => $playerIds],
+        );
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['competition'])
+            ->assertJsonPath('errors.competition.0', RegistrationGuard::LOCK_MESSAGE);
+
+        $this->assertDatabaseCount('registrations', 3);
     }
 }
