@@ -1,9 +1,9 @@
 <script setup>
 import {
+  ChevronDownIcon,
   Squares2X2Icon,
   TrophyIcon,
   UserGroupIcon,
-  ViewColumnsIcon,
 } from '@heroicons/vue/24/outline'
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
@@ -343,7 +343,7 @@ const structureAction = computed(() => {
   return null
 })
 
-const secondaryActions = computed(() => [
+const primaryActions = computed(() => [
   {
     key: 'registrations',
     type: competitionStructureEditable.value ? 'link' : 'disabled',
@@ -353,14 +353,6 @@ const secondaryActions = computed(() => [
       ? 'Gestionar jugadores inscriptos'
       : competitionStructureLockReason.value,
     icon: UserGroupIcon,
-  },
-  {
-    key: 'games',
-    type: 'link',
-    to: `/competitions/${competitionId.value}/games`,
-    label: 'Ver partidos',
-    description: 'Consultar resultados y estado',
-    icon: ViewColumnsIcon,
   },
 ])
 
@@ -381,6 +373,15 @@ const structureActionIconContainerClasses =
 
 const structureActionIconClasses =
   'h-6 w-6 text-blue-300 group-hover:text-blue-200'
+
+const groupPhaseAccordionSummaryClasses =
+  'flex cursor-pointer list-none items-center gap-3 rounded-md p-4 text-sm transition hover:bg-slate-50 dark:hover:bg-slate-800/50 [&::-webkit-details-marker]:hidden'
+
+const groupPhaseAccordionIconContainerClasses =
+  'flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-100 ring-1 ring-slate-200 dark:bg-slate-800/80 dark:ring-slate-600'
+
+const groupPhaseAccordionIconClasses =
+  'h-5 w-5 text-slate-600 dark:text-slate-300'
 
 const loadCompetitionSummary = async () => {
   isLoading.value = true
@@ -518,8 +519,8 @@ const openRegenerateRandomGroupsModal = () => {
           Esta competencia es de eliminación directa. Los jugadores inscriptos pasan directamente a la llave.
         </p>
 
-        <div class="grid gap-3 sm:grid-cols-2">
-          <template v-for="action in secondaryActions" :key="action.key">
+        <div>
+          <template v-for="action in primaryActions" :key="action.key">
             <RouterLink
               v-if="action.type === 'link'"
               :to="action.to"
@@ -651,32 +652,68 @@ const openRegenerateRandomGroupsModal = () => {
         >
           No hay partidos generados
         </p>
+
+        <p v-if="games !== null && games.length > 0" class="mt-3">
+          <RouterLink
+            :to="`/competitions/${competitionId}/games`"
+            class="text-xs text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline dark:text-slate-400 dark:hover:text-slate-300"
+          >
+            Ver todos los partidos
+          </RouterLink>
+        </p>
       </div>
 
       <details
         v-if="hasGroupStage && groups !== null && groups.length > 0"
-        class="rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
+        class="group/details overflow-hidden rounded-md border border-slate-200 bg-white text-sm dark:border-slate-700 dark:bg-slate-900"
       >
-        <summary class="cursor-pointer font-bold text-slate-700 dark:text-slate-200">
-          Fase de grupos
+        <summary :class="groupPhaseAccordionSummaryClasses">
+          <span :class="groupPhaseAccordionIconContainerClasses">
+            <Squares2X2Icon :class="groupPhaseAccordionIconClasses" />
+          </span>
+
+          <div class="min-w-0 flex-1">
+            <p class="font-medium text-slate-900 dark:text-slate-100">
+              Fase de grupos
+            </p>
+            <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Gestionar grupos, partidos y posiciones
+            </p>
+            <p
+              v-if="typeof groupCount === 'number' && typeof gameCount === 'number'"
+              class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+            >
+              {{ groupCount }} grupo{{ groupCount === 1 ? '' : 's' }}
+              · {{ gameCount }} partido{{ gameCount === 1 ? '' : 's' }}
+              <template v-if="typeof finishedGameCount === 'number' && gameCount > 0">
+                · {{ finishedGameCount }} finalizado{{ finishedGameCount === 1 ? '' : 's' }}
+              </template>
+            </p>
+          </div>
+
+          <ChevronDownIcon
+            class="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200 group-open/details:rotate-180"
+            aria-hidden="true"
+          />
         </summary>
 
-        <p
-          class="mt-4 rounded-md px-3 py-2 text-xs font-medium"
-          :class="
-            groupsNeedingAttention.length > 0
-              ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100'
-              : 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100'
-          "
-        >
-          {{
-            groupsNeedingAttention.length > 0
-              ? `${groupsNeedingAttention.length} grupo${groupsNeedingAttention.length === 1 ? '' : 's'} requieren atención`
-              : 'Fase de grupos en orden'
-          }}
-        </p>
+        <div class="space-y-3 border-t border-slate-200 px-4 pb-4 pt-3 dark:border-slate-700">
+          <p
+            class="rounded-md px-3 py-2 text-xs font-medium"
+            :class="
+              groupsNeedingAttention.length > 0
+                ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100'
+                : 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100'
+            "
+          >
+            {{
+              groupsNeedingAttention.length > 0
+                ? `${groupsNeedingAttention.length} grupo${groupsNeedingAttention.length === 1 ? '' : 's'} requieren atención`
+                : 'Fase de grupos en orden'
+            }}
+          </p>
 
-        <div class="mt-3 space-y-3">
+          <div class="space-y-3">
           <article
             v-for="summary in groupPhaseSummaries"
             :key="summary.group.id"
@@ -731,6 +768,7 @@ const openRegenerateRandomGroupsModal = () => {
               </RouterLink>
             </div>
           </article>
+          </div>
         </div>
       </details>
 
@@ -934,6 +972,15 @@ const openRegenerateRandomGroupsModal = () => {
               <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ bracketStatus }}</dd>
             </div>
           </dl>
+
+          <div class="mt-3">
+            <RouterLink
+              :to="bracketRoute"
+              class="inline-flex rounded-md bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+            >
+              Gestionar llave
+            </RouterLink>
+          </div>
         </template>
       </div>
 
