@@ -18,11 +18,14 @@ final class GroupStandingsResult
         public readonly array $manualTiebreakGroups,
         public readonly array $appliedManualTiebreaks = [],
         public readonly array $staleManualTiebreaks = [],
+        public readonly bool $isProvisional = false,
+        public readonly int $completedGamesCount = 0,
+        public readonly int $totalGamesCount = 0,
     ) {}
 
     public function requiresManualTiebreak(): bool
     {
-        return $this->manualTiebreakGroups !== [];
+        return ! $this->isProvisional && $this->manualTiebreakGroups !== [];
     }
 
     public function hasManualTiebreaks(): bool

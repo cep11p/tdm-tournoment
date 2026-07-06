@@ -37,9 +37,11 @@ export function buildGroupPhaseAlert({ group, standings = [], meta = {}, games =
   const inactivePlayers = normalizedStandings.filter(isInactiveStanding)
   const pendingGamesCount = normalizedGames.filter(isPendingGame).length
 
-  const hasPendingManualTiebreak = Boolean(normalizedMeta.requires_manual_tiebreak)
+  const isProvisional = Boolean(normalizedMeta.standings_are_provisional)
+  const hasPendingManualTiebreak =
+    !isProvisional && Boolean(normalizedMeta.requires_manual_tiebreak)
   const staleManualTiebreaks = normalizedMeta.stale_manual_tiebreaks ?? []
-  const hasStaleManualTiebreaks = staleManualTiebreaks.length > 0
+  const hasStaleManualTiebreaks = !isProvisional && staleManualTiebreaks.length > 0
   const hasAppliedManualTiebreaks = Boolean(normalizedMeta.has_manual_tiebreaks)
 
   const hasGroupGames = normalizedGames.length > 0

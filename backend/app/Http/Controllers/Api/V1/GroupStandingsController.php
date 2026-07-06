@@ -21,6 +21,9 @@ class GroupStandingsController extends Controller
         return CompetitionStandingResource::collection($result->standings)
             ->additional([
                 'meta' => [
+                    'standings_are_provisional' => $result->isProvisional,
+                    'completed_games_count' => $result->completedGamesCount,
+                    'total_games_count' => $result->totalGamesCount,
                     'requires_manual_tiebreak' => $result->requiresManualTiebreak(),
                     'manual_tiebreak_groups' => $result->manualTiebreakGroups,
                     'has_manual_tiebreaks' => $result->hasManualTiebreaks(),

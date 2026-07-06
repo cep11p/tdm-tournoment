@@ -13,20 +13,73 @@ final class GroupStandingsCalculator
 {
     public function calculate(Group $group): GroupStandingsResult
     {
+        $gamesProgress = $this->resolveGroupGamesProgress($group);
         $automatic = $this->calculateAutomatic($group);
 
-        return $this->applyPersistedManualTiebreaks($group, $automatic);
+        if ($gamesProgress['is_provisional']) {
+            $automatic['manual_tie_groups'] = [];
+        }
+
+        return $this->applyPersistedManualTiebreaks($group, $automatic, $gamesProgress);
     }
 
     public function calculateAutomaticOnly(Group $group): GroupStandingsResult
     {
+        $gamesProgress = $this->resolveGroupGamesProgress($group);
         $automatic = $this->calculateAutomatic($group);
+
+        if ($gamesProgress['is_provisional']) {
+            $automatic['manual_tie_groups'] = [];
+        }
 
         return $this->buildStandingsResult(
             automatic: $automatic,
             appliedManualTiebreaks: [],
             staleManualTiebreaks: [],
+            gamesProgress: $gamesProgress,
         );
+    }
+
+    public function isGroupComplete(Group $group): bool
+    {
+        return $this->resolveGroupGamesProgress($group)['is_complete'];
+    }
+
+    /**
+     * @return array{
+     *     is_complete: bool,
+     *     is_provisional: bool,
+     *     completed_games_count: int,
+     *     total_games_count: int
+     * }
+     */
+    private function resolveGroupGamesProgress(Group $group): array
+    {
+        $totalGamesCount = $group->games()->count();
+
+        if ($totalGamesCount === 0) {
+            return [
+                'is_complete' => false,
+                'is_provisional' => true,
+                'completed_games_count' => 0,
+                'total_games_count' => 0,
+            ];
+        }
+
+        $completedGamesCount = $group->games()
+            ->where('status', GameStatus::Finished)
+            ->count();
+
+        $hasUnfinishedGames = $group->games()
+            ->where('status', '!=', GameStatus::Finished)
+            ->exists();
+
+        return [
+            'is_complete' => ! $hasUnfinishedGames,
+            'is_provisional' => $hasUnfinishedGames,
+            'completed_games_count' => $completedGamesCount,
+            'total_games_count' => $totalGamesCount,
+        ];
     }
 
     /**
@@ -160,7 +213,7 @@ final class GroupStandingsCalculator
      *     manual_tie_groups: array<int, array<int, int>>
      * }  $automatic
      */
-    private function applyPersistedManualTiebreaks(Group $group, array $automatic): GroupStandingsResult
+    private function applyPersistedManualTiebreaks(Group $group, array $automatic, array $gamesProgress): GroupStandingsResult
     {
         $orderedPlayerIds = $automatic['ordered_player_ids'];
         $pendingManualGroups = $automatic['manual_tie_groups'];
@@ -205,8 +258,10 @@ final class GroupStandingsCalculator
             );
         }
 
-        foreach ($persistedTiebreaks as $staleTiebreak) {
-            $staleManualTiebreaks[] = $this->formatTiebreakRecord($staleTiebreak, $playerNameById);
+        if (! $gamesProgress['is_provisional']) {
+            foreach ($persistedTiebreaks as $staleTiebreak) {
+                $staleManualTiebreaks[] = $this->formatTiebreakRecord($staleTiebreak, $playerNameById);
+            }
         }
 
         return $this->buildStandingsResult(
@@ -219,6 +274,7 @@ final class GroupStandingsCalculator
             staleManualTiebreaks: $staleManualTiebreaks,
             manualPositionByPlayerId: $manualPositionByPlayerId,
             appliedPlayerFlags: $appliedPlayerFlags,
+            gamesProgress: $gamesProgress,
         );
     }
 
@@ -233,6 +289,12 @@ final class GroupStandingsCalculator
      * @param  array<int, array{id: int, player_ids: array<int, int>, player_names: array<int, string>, reason: string, notes: ?string, applied_at: string}>  $staleManualTiebreaks
      * @param  array<int, int>  $manualPositionByPlayerId
      * @param  array<int, bool>  $appliedPlayerFlags
+     * @param  array{
+     *     is_complete: bool,
+     *     is_provisional: bool,
+     *     completed_games_count: int,
+     *     total_games_count: int
+     * }  $gamesProgress
      */
     private function buildStandingsResult(
         array $automatic,
@@ -240,6 +302,12 @@ final class GroupStandingsCalculator
         array $staleManualTiebreaks,
         array $manualPositionByPlayerId = [],
         array $appliedPlayerFlags = [],
+        array $gamesProgress = [
+            'is_complete' => true,
+            'is_provisional' => false,
+            'completed_games_count' => 0,
+            'total_games_count' => 0,
+        ],
     ): GroupStandingsResult {
         $statsByPlayer = $automatic['stats_by_player'];
         $playerNameById = $automatic['player_name_by_id'];
@@ -302,6 +370,9 @@ final class GroupStandingsCalculator
             manualTiebreakGroups: $manualTiebreakGroups,
             appliedManualTiebreaks: $appliedManualTiebreaks,
             staleManualTiebreaks: $staleManualTiebreaks,
+            isProvisional: (bool) $gamesProgress['is_provisional'],
+            completedGamesCount: (int) $gamesProgress['completed_games_count'],
+            totalGamesCount: (int) $gamesProgress['total_games_count'],
         );
     }
 

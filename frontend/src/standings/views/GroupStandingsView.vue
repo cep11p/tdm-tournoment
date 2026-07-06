@@ -37,7 +37,25 @@ const pendingManualTiebreakGroups = computed(() => standingsMeta.value.manual_ti
 
 const staleManualTiebreaks = computed(() => standingsMeta.value.stale_manual_tiebreaks ?? [])
 
-const requiresManualTiebreak = computed(() => Boolean(standingsMeta.value.requires_manual_tiebreak))
+const standingsAreProvisional = computed(() => Boolean(standingsMeta.value.standings_are_provisional))
+
+const completedGamesCount = computed(() => Number(standingsMeta.value.completed_games_count ?? 0))
+
+const requiresManualTiebreak = computed(
+  () => !standingsAreProvisional.value && Boolean(standingsMeta.value.requires_manual_tiebreak),
+)
+
+const provisionalMessage = computed(() => {
+  if (!standingsAreProvisional.value) {
+    return null
+  }
+
+  if (completedGamesCount.value === 0) {
+    return 'Todavía no hay partidos completados en este grupo. El orden actual es provisorio.'
+  }
+
+  return 'Aún quedan partidos pendientes. El desempate se evaluará cuando finalicen todos los partidos del grupo.'
+})
 
 const tiebreakGroupKey = (tiebreakGroup) =>
   [...(tiebreakGroup.player_ids ?? [])].sort((left, right) => left - right).join('-')
@@ -211,6 +229,13 @@ onMounted(async () => {
       </p>
 
       <div
+        v-if="provisionalMessage"
+        class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300"
+      >
+        {{ provisionalMessage }}
+      </div>
+
+      <div
         v-if="requiresManualTiebreak"
         class="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"
       >
@@ -228,7 +253,7 @@ onMounted(async () => {
       />
 
       <div
-        v-if="staleManualTiebreaks.length > 0"
+        v-if="!standingsAreProvisional && staleManualTiebreaks.length > 0"
         class="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300"
       >
         Hay desempates manuales guardados que ya no aplican por cambios en los resultados.

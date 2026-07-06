@@ -32,6 +32,12 @@ final class ApplyGroupManualTiebreakAction
             ]);
         }
 
+        if (! $this->groupStandingsCalculator->isGroupComplete($group)) {
+            throw ValidationException::withMessages([
+                'group' => ['El desempate manual solo puede definirse cuando todos los partidos del grupo estén finalizados.'],
+            ]);
+        }
+
         $playerIds = array_values(array_map('intval', $payload['player_ids']));
 
         if (count($playerIds) !== count(array_unique($playerIds))) {

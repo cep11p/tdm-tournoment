@@ -183,6 +183,7 @@ class GroupStandingsTiebreakTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath('meta.requires_manual_tiebreak', true)
+            ->assertJsonPath('meta.standings_are_provisional', false)
             ->assertJsonCount(1, 'meta.manual_tiebreak_groups')
             ->assertJsonPath('data.0.requires_manual_tiebreak', true)
             ->assertJsonPath('data.1.requires_manual_tiebreak', true)
@@ -225,6 +226,88 @@ class GroupStandingsTiebreakTest extends TestCase
             ->assertJsonPath('data.2.requires_manual_tiebreak', false)
             ->assertJsonPath('meta.requires_manual_tiebreak', false)
             ->assertJsonPath('meta.manual_tiebreak_groups', []);
+    }
+
+    public function test_does_not_require_manual_tiebreak_when_no_games_are_completed(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition(setsToWin: 3);
+        [$playerA, $playerB, $playerC] = $context->createPlayers(3);
+        $players = [$playerA, $playerB, $playerC];
+        $context->registerPlayers($competition, $players);
+        $group = $context->createGroupWithPlayers($competition, $players);
+        $context->generateRoundRobin($group)->assertCreated();
+
+        $response = $this->getJson($context->apiUrl("groups/{$group->id}/standings"));
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('meta.standings_are_provisional', true)
+            ->assertJsonPath('meta.completed_games_count', 0)
+            ->assertJsonPath('meta.requires_manual_tiebreak', false)
+            ->assertJsonPath('meta.manual_tiebreak_groups', []);
+
+        foreach ($response->json('data') as $standing) {
+            $this->assertFalse($standing['requires_manual_tiebreak']);
+        }
+    }
+
+    public function test_does_not_require_manual_tiebreak_when_group_has_pending_games(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition(setsToWin: 3);
+        [$playerA, $playerB, $playerC] = $context->createPlayers(3);
+        $players = [$playerA, $playerB, $playerC];
+        $context->registerPlayers($competition, $players);
+        $group = $context->createGroupWithPlayers($competition, $players);
+        $context->generateRoundRobin($group)->assertCreated();
+
+        $games = Game::query()->where('group_id', $group->id)->get();
+        $balancedSets = [
+            [11, 9],
+            [11, 9],
+            [9, 11],
+            [11, 9],
+        ];
+
+        $this->playMatch($context, $context->findGameBetween($games, $playerA, $playerB), $playerA, $playerB, $balancedSets);
+        $this->playMatch($context, $context->findGameBetween($games, $playerB, $playerC), $playerB, $playerC, $balancedSets);
+
+        $response = $this->getJson($context->apiUrl("groups/{$group->id}/standings"));
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('meta.standings_are_provisional', true)
+            ->assertJsonPath('meta.requires_manual_tiebreak', false)
+            ->assertJsonPath('meta.manual_tiebreak_groups', []);
+
+        foreach ($response->json('data') as $standing) {
+            $this->assertFalse($standing['requires_manual_tiebreak']);
+        }
+    }
+
+    public function test_rejects_manual_tiebreak_when_group_is_incomplete(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition(setsToWin: 3);
+        [$playerA, $playerB, $playerC] = $context->createPlayers(3);
+        $players = [$playerA, $playerB, $playerC];
+        $context->registerPlayers($competition, $players);
+        $group = $context->createGroupWithPlayers($competition, $players);
+        $context->generateRoundRobin($group)->assertCreated();
+
+        $response = $this->postJson($context->apiUrl("groups/{$group->id}/manual-tiebreaks"), [
+            'player_ids' => [$playerA->id, $playerB->id, $playerC->id],
+            'reason' => 'draw',
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['group'])
+            ->assertJsonPath(
+                'errors.group.0',
+                'El desempate manual solo puede definirse cuando todos los partidos del grupo estén finalizados.'
+            );
     }
 
     /**
