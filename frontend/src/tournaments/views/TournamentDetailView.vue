@@ -6,11 +6,12 @@ import {
   PlusIcon,
   TrashIcon,
 } from '@heroicons/vue/24/outline'
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import AppTooltip from '../../components/AppTooltip.vue'
+import CompetitionFormModal from '../../competitions/components/CompetitionFormModal.vue'
 import CompetitionService from '../../competitions/services/CompetitionService'
 import {
   getStatusBadgeClasses,
@@ -28,6 +29,10 @@ const isLoading = ref(false)
 const errorMessage = ref('')
 const showEditModal = ref(false)
 const editSuccessMessage = ref('')
+const showCompetitionModal = ref(false)
+const competitionModalMode = ref('create')
+const editingCompetition = ref(null)
+const competitionSuccessMessage = ref('')
 
 const competitions = ref([])
 const isLoadingCompetitions = ref(false)
@@ -58,10 +63,6 @@ const getTournamentStatusBadgeClasses = (status) => {
       return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
   }
 }
-
-const createCompetitionRoute = computed(() =>
-  tournament.value?.id ? `/tournaments/${tournament.value.id}/competitions/create` : null,
-)
 
 const addButtonClasses =
   'inline-flex rounded-md border border-emerald-300 bg-emerald-50 p-2 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/60'
@@ -124,6 +125,33 @@ const handleEditSaved = async () => {
   editSuccessMessage.value = 'Torneo actualizado correctamente.'
   await loadTournament()
 }
+
+const openCreateCompetitionModal = () => {
+  competitionModalMode.value = 'create'
+  editingCompetition.value = null
+  competitionSuccessMessage.value = ''
+  showCompetitionModal.value = true
+}
+
+const openEditCompetitionModal = (competition) => {
+  competitionModalMode.value = 'edit'
+  editingCompetition.value = competition
+  competitionSuccessMessage.value = ''
+  showCompetitionModal.value = true
+}
+
+const handleCompetitionModalClose = () => {
+  showCompetitionModal.value = false
+}
+
+const handleCompetitionSaved = async () => {
+  showCompetitionModal.value = false
+  competitionSuccessMessage.value =
+    competitionModalMode.value === 'create'
+      ? 'Competencia creada correctamente.'
+      : 'Competencia actualizada correctamente.'
+  await loadCompetitions()
+}
 </script>
 
 <template>
@@ -157,6 +185,13 @@ const handleEditSaved = async () => {
       class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
     >
       {{ editSuccessMessage }}
+    </p>
+
+    <p
+      v-if="competitionSuccessMessage"
+      class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
+    >
+      {{ competitionSuccessMessage }}
     </p>
 
     <p v-if="isLoading" class="text-sm text-slate-600 dark:text-slate-400">Cargando torneo...</p>
@@ -214,14 +249,15 @@ const handleEditSaved = async () => {
               Gestioná las categorías, formatos y fases de este torneo.
             </p>
           </div>
-          <AppTooltip v-if="createCompetitionRoute" label="Nueva competencia">
-            <RouterLink
-              :to="createCompetitionRoute"
+          <AppTooltip v-if="tournament" label="Nueva competencia">
+            <button
+              type="button"
               :class="addButtonClasses"
               aria-label="Nueva competencia"
+              @click="openCreateCompetitionModal"
             >
               <PlusIcon class="h-4 w-4" aria-hidden="true" />
-            </RouterLink>
+            </button>
           </AppTooltip>
         </div>
 
@@ -239,14 +275,15 @@ const handleEditSaved = async () => {
           <p class="text-slate-600 dark:text-slate-300">
             Este torneo todavía no tiene competencias cargadas.
           </p>
-          <AppTooltip v-if="createCompetitionRoute" label="Nueva competencia">
-            <RouterLink
-              :to="createCompetitionRoute"
+          <AppTooltip v-if="tournament" label="Nueva competencia">
+            <button
+              type="button"
               :class="['mt-3', addButtonClasses]"
               aria-label="Nueva competencia"
+              @click="openCreateCompetitionModal"
             >
               <PlusIcon class="h-4 w-4" aria-hidden="true" />
-            </RouterLink>
+            </button>
           </AppTooltip>
         </div>
 
@@ -326,13 +363,14 @@ const handleEditSaved = async () => {
                     </AppTooltip>
 
                     <AppTooltip label="Editar">
-                      <RouterLink
-                        :to="`/competitions/${competition.id}/edit`"
+                      <button
+                        type="button"
                         :class="editButtonClasses"
                         aria-label="Editar competencia"
+                        @click="openEditCompetitionModal(competition)"
                       >
                         <PencilSquareIcon class="h-4 w-4" aria-hidden="true" />
-                      </RouterLink>
+                      </button>
                     </AppTooltip>
 
                     <AppTooltip label="Eliminación no disponible aún">
@@ -371,6 +409,16 @@ const handleEditSaved = async () => {
       :tournament-id="route.params.id"
       @close="handleEditClose"
       @saved="handleEditSaved"
+    />
+
+    <CompetitionFormModal
+      :show="showCompetitionModal"
+      :mode="competitionModalMode"
+      :tournament-id="route.params.id"
+      :competition="editingCompetition"
+      :competition-id="editingCompetition?.id"
+      @close="handleCompetitionModalClose"
+      @saved="handleCompetitionSaved"
     />
   </section>
 </template>

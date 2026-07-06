@@ -26,6 +26,7 @@ import {
   competitionHasGroupStage,
   getCompetitionFormatLabel,
 } from '../constants/competitionFormats'
+import CompetitionFormModal from '../components/CompetitionFormModal.vue'
 import CompetitionService from '../services/CompetitionService'
 import {
   isRegistrationsEditable,
@@ -49,6 +50,7 @@ const errorMessage = ref('')
 const randomGroupsSuccessMessage = ref('')
 const showGenerateRandomGroupsModal = ref(false)
 const showRegenerateRandomGroupsModal = ref(false)
+const showEditCompetitionModal = ref(false)
 
 const competitionId = computed(() => route.params.id)
 
@@ -487,6 +489,19 @@ const openRegenerateRandomGroupsModal = () => {
   randomGroupsSuccessMessage.value = ''
   showRegenerateRandomGroupsModal.value = true
 }
+
+const openEditCompetitionModal = () => {
+  showEditCompetitionModal.value = true
+}
+
+const handleEditCompetitionClose = () => {
+  showEditCompetitionModal.value = false
+}
+
+const handleEditCompetitionSaved = async () => {
+  showEditCompetitionModal.value = false
+  await loadCompetitionSummary()
+}
 </script>
 
 <template>
@@ -498,12 +513,13 @@ const openRegenerateRandomGroupsModal = () => {
         {{ competition?.name || `Competencia #${competitionId}` }}
       </h1>
       <div class="flex items-center gap-3">
-        <RouterLink
-          :to="`/competitions/${competitionId}/edit`"
+        <button
+          type="button"
           class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          @click="openEditCompetitionModal"
         >
           Editar competencia
-        </RouterLink>
+        </button>
         <RouterLink
           v-if="competition?.tournament_id"
           :to="fallbackBackRoute"
@@ -1074,6 +1090,15 @@ const openRegenerateRandomGroupsModal = () => {
         :is-competition-completed="isCompetitionCompleted"
         @close="showRegenerateRandomGroupsModal = false"
         @saved="handleRegenerateRandomGroupsSaved"
+      />
+
+      <CompetitionFormModal
+        :show="showEditCompetitionModal"
+        mode="edit"
+        :competition="competition"
+        :competition-id="competitionId"
+        @close="handleEditCompetitionClose"
+        @saved="handleEditCompetitionSaved"
       />
     </template>
   </section>
