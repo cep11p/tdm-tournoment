@@ -147,8 +147,21 @@ const handleClose = () => {
   emit('close')
 }
 
+const isGameFinishedAfterSaveError = (error, game) => {
+  if (game?.status !== 'finished') {
+    return false
+  }
+
+  const gameError = error?.response?.data?.errors?.game?.[0]
+
+  return (
+    gameError === 'El partido ya finalizó.' ||
+    gameError === 'El partido ya tiene un ganador definido.'
+  )
+}
+
 const handleSave = async () => {
-  if (!activeGame.value?.id) {
+  if (!activeGame.value?.id || isSavingResult.value) {
     return
   }
 
@@ -164,27 +177,36 @@ const handleSave = async () => {
 
   try {
     for (const set of sets) {
-      await GameService.recordSet(activeGame.value.id, set)
+      const updatedGame = await GameService.recordSet(activeGame.value.id, set)
+      activeGame.value = updatedGame
+      setRows.value = buildSetRows(updatedGame)
+
+      if (updatedGame?.status === 'finished') {
+        break
+      }
     }
 
     emit('saved')
   } catch (error) {
+    let refreshedGame = null
+
     try {
-      const refreshedGame = await GameService.show(activeGame.value.id)
+      refreshedGame = await GameService.show(activeGame.value.id)
       activeGame.value = refreshedGame
       setRows.value = buildSetRows(refreshedGame)
     } catch {
       // Mantener filas actuales si no se pudo refrescar el partido.
     }
 
+    if (isGameFinishedAfterSaveError(error, refreshedGame)) {
+      emit('saved')
+      return
+    }
+
     resultError.value = extractSetError(error)
   } finally {
     isSavingResult.value = false
   }
-}
-
-const handleSubmit = () => {
-  handleSave()
 }
 </script>
 
@@ -202,7 +224,7 @@ const handleSubmit = () => {
         aria-labelledby="game-result-modal-title"
       >
         <div class="overflow-y-auto overflow-x-hidden p-4">
-          <form class="space-y-4" @submit.prevent="handleSubmit">
+          <form class="space-y-4" @submit.prevent="handleSave">
             <div class="min-w-0">
               <h2 id="game-result-modal-title" class="text-lg font-semibold text-slate-900 dark:text-slate-100">
                 Cargar resultado
