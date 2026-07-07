@@ -6,8 +6,15 @@ import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import CompetitionService from '../../competitions/services/CompetitionService'
 import { competitionHasGroupStage } from '../../competitions/constants/competitionFormats'
+import {
+  buildGroupPhaseAlert,
+  summarizeGroupPhaseBracketGate,
+} from '../../competitions/utils/buildGroupPhaseAlert'
+import GameService from '../../games/services/GameService'
+import GroupService from '../../groups/services/GroupService'
 import GameResultModal from '../../games/components/GameResultModal.vue'
 import { extractApiErrorMessage } from '../../shared/utils/extractApiErrorMessage'
+import StandingService from '../../standings/services/StandingService'
 import BracketService from '../services/BracketService'
 import {
   BYE_BADGE_LABEL,
@@ -20,6 +27,10 @@ import {
 const route = useRoute()
 const competitionId = computed(() => route.params.id)
 const competition = ref(null)
+const groups = ref(null)
+const games = ref(null)
+const groupStandingsByGroupId = ref({})
+const groupStandingsMetaByGroupId = ref({})
 
 const bracket = ref(null)
 const isLoading = ref(false)
@@ -39,6 +50,86 @@ const resultSuccessMessage = ref('')
 const hasBracket = computed(() => Boolean(bracket.value?.id))
 
 const hasGroupStage = computed(() => competitionHasGroupStage(competition.value))
+
+const statusSummary = computed(() => competition.value?.status_summary ?? null)
+
+const groupPhaseSummaries = computed(() =>
+  (groups.value ?? []).map((group) =>
+    buildGroupPhaseAlert({
+      group,
+      standings: groupStandingsByGroupId.value[group.id] ?? [],
+      meta: groupStandingsMetaByGroupId.value[group.id] ?? {},
+      games: games.value?.filter((game) => Number(game.group_id) === Number(group.id)) ?? [],
+    }),
+  ),
+)
+
+const groupPhaseBracketGate = computed(() =>
+  summarizeGroupPhaseBracketGate(groupPhaseSummaries.value),
+)
+
+const allGroupsReadyForBracket = computed(() => {
+  if (!hasGroupStage.value) {
+    return true
+  }
+
+  return groupPhaseBracketGate.value.allGroupsReadyForBracket
+})
+
+const groupPhaseBracketBlockMessage = computed(() => groupPhaseBracketGate.value.blockMessage)
+
+const bracketCreationBlockMessage = computed(() => {
+  const code = statusSummary.value?.code
+
+  if (!hasGroupStage.value) {
+    if (code === 'awaiting_registrations') {
+      return 'Se necesitan al menos 2 jugadores inscriptos para generar la llave.'
+    }
+
+    return null
+  }
+
+  if (code === 'group_stage_in_progress') {
+    return 'Hay partidos de grupo pendientes. Completalos antes de generar la llave.'
+  }
+
+  if (code === 'group_stage_pending') {
+    return 'Hay grupos sin partidos generados.'
+  }
+
+  if (code === 'group_stage_attention_required') {
+    return (
+      groupPhaseBracketBlockMessage.value ??
+      statusSummary.value?.description ??
+      'La fase de grupos requiere atención antes de generar la llave.'
+    )
+  }
+
+  if (code === 'ready_for_bracket' && !allGroupsReadyForBracket.value) {
+    return (
+      groupPhaseBracketBlockMessage.value ??
+      'La fase de grupos requiere atención antes de generar la llave.'
+    )
+  }
+
+  if (code !== 'ready_for_bracket') {
+    return statusSummary.value?.description ?? 'La fase de grupos todavía no está lista.'
+  }
+
+  return null
+})
+
+const canCreateBracket = computed(() => {
+  if (hasBracket.value || !competition.value) {
+    return false
+  }
+
+  if (!hasGroupStage.value) {
+    return statusSummary.value?.code === 'ready_for_bracket'
+  }
+
+  return statusSummary.value?.code === 'ready_for_bracket' && allGroupsReadyForBracket.value
+})
 
 const showQualifiersPerGroup = computed(
   () => hasGroupStage.value && (bracket.value?.qualifiers_per_group ?? 0) > 0,
@@ -65,13 +156,49 @@ const loadData = async () => {
   loadError.value = ''
 
   try {
-    const [competitionData, bracketData] = await Promise.all([
+    const [competitionData, bracketData, groupsData, gamesData] = await Promise.all([
       CompetitionService.show(competitionId.value),
       BracketService.show(competitionId.value),
+      GroupService.listByCompetition(competitionId.value).catch(() => null),
+      GameService.listByCompetition(competitionId.value).catch(() => null),
     ])
 
     competition.value = competitionData
     bracket.value = bracketData
+    groups.value = groupsData
+    games.value = gamesData
+
+    const shouldLoadGroupStandings =
+      competitionHasGroupStage(competitionData) && groupsData?.length > 0
+
+    if (shouldLoadGroupStandings) {
+      const standingsEntries = await Promise.all(
+        groupsData.map(async (group) => {
+          try {
+            const { standings, meta } = await StandingService.listByGroup(group.id)
+            return [group.id, { standings, meta }]
+          } catch {
+            return [group.id, null]
+          }
+        }),
+      )
+
+      const standingsByGroupId = {}
+      const metaByGroupId = {}
+
+      for (const [groupId, payload] of standingsEntries) {
+        if (payload) {
+          standingsByGroupId[groupId] = payload.standings
+          metaByGroupId[groupId] = payload.meta
+        }
+      }
+
+      groupStandingsByGroupId.value = standingsByGroupId
+      groupStandingsMetaByGroupId.value = metaByGroupId
+    } else {
+      groupStandingsByGroupId.value = {}
+      groupStandingsMetaByGroupId.value = {}
+    }
   } catch (error) {
     loadError.value = extractApiErrorMessage(error, 'No se pudo cargar la llave eliminatoria.')
   } finally {
@@ -541,7 +668,7 @@ onMounted(loadData)
 
     <template v-else>
       <form
-        v-if="!hasBracket"
+        v-if="!hasBracket && canCreateBracket"
         class="max-w-xl space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
         @submit.prevent="handleCreateBracket"
       >
@@ -571,6 +698,28 @@ onMounted(loadData)
           {{ isCreatingBracket ? 'Generando...' : 'Generar llave eliminatoria' }}
         </button>
       </form>
+
+      <div
+        v-else-if="!hasBracket"
+        class="max-w-xl space-y-3 rounded-md border border-amber-200 bg-amber-50/60 p-4 text-sm dark:border-amber-900 dark:bg-amber-950/20"
+      >
+        <p class="font-medium text-amber-900 dark:text-amber-100">Generar llave eliminatoria</p>
+
+        <p class="text-amber-900/90 dark:text-amber-100/90">
+          Todavía no se generó la llave eliminatoria para esta competencia.
+        </p>
+
+        <p class="rounded-md border border-amber-200 bg-white/70 px-3 py-2 text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+          {{ bracketCreationBlockMessage ?? 'La fase de grupos todavía no está lista para generar la llave.' }}
+        </p>
+
+        <RouterLink
+          :to="`/competitions/${competitionId}`"
+          class="inline-flex text-sm font-medium text-amber-900 underline hover:text-amber-950 dark:text-amber-200 dark:hover:text-amber-100"
+        >
+          Volver al detalle de la competencia
+        </RouterLink>
+      </div>
 
       <div
         v-else

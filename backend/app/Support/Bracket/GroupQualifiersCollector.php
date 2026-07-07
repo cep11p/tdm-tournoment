@@ -15,6 +15,7 @@ final class GroupQualifiersCollector
 {
     public function __construct(
         private readonly GroupStandingsCalculator $groupStandingsCalculator,
+        private readonly GroupBracketReadiness $groupBracketReadiness,
     ) {}
 
     /**
@@ -72,14 +73,7 @@ final class GroupQualifiersCollector
         $availableQualifiers = min($qualifiersPerGroup, $eligibleStandings->count());
         $groupQualifiers = $eligibleStandings->take($availableQualifiers);
 
-        if (
-            $standingsResult->requiresManualTiebreak()
-            && $this->manualTieCrossesQualifierCutoff(
-                standings: $eligibleStandings,
-                manualTiebreakGroups: $standingsResult->manualTiebreakGroups,
-                qualifierCutoff: $availableQualifiers,
-            )
-        ) {
+        if ($this->groupBracketReadiness->groupRequiresAttentionBeforeBracket($group, $qualifiersPerGroup)) {
             throw ValidationException::withMessages([
                 'qualified_per_group' => [
                     sprintf(
@@ -101,46 +95,5 @@ final class GroupQualifiersCollector
                 lost: $standing->lost,
             ),
         );
-    }
-
-    /**
-     * @param  Collection<int, CompetitionStandingData>  $standings
-     * @param  array<int, array{player_ids: array<int, int>, player_names: array<int, string>}>  $manualTiebreakGroups
-     */
-    private function manualTieCrossesQualifierCutoff(
-        Collection $standings,
-        array $manualTiebreakGroups,
-        int $qualifierCutoff,
-    ): bool {
-        if ($qualifierCutoff <= 0) {
-            return false;
-        }
-
-        $positionByPlayerId = $standings
-            ->values()
-            ->mapWithKeys(fn (CompetitionStandingData $standing, int $index): array => [
-                $standing->playerId => $index,
-            ])
-            ->all();
-
-        foreach ($manualTiebreakGroups as $manualTiebreakGroup) {
-            $positions = collect($manualTiebreakGroup['player_ids'] ?? [])
-                ->map(fn (int $playerId): ?int => $positionByPlayerId[$playerId] ?? null)
-                ->filter(fn (?int $position): bool => $position !== null)
-                ->values();
-
-            if ($positions->isEmpty()) {
-                continue;
-            }
-
-            $minPosition = (int) $positions->min();
-            $maxPosition = (int) $positions->max();
-
-            if ($minPosition < $qualifierCutoff && $maxPosition >= $qualifierCutoff) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

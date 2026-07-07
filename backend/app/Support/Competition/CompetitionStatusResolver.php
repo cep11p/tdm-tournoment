@@ -5,6 +5,7 @@ namespace App\Support\Competition;
 use App\Enums\GameStatus;
 use App\Models\Competition;
 use App\Models\Game;
+use App\Support\Bracket\GroupBracketReadiness;
 
 final class CompetitionStatusResolver
 {
@@ -153,6 +154,15 @@ final class CompetitionStatusResolver
                 'Fase de grupos en curso',
                 'Hay partidos de grupo pendientes o en curso.',
                 'Completar partidos de grupos',
+            );
+        }
+
+        if (app(GroupBracketReadiness::class)->requiresAttentionBeforeBracket($competition)) {
+            return self::summary(
+                'group_stage_attention_required',
+                'Fase de grupos requiere atención',
+                'Hay desempates manuales pendientes o desactualizados que deben resolverse antes de generar la llave.',
+                'Resolver desempates de grupos',
             );
         }
 

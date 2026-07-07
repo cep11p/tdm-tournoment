@@ -124,6 +124,13 @@ export function buildGroupPhaseAlert({ group, standings = [], meta = {}, games =
     isReady = true
   }
 
+  const blocksBracketGeneration =
+    hasPendingManualTiebreak ||
+    hasStaleManualTiebreaks ||
+    pendingGamesCount > 0 ||
+    !hasGroupGames ||
+    !hasStandings
+
   return {
     group,
     primaryLabel,
@@ -136,6 +143,71 @@ export function buildGroupPhaseAlert({ group, standings = [], meta = {}, games =
     hasStaleManualTiebreaks,
     hasAppliedManualTiebreaks,
     isReady,
+    blocksBracketGeneration,
     highlightLink,
+  }
+}
+
+export function summarizeGroupPhaseBracketGate(summaries = []) {
+  const normalizedSummaries = Array.isArray(summaries) ? summaries : []
+
+  if (normalizedSummaries.length === 0) {
+    return {
+      allGroupsReadyForBracket: false,
+      blockMessage: 'La fase de grupos requiere atención antes de generar la llave.',
+    }
+  }
+
+  const allGroupsReadyForBracket = normalizedSummaries.every(
+    (summary) => !summary.blocksBracketGeneration,
+  )
+
+  if (allGroupsReadyForBracket) {
+    return {
+      allGroupsReadyForBracket: true,
+      blockMessage: null,
+    }
+  }
+
+  if (normalizedSummaries.some((summary) => summary.pendingGamesCount > 0)) {
+    return {
+      allGroupsReadyForBracket: false,
+      blockMessage: 'Hay partidos de grupo pendientes. Completalos antes de generar la llave.',
+    }
+  }
+
+  if (normalizedSummaries.some((summary) => summary.hasPendingManualTiebreak)) {
+    return {
+      allGroupsReadyForBracket: false,
+      blockMessage:
+        'Hay desempates manuales pendientes que definen la clasificación. Resolvelos antes de generar la llave.',
+    }
+  }
+
+  if (normalizedSummaries.some((summary) => summary.hasStaleManualTiebreaks)) {
+    return {
+      allGroupsReadyForBracket: false,
+      blockMessage:
+        'Hay desempates manuales desactualizados. Revisá las posiciones antes de generar la llave.',
+    }
+  }
+
+  if (normalizedSummaries.some((summary) => summary.primaryLabel === 'Sin round robin')) {
+    return {
+      allGroupsReadyForBracket: false,
+      blockMessage: 'Hay grupos sin partidos generados.',
+    }
+  }
+
+  if (normalizedSummaries.some((summary) => summary.primaryLabel === 'Sin posiciones')) {
+    return {
+      allGroupsReadyForBracket: false,
+      blockMessage: 'Hay grupos sin posiciones calculadas.',
+    }
+  }
+
+  return {
+    allGroupsReadyForBracket: false,
+    blockMessage: 'La fase de grupos requiere atención antes de generar la llave.',
   }
 }

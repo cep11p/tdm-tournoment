@@ -21,7 +21,7 @@ import { buildRandomGroupsSuccessMessage } from '../../groups/utils/buildRandomG
 import { buildRegenerateRandomGroupsSuccessMessage } from '../../groups/utils/buildRegenerateRandomGroupsSuccessMessage'
 import StandingService from '../../standings/services/StandingService'
 import { buildBracketGenerationPreview } from '../utils/buildBracketGenerationPreview'
-import { buildGroupPhaseAlert } from '../utils/buildGroupPhaseAlert'
+import { buildGroupPhaseAlert, summarizeGroupPhaseBracketGate } from '../utils/buildGroupPhaseAlert'
 import {
   competitionHasGroupStage,
   getCompetitionFormatLabel,
@@ -217,6 +217,20 @@ const groupsNeedingAttention = computed(() =>
   groupPhaseSummaries.value.filter((summary) => summary.needsAttention),
 )
 
+const groupPhaseBracketGate = computed(() =>
+  summarizeGroupPhaseBracketGate(groupPhaseSummaries.value),
+)
+
+const allGroupsReadyForBracket = computed(() => {
+  if (!hasGroupStage.value) {
+    return true
+  }
+
+  return groupPhaseBracketGate.value.allGroupsReadyForBracket
+})
+
+const groupPhaseBracketBlockMessage = computed(() => groupPhaseBracketGate.value.blockMessage)
+
 const groupDetailRoute = (group) => ({
   path: `/groups/${group.id}`,
   query: {
@@ -322,13 +336,57 @@ const structureAction = computed(() => {
     }
   }
 
+  if (code === 'group_stage_attention_required') {
+    return {
+      key: 'generate-bracket-disabled',
+      type: 'disabled',
+      label: 'Generar bracket',
+      description:
+        groupPhaseBracketBlockMessage.value ??
+        'La fase de grupos requiere atención antes de generar la llave.',
+      icon: TrophyIcon,
+    }
+  }
+
   if (code === 'ready_for_bracket') {
+    if (!allGroupsReadyForBracket.value) {
+      return {
+        key: 'generate-bracket-disabled',
+        type: 'disabled',
+        label: 'Generar bracket',
+        description:
+          groupPhaseBracketBlockMessage.value ??
+          'La fase de grupos requiere atención antes de generar la llave.',
+        icon: TrophyIcon,
+      }
+    }
+
     return {
       key: 'generate-bracket',
       type: 'link',
       to: bracketRoute.value,
       label: 'Generar bracket',
       description: 'Crear la llave eliminatoria',
+      icon: TrophyIcon,
+    }
+  }
+
+  if (code === 'group_stage_in_progress') {
+    return {
+      key: 'generate-bracket-disabled',
+      type: 'disabled',
+      label: 'Generar bracket',
+      description: 'Hay partidos de grupo pendientes. Completalos antes de generar la llave.',
+      icon: TrophyIcon,
+    }
+  }
+
+  if (code === 'group_stage_pending') {
+    return {
+      key: 'generate-bracket-disabled',
+      type: 'disabled',
+      label: 'Generar bracket',
+      description: 'Hay grupos sin partidos generados.',
       icon: TrophyIcon,
     }
   }
@@ -1000,6 +1058,13 @@ const handleEditCompetitionSaved = async () => {
 
         <p class="mt-3 text-slate-600 dark:text-slate-300">
           Todavía no se generó la llave eliminatoria.
+        </p>
+
+        <p
+          v-if="hasGroupStage && !allGroupsReadyForBracket && groupPhaseBracketBlockMessage"
+          class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+        >
+          {{ groupPhaseBracketBlockMessage }}
         </p>
 
         <p
