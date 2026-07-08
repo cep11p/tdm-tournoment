@@ -18,13 +18,6 @@ const GroupService = {
     return unwrap(response) ?? []
   },
 
-  async assignPlayer(groupId, playerId) {
-    const response = await httpClient.post(`/groups/${groupId}/players`, {
-      player_id: playerId,
-    })
-    return unwrap(response) ?? null
-  },
-
   async generateRoundRobin(groupId) {
     const response = await httpClient.post(`/groups/${groupId}/round-robin-games`)
     return unwrap(response) ?? []
