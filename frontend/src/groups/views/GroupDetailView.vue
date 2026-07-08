@@ -282,14 +282,75 @@ const canLoadResult = (game) =>
 
 const isFinishedGame = (game) => !isByeGame(game) && game?.status === 'finished'
 
+const compareByGroupSchedule = (left, right) => {
+  const leftHasRound = left.group_round != null
+  const rightHasRound = right.group_round != null
+
+  if (leftHasRound !== rightHasRound) {
+    return leftHasRound ? -1 : 1
+  }
+
+  if (leftHasRound && rightHasRound) {
+    if (left.group_round !== right.group_round) {
+      return left.group_round - right.group_round
+    }
+
+    if (left.group_match !== right.group_match) {
+      return left.group_match - right.group_match
+    }
+  }
+
+  const statusOrder = { in_progress: 0, pending: 1 }
+  const statusDiff = (statusOrder[left.status] ?? 2) - (statusOrder[right.status] ?? 2)
+
+  if (statusDiff !== 0) {
+    return statusDiff
+  }
+
+  return left.id - right.id
+}
+
 const pendingLoadGames = computed(() =>
-  games.value
-    .filter(canLoadResult)
-    .sort((left, right) => {
-      const statusOrder = { in_progress: 0, pending: 1 }
-      return (statusOrder[left.status] ?? 2) - (statusOrder[right.status] ?? 2) || left.id - right.id
-    }),
+  games.value.filter(canLoadResult).sort(compareByGroupSchedule),
 )
+
+const pendingGamesByRound = computed(() => {
+  const rounds = new Map()
+  const legacy = []
+
+  for (const game of pendingLoadGames.value) {
+    if (game.group_round == null) {
+      legacy.push(game)
+      continue
+    }
+
+    const roundNumber = game.group_round
+
+    if (!rounds.has(roundNumber)) {
+      rounds.set(roundNumber, [])
+    }
+
+    rounds.get(roundNumber).push(game)
+  }
+
+  const grouped = [...rounds.entries()]
+    .sort(([leftRound], [rightRound]) => leftRound - rightRound)
+    .map(([roundNumber, roundGames]) => ({
+      roundNumber,
+      label: `Ronda ${roundNumber}`,
+      games: roundGames,
+    }))
+
+  if (legacy.length > 0) {
+    grouped.push({
+      roundNumber: null,
+      label: 'Sin ronda asignada',
+      games: legacy,
+    })
+  }
+
+  return grouped
+})
 
 const finishedGames = computed(() =>
   games.value
@@ -743,17 +804,26 @@ onMounted(async () => {
       </div>
 
       <div v-else class="space-y-4">
-        <section v-if="pendingLoadGames.length > 0" class="space-y-2">
+        <section v-if="pendingLoadGames.length > 0" class="space-y-4">
           <h2 class="font-medium text-slate-800 dark:text-slate-200">
             Pendientes de carga ({{ pendingLoadGames.length }})
           </h2>
 
-          <ul class="space-y-2">
-            <li
-              v-for="game in pendingLoadGames"
-              :key="`pending-${game.id}`"
-              :class="pendingGameCardClasses"
-            >
+          <div
+            v-for="roundGroup in pendingGamesByRound"
+            :key="roundGroup.roundNumber ?? 'legacy'"
+            class="space-y-2"
+          >
+            <h3 class="text-sm font-medium text-slate-600 dark:text-slate-300">
+              {{ roundGroup.label }}
+            </h3>
+
+            <ul class="space-y-2">
+              <li
+                v-for="game in roundGroup.games"
+                :key="`pending-${game.id}`"
+                :class="pendingGameCardClasses"
+              >
               <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                 <p class="min-w-0 flex-1 font-medium text-slate-900 dark:text-slate-100">
                   {{ matchupLabel(game) }}
@@ -813,6 +883,7 @@ onMounted(async () => {
               </p>
             </li>
           </ul>
+          </div>
         </section>
 
         <details

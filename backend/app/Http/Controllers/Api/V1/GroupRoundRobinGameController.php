@@ -28,6 +28,9 @@ class GroupRoundRobinGameController extends Controller
         $games = Game::query()
             ->whereIn('id', $createdGameIds)
             ->with(self::GAME_RELATIONS)
+            ->orderByRaw('group_round IS NULL')
+            ->orderBy('group_round')
+            ->orderBy('group_match')
             ->orderBy('id')
             ->get();
 

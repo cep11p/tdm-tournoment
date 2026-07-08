@@ -7,6 +7,7 @@ use App\Models\Game;
 use App\Models\Group;
 use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Game\GameFormatResolver;
+use App\Support\Group\RoundRobinScheduleBuilder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -15,6 +16,7 @@ final class GenerateGroupRoundRobinGamesAction
 {
     public function __construct(
         private readonly CreateGameAction $createGame,
+        private readonly RoundRobinScheduleBuilder $scheduleBuilder,
     ) {}
 
     /**
@@ -46,17 +48,18 @@ final class GenerateGroupRoundRobinGamesAction
 
         $round = sprintf('Round Robin - %s', $group->name);
         $competitionId = (int) $group->competition_id;
-        $group->loadMissing('competition');
         $matchFormat = GameFormatResolver::resolveForGroup($group->competition);
+        $schedule = $this->scheduleBuilder->build($playerIds);
 
-        return DB::transaction(function () use ($group, $playerIds, $round, $competitionId, $matchFormat): Collection {
+        return DB::transaction(function () use ($group, $schedule, $round, $competitionId, $matchFormat): Collection {
             $created = collect();
-            $playerCount = count($playerIds);
 
-            for ($index = 0; $index < $playerCount; $index++) {
-                for ($pairIndex = $index + 1; $pairIndex < $playerCount; $pairIndex++) {
-                    $player1Id = $playerIds[$index];
-                    $player2Id = $playerIds[$pairIndex];
+            foreach ($schedule as $roundIndex => $roundPairings) {
+                $groupRound = $roundIndex + 1;
+
+                foreach ($roundPairings as $matchIndex => $pairing) {
+                    $player1Id = $pairing['player1_id'];
+                    $player2Id = $pairing['player2_id'];
 
                     if ($this->gameExistsBetweenPlayers($competitionId, $player1Id, $player2Id)) {
                         continue;
@@ -68,6 +71,8 @@ final class GenerateGroupRoundRobinGamesAction
                         'player1_id' => $player1Id,
                         'player2_id' => $player2Id,
                         'round' => $round,
+                        'group_round' => $groupRound,
+                        'group_match' => $matchIndex + 1,
                         'best_of' => $matchFormat['best_of'],
                         'sets_to_win' => $matchFormat['sets_to_win'],
                     ]));

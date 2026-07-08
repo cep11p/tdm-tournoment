@@ -22,6 +22,8 @@ class Game extends Model
             'table_number' => 'integer',
             'bracket_round' => 'integer',
             'bracket_match' => 'integer',
+            'group_round' => 'integer',
+            'group_match' => 'integer',
             'finished_at' => 'datetime',
             'is_bye' => 'boolean',
             'best_of' => 'integer',

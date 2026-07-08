@@ -29,7 +29,10 @@ class GameController extends Controller
     {
         $games = $competition->games()
             ->with(self::GAME_RELATIONS)
-            ->latest('id')
+            ->orderByRaw('group_round IS NULL')
+            ->orderBy('group_round')
+            ->orderBy('group_match')
+            ->orderBy('id')
             ->get();
 
         return GameResource::collection($games);

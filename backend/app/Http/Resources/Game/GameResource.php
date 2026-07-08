@@ -27,6 +27,8 @@ class GameResource extends JsonResource
             'bracket_id' => $this->bracket_id,
             'bracket_round' => $this->bracket_round,
             'bracket_match' => $this->bracket_match,
+            'group_round' => $this->group_round,
+            'group_match' => $this->group_match,
             'player1' => [
                 'id' => $player1?->id,
                 'first_name' => $player1?->first_name,
