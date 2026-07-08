@@ -11,6 +11,13 @@ import { structureLockReason } from '../../competitions/utils/competitionStructu
 import GameResultModal from '../../games/components/GameResultModal.vue'
 import GameService from '../../games/services/GameService'
 import StandingService from '../../standings/services/StandingService'
+import {
+  getQualificationBadgeClasses,
+  getQualificationCardClasses,
+  getQualificationIcon,
+  getQualificationLabel,
+  resolveGroupQualification,
+} from '../../standings/utils/resolveGroupQualification'
 import GroupPlayerStatusModal from '../components/GroupPlayerStatusModal.vue'
 import { getGroupPlayerStatusLabel } from '../constants/groupPlayerStatus'
 import GroupService from '../services/GroupService'
@@ -32,6 +39,7 @@ const isLoadingGroupPlayers = ref(false)
 const groupPlayersError = ref('')
 
 const standings = ref([])
+const standingsMeta = ref({})
 const isLoadingStandings = ref(false)
 
 const isGeneratingRoundRobin = ref(false)
@@ -41,17 +49,24 @@ const roundRobinSuccessMessage = ref('')
 const selectedPlayerForStatus = ref(null)
 const playerStatusSuccessMessage = ref('')
 
-const resolveIsQualified = (standing, position) => {
-  if (typeof standing?.eligible_for_qualification === 'boolean') {
-    return standing.eligible_for_qualification
-  }
+const standingsAreProvisional = computed(() => Boolean(standingsMeta.value.standings_are_provisional))
 
-  if (position !== null) {
-    return position <= qualifiedPerGroup.value
-  }
+const pendingManualTiebreakGroups = computed(() => standingsMeta.value.manual_tiebreak_groups ?? [])
 
-  return null
-}
+const requiresManualTiebreak = computed(
+  () => !standingsAreProvisional.value && Boolean(standingsMeta.value.requires_manual_tiebreak),
+)
+
+const buildQualification = (standing, position) =>
+  resolveGroupQualification({
+    standing,
+    position,
+    qualifiedPerGroup: qualifiedPerGroup.value,
+    standingsAreProvisional: standingsAreProvisional.value,
+    requiresManualTiebreak: requiresManualTiebreak.value,
+    manualTiebreakGroups: pendingManualTiebreakGroups.value,
+    allStandings: standings.value,
+  })
 
 const isPlayerActive = (groupPlayer) => (groupPlayer?.status ?? 'active') === 'active'
 
@@ -98,7 +113,7 @@ const displayedGroupPlayers = computed(() => {
     return groupPlayers.value.map((groupPlayer) => ({
       groupPlayer,
       position: null,
-      isQualified: null,
+      qualification: null,
     }))
   }
 
@@ -117,7 +132,7 @@ const displayedGroupPlayers = computed(() => {
       return {
         groupPlayer,
         position,
-        isQualified: resolveIsQualified(standing, position),
+        qualification: buildQualification(standing, position),
       }
     })
     .filter(Boolean)
@@ -131,7 +146,7 @@ const displayedGroupPlayers = computed(() => {
       displayed.push({
         groupPlayer,
         position: null,
-        isQualified: null,
+        qualification: null,
       })
     }
   }
@@ -155,17 +170,16 @@ const positionBadgeClasses = (position) => {
   return 'bg-slate-100 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700'
 }
 
-const playerCardClasses = (entry) => {
-  if (!isPlayerActive(entry.groupPlayer)) {
-    return 'border-slate-200 bg-slate-50/60 opacity-80 dark:border-slate-700 dark:bg-slate-800/40'
-  }
+const playerCardClasses = (entry) =>
+  getQualificationCardClasses(entry.qualification?.kind, {
+    isInactive: !isPlayerActive(entry.groupPlayer),
+  })
 
-  if (entry.isQualified === true) {
-    return 'border-emerald-200 bg-emerald-50/40 dark:border-emerald-900 dark:bg-emerald-950/20'
-  }
+const qualificationBadgeClasses = (qualification) => getQualificationBadgeClasses(qualification?.kind)
 
-  return 'border-slate-200 dark:border-slate-700'
-}
+const qualificationLabel = (qualification) => getQualificationLabel(qualification?.kind)
+
+const qualificationIcon = (qualification) => getQualificationIcon(qualification?.kind)
 
 const groupPlayersAccordionSummaryClasses =
   'flex cursor-pointer list-none items-center gap-3 rounded-md p-4 text-sm transition hover:bg-slate-50 dark:hover:bg-slate-800/50 [&::-webkit-details-marker]:hidden'
@@ -201,10 +215,12 @@ const loadStandings = async () => {
   isLoadingStandings.value = true
 
   try {
-    const { standings: groupStandings } = await StandingService.listByGroup(groupId.value)
+    const { standings: groupStandings, meta } = await StandingService.listByGroup(groupId.value)
     standings.value = groupStandings
+    standingsMeta.value = meta
   } catch {
     standings.value = []
+    standingsMeta.value = {}
   } finally {
     isLoadingStandings.value = false
   }
@@ -223,9 +239,13 @@ const isLoadingOperationalSummary = computed(
   () => isLoadingGroupPlayers.value || isLoadingStandings.value || isLoadingGames.value,
 )
 
-const groupPlayersTitle = computed(() =>
-  hasGroupGames.value ? 'Jugadores del grupo' : 'Jugadores asignados',
-)
+const groupPlayersTitle = computed(() => {
+  if (standings.value.length > 0) {
+    return 'Posiciones del grupo'
+  }
+
+  return hasGroupGames.value ? 'Jugadores del grupo' : 'Jugadores asignados'
+})
 
 const loadGroupGames = async () => {
   if (!competitionId.value || !groupId.value) {
@@ -733,11 +753,14 @@ onMounted(async () => {
               </span>
 
               <span
-                v-if="entry.isQualified === true"
-                class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200"
+                v-if="entry.qualification"
+                class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                :class="qualificationBadgeClasses(entry.qualification)"
               >
-                <span aria-hidden="true">✓</span>
-                Clasifica
+                <span v-if="qualificationIcon(entry.qualification)" aria-hidden="true">
+                  {{ qualificationIcon(entry.qualification) }}
+                </span>
+                {{ qualificationLabel(entry.qualification) }}
               </span>
 
               <button

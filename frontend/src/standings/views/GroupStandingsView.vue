@@ -9,6 +9,13 @@ import CompetitionService from '../../competitions/services/CompetitionService'
 import { getGroupPlayerStatusLabel } from '../../groups/constants/groupPlayerStatus'
 import GroupManualTiebreakPanel from '../components/GroupManualTiebreakPanel.vue'
 import StandingService from '../services/StandingService'
+import {
+  getQualificationBadgeClasses,
+  getQualificationIcon,
+  getQualificationLabel,
+  getQualificationRowClasses,
+  resolveGroupQualification,
+} from '../utils/resolveGroupQualification'
 
 const route = useRoute()
 
@@ -26,13 +33,6 @@ const isLoading = ref(false)
 const errorMessage = ref('')
 const manualTiebreakSuccessMessage = ref('')
 
-const standingsWithPosition = computed(() =>
-  standings.value.map((standing, index) => ({
-    ...standing,
-    position: index + 1,
-  })),
-)
-
 const pendingManualTiebreakGroups = computed(() => standingsMeta.value.manual_tiebreak_groups ?? [])
 
 const staleManualTiebreaks = computed(() => standingsMeta.value.stale_manual_tiebreaks ?? [])
@@ -43,6 +43,26 @@ const completedGamesCount = computed(() => Number(standingsMeta.value.completed_
 
 const requiresManualTiebreak = computed(
   () => !standingsAreProvisional.value && Boolean(standingsMeta.value.requires_manual_tiebreak),
+)
+
+const standingsWithPosition = computed(() =>
+  standings.value.map((standing, index) => {
+    const position = index + 1
+
+    return {
+      ...standing,
+      position,
+      qualification: resolveGroupQualification({
+        standing,
+        position,
+        qualifiedPerGroup: qualifiedPerGroup.value,
+        standingsAreProvisional: standingsAreProvisional.value,
+        requiresManualTiebreak: requiresManualTiebreak.value,
+        manualTiebreakGroups: pendingManualTiebreakGroups.value,
+        allStandings: standings.value,
+      }),
+    }
+  }),
 )
 
 const provisionalMessage = computed(() => {
@@ -81,13 +101,10 @@ const isPlayerInactive = (standing) => {
   return status !== 'active'
 }
 
-const isQualified = (standing) => {
-  if (typeof standing?.eligible_for_qualification === 'boolean') {
-    return standing.eligible_for_qualification
-  }
-
-  return Number(standing?.position) <= Number(qualifiedPerGroup.value)
-}
+const rowClasses = (standing) =>
+  getQualificationRowClasses(standing.qualification?.kind, {
+    isInactive: isPlayerInactive(standing),
+  })
 
 const positionBadgeClasses = (position) => {
   if (position === 1) {
@@ -105,59 +122,12 @@ const positionBadgeClasses = (position) => {
   return 'bg-slate-100 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700'
 }
 
-const rowClasses = (standing) => {
-  if (isPlayerInactive(standing)) {
-    return 'border-t border-slate-200 bg-slate-50/60 opacity-80 dark:border-slate-700 dark:bg-slate-800/40'
-  }
+const qualificationBadgeClasses = (standing) =>
+  getQualificationBadgeClasses(standing.qualification?.kind)
 
-  if (standingsAreProvisional.value) {
-    if (isQualified(standing)) {
-      return 'border-t border-slate-200 bg-slate-50/50 dark:border-slate-700 dark:bg-slate-900/30'
-    }
+const qualificationLabel = (standing) => getQualificationLabel(standing.qualification?.kind)
 
-    return 'border-t border-slate-200 dark:border-slate-700'
-  }
-
-  if (isQualified(standing)) {
-    return 'border-t border-slate-200 bg-emerald-50/40 dark:border-slate-700 dark:bg-emerald-950/20'
-  }
-
-  return 'border-t border-slate-200 bg-red-50/30 dark:border-slate-700 dark:bg-red-950/10'
-}
-
-const qualificationBadgeClasses = (standing) => {
-  if (standingsAreProvisional.value) {
-    if (isQualified(standing)) {
-      return 'bg-slate-100 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-600'
-    }
-
-    return 'bg-slate-50 text-slate-500 ring-1 ring-slate-200 dark:bg-slate-900/60 dark:text-slate-400 dark:ring-slate-700'
-  }
-
-  if (isQualified(standing)) {
-    return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
-  }
-
-  return 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200'
-}
-
-const qualificationLabel = (standing) => {
-  const qualified = isQualified(standing)
-
-  if (standingsAreProvisional.value) {
-    return qualified ? 'Clasifica provisoriamente' : 'Fuera provisoriamente'
-  }
-
-  return qualified ? 'Clasifica' : 'Eliminado'
-}
-
-const qualificationIcon = (standing) => {
-  if (standingsAreProvisional.value) {
-    return ''
-  }
-
-  return isQualified(standing) ? '✓' : '✗'
-}
+const qualificationIcon = (standing) => getQualificationIcon(standing.qualification?.kind)
 
 const playerStatusBadgeClasses = (status) => {
   if (status === 'withdrawn') {
