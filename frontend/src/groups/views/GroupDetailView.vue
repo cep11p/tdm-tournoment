@@ -1,4 +1,5 @@
 <script setup>
+import { ChevronDownIcon, UserGroupIcon } from '@heroicons/vue/24/outline'
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
@@ -163,24 +164,24 @@ const playerCardClasses = (entry) => {
     return 'border-emerald-200 bg-emerald-50/40 dark:border-emerald-900 dark:bg-emerald-950/20'
   }
 
-  if (entry.isQualified === false) {
-    return 'border-red-200 bg-red-50/30 dark:border-red-900 dark:bg-red-950/10'
-  }
-
   return 'border-slate-200 dark:border-slate-700'
 }
 
-const qualificationBadgeClasses = (isQualified) => {
-  if (isQualified === true) {
-    return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
-  }
+const groupPlayersAccordionSummaryClasses =
+  'flex cursor-pointer list-none items-center gap-3 rounded-md p-4 text-sm transition hover:bg-slate-50 dark:hover:bg-slate-800/50 [&::-webkit-details-marker]:hidden'
 
-  if (isQualified === false) {
-    return 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200'
-  }
+const groupPlayersAccordionIconContainerClasses =
+  'flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-100 ring-1 ring-slate-200 dark:bg-slate-800/80 dark:ring-slate-600'
 
-  return ''
-}
+const groupPlayersAccordionIconClasses =
+  'h-5 w-5 text-slate-600 dark:text-slate-300'
+
+const groupPlayersCount = computed(() => displayedGroupPlayers.value.length)
+
+const groupPlayersCountLabel = computed(() => {
+  const count = groupPlayersCount.value
+  return `${count} jugador${count === 1 ? '' : 'es'}`
+})
 
 const playerStatusBadgeClasses = (status) => {
   if (status === 'withdrawn') {
@@ -469,24 +470,124 @@ onMounted(async () => {
       {{ competitionStructureLockReason }}
     </p>
 
+    <details
+      class="group/players overflow-hidden rounded-md border border-slate-200 bg-white text-sm dark:border-slate-700 dark:bg-slate-900"
+    >
+      <summary :class="groupPlayersAccordionSummaryClasses">
+        <span :class="groupPlayersAccordionIconContainerClasses">
+          <UserGroupIcon :class="groupPlayersAccordionIconClasses" />
+        </span>
+
+        <div class="min-w-0 flex-1">
+          <p class="font-medium text-slate-900 dark:text-slate-100">{{ groupPlayersTitle }}</p>
+
+          <p
+            v-if="!isLoadingGroupPlayers && !isLoadingStandings"
+            class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
+          >
+            {{ groupPlayersCountLabel }}
+            <template v-if="standings.length > 0">
+              · clasifican los primeros {{ qualifiedPerGroup }}
+            </template>
+          </p>
+        </div>
+
+        <ChevronDownIcon
+          class="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200 group-open/players:rotate-180"
+          aria-hidden="true"
+        />
+      </summary>
+
+      <div class="space-y-3 border-t border-slate-200 px-4 pb-4 pt-3 dark:border-slate-700">
+        <p v-if="playerStatusSuccessMessage" class="text-emerald-700 dark:text-emerald-300">
+          {{ playerStatusSuccessMessage }}
+        </p>
+
+        <p v-if="isLoadingGroupPlayers || isLoadingStandings" class="text-slate-600 dark:text-slate-300">
+          Cargando jugadores del grupo...
+        </p>
+        <p v-else-if="groupPlayersError" class="text-red-600 dark:text-red-400">{{ groupPlayersError }}</p>
+
+        <div
+          v-else-if="groupPlayers.length === 0"
+          class="rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
+        >
+          Este grupo todavía no tiene jugadores asignados.
+        </div>
+
+        <div v-else class="space-y-1.5">
+          <article
+            v-for="entry in displayedGroupPlayers"
+            :key="entry.groupPlayer.id"
+            class="rounded border px-3 py-2"
+            :class="playerCardClasses(entry)"
+          >
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span
+                v-if="entry.position"
+                class="inline-flex min-w-[2.5rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold"
+                :class="positionBadgeClasses(entry.position)"
+              >
+                {{ entry.position }}°
+              </span>
+
+              <p class="font-medium text-slate-900 dark:text-slate-100">
+                {{ entry.groupPlayer.player.first_name }} {{ entry.groupPlayer.player.last_name }}
+              </p>
+
+              <span
+                v-if="playerStatusLabel(entry.groupPlayer)"
+                class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+                :class="playerStatusBadgeClasses(entry.groupPlayer.status)"
+              >
+                {{ playerStatusLabel(entry.groupPlayer) }}
+              </span>
+
+              <span
+                v-if="entry.isQualified === true"
+                class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200"
+              >
+                <span aria-hidden="true">✓</span>
+                Clasifica
+              </span>
+
+              <button
+                v-if="canChangePlayerStatus(entry.groupPlayer)"
+                type="button"
+                class="ml-auto rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                @click="openPlayerStatusModal(entry.groupPlayer)"
+              >
+                Retirar / descalificar
+              </button>
+            </div>
+
+            <p
+              v-if="entry.groupPlayer.player.nickname"
+              class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
+            >
+              {{ entry.groupPlayer.player.nickname }}
+            </p>
+            <p
+              v-if="entry.groupPlayer.status_notes"
+              class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
+            >
+              Notas: {{ entry.groupPlayer.status_notes }}
+            </p>
+          </article>
+        </div>
+      </div>
+    </details>
+
     <div
       class="space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
     >
       <div class="flex items-center justify-between gap-3">
-        <div>
-          <p class="font-medium text-slate-700 dark:text-slate-200">{{ groupPlayersTitle }}</p>
-          <p
-            v-if="!isLoadingGroupPlayers && !isLoadingStandings && standings.length > 0"
-            class="mt-1 text-xs text-slate-500 dark:text-slate-400"
-          >
-            Ordenados por posición actual · clasifican los primeros {{ qualifiedPerGroup }}
-          </p>
-        </div>
+        <p class="font-medium text-slate-700 dark:text-slate-200">Partidos del grupo</p>
 
         <button
           v-if="!hasGroupGames"
           type="button"
-          class="rounded-md bg-emerald-700 px-3 py-2 font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+          class="shrink-0 rounded-md bg-emerald-700 px-3 py-2 font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-emerald-600 dark:hover:bg-emerald-500"
           :disabled="isGeneratingRoundRobin"
           @click="handleGenerateRoundRobin"
         >
@@ -498,87 +599,6 @@ onMounted(async () => {
       <p v-if="roundRobinSuccessMessage" class="text-emerald-700 dark:text-emerald-300">
         {{ roundRobinSuccessMessage }}
       </p>
-      <p v-if="playerStatusSuccessMessage" class="text-emerald-700 dark:text-emerald-300">
-        {{ playerStatusSuccessMessage }}
-      </p>
-
-      <p v-if="isLoadingGroupPlayers || isLoadingStandings" class="text-slate-600 dark:text-slate-300">
-        Cargando jugadores del grupo...
-      </p>
-      <p v-else-if="groupPlayersError" class="text-red-600 dark:text-red-400">{{ groupPlayersError }}</p>
-
-      <div
-        v-else-if="groupPlayers.length === 0"
-        class="rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
-      >
-        Este grupo todavía no tiene jugadores asignados.
-      </div>
-
-      <div v-else class="space-y-2">
-        <article
-          v-for="entry in displayedGroupPlayers"
-          :key="entry.groupPlayer.id"
-          class="rounded border p-3"
-          :class="playerCardClasses(entry)"
-        >
-          <div class="flex flex-wrap items-center gap-2">
-            <span
-              v-if="entry.position"
-              class="inline-flex min-w-[2.5rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold"
-              :class="positionBadgeClasses(entry.position)"
-            >
-              {{ entry.position }}°
-            </span>
-
-            <p class="font-medium text-slate-900 dark:text-slate-100">
-              {{ entry.groupPlayer.player.first_name }} {{ entry.groupPlayer.player.last_name }}
-            </p>
-
-            <span
-              v-if="playerStatusLabel(entry.groupPlayer)"
-              class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
-              :class="playerStatusBadgeClasses(entry.groupPlayer.status)"
-            >
-              {{ playerStatusLabel(entry.groupPlayer) }}
-            </span>
-
-            <span
-              v-if="entry.isQualified !== null"
-              class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-              :class="qualificationBadgeClasses(entry.isQualified)"
-            >
-              <span aria-hidden="true">{{ entry.isQualified ? '✓' : '✗' }}</span>
-              {{ entry.isQualified ? 'Clasifica' : 'Eliminado' }}
-            </span>
-
-            <button
-              v-if="canChangePlayerStatus(entry.groupPlayer)"
-              type="button"
-              class="ml-auto rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-              @click="openPlayerStatusModal(entry.groupPlayer)"
-            >
-              Retirar / descalificar
-            </button>
-          </div>
-
-          <p class="mt-1 text-slate-600 dark:text-slate-300">
-            Nickname: {{ entry.groupPlayer.player.nickname || '-' }}
-          </p>
-          <p
-            v-if="entry.groupPlayer.status_notes"
-            class="mt-1 text-xs text-slate-500 dark:text-slate-400"
-          >
-            Notas: {{ entry.groupPlayer.status_notes }}
-          </p>
-        </article>
-      </div>
-    </div>
-
-    <div
-      class="space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
-    >
-      <p class="font-medium text-slate-700 dark:text-slate-200">Partidos del grupo</p>
-
       <p v-if="resultSuccessMessage" class="text-emerald-700 dark:text-emerald-300">
         {{ resultSuccessMessage }}
       </p>
