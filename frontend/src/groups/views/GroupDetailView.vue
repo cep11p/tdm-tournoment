@@ -219,6 +219,10 @@ const resultError = ref('')
 
 const hasGroupGames = computed(() => games.value.length > 0)
 
+const isLoadingOperationalSummary = computed(
+  () => isLoadingGroupPlayers.value || isLoadingStandings.value || isLoadingGames.value,
+)
+
 const groupPlayersTitle = computed(() =>
   hasGroupGames.value ? 'Jugadores del grupo' : 'Jugadores asignados',
 )
@@ -550,6 +554,49 @@ onMounted(async () => {
     >
       {{ competitionStructureLockReason }}
     </p>
+
+    <div
+      class="rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
+    >
+      <p class="font-medium text-slate-700 dark:text-slate-200">Resumen operativo</p>
+
+      <p v-if="isLoadingOperationalSummary" class="mt-2 text-slate-600 dark:text-slate-300">
+        Cargando resumen...
+      </p>
+
+      <dl v-else class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div>
+          <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Jugadores</dt>
+          <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ groupPlayersCount }}</dd>
+        </div>
+
+        <div>
+          <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Partidos</dt>
+          <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ games.length }}</dd>
+        </div>
+
+        <div>
+          <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Pendientes</dt>
+          <dd class="mt-1 font-semibold text-amber-800 dark:text-amber-200">
+            {{ pendingLoadGames.length }}
+          </dd>
+        </div>
+
+        <div>
+          <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Finalizados</dt>
+          <dd class="mt-1 font-semibold text-emerald-800 dark:text-emerald-200">
+            {{ finishedGames.length }}
+          </dd>
+        </div>
+
+        <div>
+          <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Clasifican por grupo
+          </dt>
+          <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ qualifiedPerGroup }}</dd>
+        </div>
+      </dl>
+    </div>
 
     <details
       class="group/players overflow-hidden rounded-md border border-slate-200 bg-white text-sm dark:border-slate-700 dark:bg-slate-900"
