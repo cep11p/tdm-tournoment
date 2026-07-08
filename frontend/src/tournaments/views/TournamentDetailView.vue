@@ -19,8 +19,12 @@ import {
   getStructurePrimary,
   getStructureSecondary,
 } from '../../competitions/utils/competitionListDisplay'
-import TournamentService from '../services/TournamentService'
 import TournamentFormModal from '../components/TournamentFormModal.vue'
+import TournamentService from '../services/TournamentService'
+import {
+  getTournamentStatusBadgeClasses,
+  getTournamentStatusLabel,
+} from '../utils/tournamentListDisplay'
 
 const route = useRoute()
 
@@ -37,32 +41,6 @@ const competitionSuccessMessage = ref('')
 const competitions = ref([])
 const isLoadingCompetitions = ref(false)
 const competitionsErrorMessage = ref('')
-
-const STATUS_LABELS = {
-  draft: 'Draft',
-  in_progress: 'En curso',
-  finished: 'Finalizado',
-}
-
-const getTournamentStatusLabel = (status) => {
-  if (!status) {
-    return '-'
-  }
-
-  return STATUS_LABELS[status] ?? status
-}
-
-const getTournamentStatusBadgeClasses = (status) => {
-  switch (status) {
-    case 'in_progress':
-      return 'bg-sky-100 text-sky-800 dark:bg-sky-900/60 dark:text-sky-200'
-    case 'finished':
-      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
-    case 'draft':
-    default:
-      return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
-  }
-}
 
 const addButtonClasses =
   'inline-flex rounded-md border border-emerald-300 bg-emerald-50 p-2 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/60'
