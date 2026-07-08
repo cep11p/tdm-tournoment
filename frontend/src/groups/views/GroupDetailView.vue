@@ -441,7 +441,7 @@ const gameDetailTo = (game) => ({
 })
 
 const pendingGameCardClasses =
-  'space-y-2 rounded-md border border-amber-200 bg-amber-50/30 p-2.5 dark:border-amber-900/60 dark:bg-amber-950/20'
+  'space-y-1.5 rounded-md border border-slate-200 p-2.5 dark:border-slate-700 dark:bg-slate-950/30'
 
 const finishedGameCardClasses =
   'space-y-1.5 rounded-md border border-slate-200 p-2.5 dark:border-slate-700 dark:bg-slate-950/30'
@@ -754,17 +754,27 @@ onMounted(async () => {
               :key="`pending-${game.id}`"
               :class="pendingGameCardClasses"
             >
-              <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                 <p class="min-w-0 flex-1 font-medium text-slate-900 dark:text-slate-100">
                   {{ matchupLabel(game) }}
                 </p>
 
-                <span
-                  class="inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
-                  :class="statusBadgeClasses(game)"
-                >
-                  {{ statusLabel(game) }}
-                </span>
+                <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                  <span
+                    class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+                    :class="statusBadgeClasses(game)"
+                  >
+                    {{ statusLabel(game) }}
+                  </span>
+
+                  <button
+                    type="button"
+                    class="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-600"
+                    @click="openResultModal(game)"
+                  >
+                    Cargar resultado
+                  </button>
+                </div>
               </div>
 
               <p v-if="matchFormatLabel(game)" class="text-xs text-slate-500 dark:text-slate-400">
@@ -801,14 +811,6 @@ onMounted(async () => {
               >
                 Parcial: {{ setScoresDetail(game).join(', ') }}
               </p>
-
-              <button
-                type="button"
-                class="w-full rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-600"
-                @click="openResultModal(game)"
-              >
-                Cargar resultado
-              </button>
             </li>
           </ul>
         </section>
