@@ -804,86 +804,93 @@ onMounted(async () => {
       </div>
 
       <div v-else class="space-y-4">
-        <section v-if="pendingLoadGames.length > 0" class="space-y-4">
+        <section v-if="pendingLoadGames.length > 0" class="space-y-3">
           <h2 class="font-medium text-slate-800 dark:text-slate-200">
             Pendientes de carga ({{ pendingLoadGames.length }})
           </h2>
 
-          <div
-            v-for="roundGroup in pendingGamesByRound"
+          <details
+            v-for="(roundGroup, roundIndex) in pendingGamesByRound"
             :key="roundGroup.roundNumber ?? 'legacy'"
-            class="space-y-2"
+            :open="roundIndex === 0"
+            class="group/pending-round overflow-hidden rounded-md border border-slate-200 dark:border-slate-700"
           >
-            <h3 class="text-sm font-medium text-slate-600 dark:text-slate-300">
-              {{ roundGroup.label }}
-            </h3>
+            <summary :class="gamesAccordionSummaryClasses">
+              <span class="flex-1">
+                {{ roundGroup.label }} ({{ roundGroup.games.length }})
+              </span>
+              <ChevronDownIcon
+                class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open/pending-round:rotate-180"
+                aria-hidden="true"
+              />
+            </summary>
 
-            <ul class="space-y-2">
+            <ul class="space-y-2 border-t border-slate-200 px-1 pb-1 pt-2 dark:border-slate-700">
               <li
                 v-for="game in roundGroup.games"
                 :key="`pending-${game.id}`"
                 :class="pendingGameCardClasses"
               >
-              <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-                <p class="min-w-0 flex-1 font-medium text-slate-900 dark:text-slate-100">
-                  {{ matchupLabel(game) }}
+                <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                  <p class="min-w-0 flex-1 font-medium text-slate-900 dark:text-slate-100">
+                    {{ matchupLabel(game) }}
+                  </p>
+
+                  <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                    <span
+                      class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+                      :class="statusBadgeClasses(game)"
+                    >
+                      {{ statusLabel(game) }}
+                    </span>
+
+                    <button
+                      type="button"
+                      class="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-600"
+                      @click="openResultModal(game)"
+                    >
+                      Cargar resultado
+                    </button>
+                  </div>
+                </div>
+
+                <p v-if="matchFormatLabel(game)" class="text-xs text-slate-500 dark:text-slate-400">
+                  {{ matchFormatLabel(game) }}
                 </p>
 
-                <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
-                  <span
-                    class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
-                    :class="statusBadgeClasses(game)"
-                  >
-                    {{ statusLabel(game) }}
-                  </span>
-
-                  <button
-                    type="button"
-                    class="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-600"
-                    @click="openResultModal(game)"
-                  >
-                    Cargar resultado
-                  </button>
-                </div>
-              </div>
-
-              <p v-if="matchFormatLabel(game)" class="text-xs text-slate-500 dark:text-slate-400">
-                {{ matchFormatLabel(game) }}
-              </p>
-
-              <div
-                v-if="game.status === 'in_progress'"
-                class="overflow-hidden rounded border border-slate-200 dark:border-slate-700"
-              >
-                <div class="flex items-center justify-between gap-2 px-2 py-1.5">
-                  <span class="truncate text-sm text-slate-900 dark:text-slate-100">
-                    {{ playerName(game.player1) }}
-                  </span>
-                  <span class="shrink-0 tabular-nums text-sm text-slate-700 dark:text-slate-300">
-                    {{ participantSetsWonLabel(game, 1) }}
-                  </span>
-                </div>
                 <div
-                  class="flex items-center justify-between gap-2 border-t border-slate-200 px-2 py-1.5 dark:border-slate-700"
+                  v-if="game.status === 'in_progress'"
+                  class="overflow-hidden rounded border border-slate-200 dark:border-slate-700"
                 >
-                  <span class="truncate text-sm text-slate-900 dark:text-slate-100">
-                    {{ playerName(game.player2) }}
-                  </span>
-                  <span class="shrink-0 tabular-nums text-sm text-slate-700 dark:text-slate-300">
-                    {{ participantSetsWonLabel(game, 2) }}
-                  </span>
+                  <div class="flex items-center justify-between gap-2 px-2 py-1.5">
+                    <span class="truncate text-sm text-slate-900 dark:text-slate-100">
+                      {{ playerName(game.player1) }}
+                    </span>
+                    <span class="shrink-0 tabular-nums text-sm text-slate-700 dark:text-slate-300">
+                      {{ participantSetsWonLabel(game, 1) }}
+                    </span>
+                  </div>
+                  <div
+                    class="flex items-center justify-between gap-2 border-t border-slate-200 px-2 py-1.5 dark:border-slate-700"
+                  >
+                    <span class="truncate text-sm text-slate-900 dark:text-slate-100">
+                      {{ playerName(game.player2) }}
+                    </span>
+                    <span class="shrink-0 tabular-nums text-sm text-slate-700 dark:text-slate-300">
+                      {{ participantSetsWonLabel(game, 2) }}
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              <p
-                v-if="setScoresDetail(game).length > 0"
-                class="text-xs text-slate-600 dark:text-slate-300"
-              >
-                Parcial: {{ setScoresDetail(game).join(', ') }}
-              </p>
-            </li>
-          </ul>
-          </div>
+                <p
+                  v-if="setScoresDetail(game).length > 0"
+                  class="text-xs text-slate-600 dark:text-slate-300"
+                >
+                  Parcial: {{ setScoresDetail(game).join(', ') }}
+                </p>
+              </li>
+            </ul>
+          </details>
         </section>
 
         <details
