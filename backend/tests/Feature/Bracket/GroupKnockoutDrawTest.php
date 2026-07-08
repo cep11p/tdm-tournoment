@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Bracket;
 
+use App\Enums\GameStatus;
 use App\Support\Bracket\BracketSupport;
 use App\Models\Bracket;
 use App\Models\Game;
@@ -260,6 +261,141 @@ class GroupKnockoutDrawTest extends TestCase
         $this->assertCount(2, $byeGames);
         $this->assertContains($groupAFirst->id, $byeGames->pluck('player1_id')->all());
         $this->assertContains($groupBFirst->id, $byeGames->pluck('player1_id')->all());
+    }
+
+    public function test_two_group_q3_generates_semifinals_after_real_games_finished(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+        $players = $context->createPlayers(7);
+        $context->registerPlayers($competition, $players);
+        $competition->update(['qualified_per_group' => 3]);
+        $competition->refresh();
+
+        [
+            $groupAFirst,
+            $groupASecond,
+            $groupAThird,
+            $groupAFourth,
+            $groupBFirst,
+            $groupBSecond,
+            $groupBThird,
+        ] = $players;
+
+        $groupA = $context->createGroupWithPlayers(
+            $competition,
+            [$groupAFirst, $groupASecond, $groupAThird, $groupAFourth],
+            'Grupo A',
+        );
+        $groupB = $context->createGroupWithPlayers(
+            $competition,
+            [$groupBFirst, $groupBSecond, $groupBThird],
+            'Grupo B',
+        );
+
+        $context->generateRoundRobin($groupA)->assertCreated();
+        $context->generateRoundRobin($groupB)->assertCreated();
+
+        $this->finishGroupRoundRobinWithRankOrder($context, $groupA->id, [
+            $groupAFirst,
+            $groupASecond,
+            $groupAThird,
+            $groupAFourth,
+        ]);
+        $this->finishGroupRoundRobinWithRankOrder($context, $groupB->id, [
+            $groupBFirst,
+            $groupBSecond,
+            $groupBThird,
+        ]);
+
+        $response = $context->createBracket($competition);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.bracket_size', 8)
+            ->assertJsonPath('data.byes_count', 2)
+            ->assertJsonCount(4, 'data.games');
+
+        $bracket = Bracket::query()->where('competition_id', $competition->id)->sole();
+        $firstRound = $context->bracketGamesForRound($bracket, 1)->sortBy('bracket_match')->values();
+
+        $this->assertCount(4, $firstRound);
+        $this->assertSame('Cuartos de final', $firstRound[0]->round);
+
+        $byeGames = $firstRound->filter(fn (Game $game): bool => $game->is_bye)->values();
+        $realGames = $firstRound->reject(fn (Game $game): bool => $game->is_bye)->values();
+
+        $this->assertCount(2, $byeGames);
+        $this->assertCount(2, $realGames);
+
+        foreach ($byeGames as $byeGame) {
+            $this->assertSame(GameStatus::Finished, $byeGame->status);
+            $this->assertSame($byeGame->player1_id, $byeGame->winner_id);
+            $this->assertNull($byeGame->player2_id);
+        }
+
+        $this->assertContains($groupAFirst->id, $byeGames->pluck('player1_id')->all());
+        $this->assertContains($groupBFirst->id, $byeGames->pluck('player1_id')->all());
+
+        foreach ($realGames as $realGame) {
+            $this->assertSame(GameStatus::Pending, $realGame->status);
+            $this->assertNull($realGame->winner_id);
+        }
+
+        $a2VsB3 = $realGames->first(
+            fn (Game $game): bool => (
+                (int) $game->player1_id === $groupASecond->id
+                && (int) $game->player2_id === $groupBThird->id
+            ) || (
+                (int) $game->player1_id === $groupBThird->id
+                && (int) $game->player2_id === $groupASecond->id
+            ),
+        );
+        $b2VsA3 = $realGames->first(
+            fn (Game $game): bool => (
+                (int) $game->player1_id === $groupBSecond->id
+                && (int) $game->player2_id === $groupAThird->id
+            ) || (
+                (int) $game->player1_id === $groupAThird->id
+                && (int) $game->player2_id === $groupBSecond->id
+            ),
+        );
+
+        $this->assertNotNull($a2VsB3);
+        $this->assertNotNull($b2VsA3);
+
+        $context->finishGame($a2VsB3, $groupASecond)->assertOk();
+        $context->finishGame($b2VsA3, $groupBSecond)->assertOk();
+
+        $response = $context->generateBracketNextRound($bracket);
+
+        $response->assertCreated();
+
+        $semifinals = $context->bracketGamesForRound($bracket->fresh(), 2)->sortBy('bracket_match')->values();
+
+        $this->assertCount(2, $semifinals);
+        $this->assertSame('Semifinal', $semifinals[0]->round);
+        $this->assertSame('Semifinal', $semifinals[1]->round);
+
+        $semifinalPlayerIds = $semifinals
+            ->flatMap(fn (Game $game): array => [(int) $game->player1_id, (int) $game->player2_id])
+            ->all();
+
+        $this->assertContains($groupAFirst->id, $semifinalPlayerIds);
+        $this->assertContains($groupBFirst->id, $semifinalPlayerIds);
+        $this->assertContains($groupASecond->id, $semifinalPlayerIds);
+        $this->assertContains($groupBSecond->id, $semifinalPlayerIds);
+
+        foreach ($semifinals as $semifinal) {
+            $this->assertFalse($semifinal->is_bye);
+            $this->assertSame(GameStatus::Pending, $semifinal->status);
+            $this->assertNull($semifinal->winner_id);
+        }
+
+        $this->assertSame($groupAFirst->id, $semifinals[0]->player1_id);
+        $this->assertSame($groupBFirst->id, $semifinals[0]->player2_id);
+        $this->assertSame($groupASecond->id, $semifinals[1]->player1_id);
+        $this->assertSame($groupBSecond->id, $semifinals[1]->player2_id);
     }
 
     public function test_creates_group_knockout_q3_bracket_with_play_in_and_byes(): void
