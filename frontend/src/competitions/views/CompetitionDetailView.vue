@@ -27,6 +27,7 @@ import {
   getCompetitionFormatLabel,
 } from '../constants/competitionFormats'
 import CompetitionFormModal from '../components/CompetitionFormModal.vue'
+import CompetitionParticipantsModal from '../components/CompetitionParticipantsModal.vue'
 import CompetitionService from '../services/CompetitionService'
 import {
   isRegistrationsEditable,
@@ -51,6 +52,7 @@ const randomGroupsSuccessMessage = ref('')
 const showGenerateRandomGroupsModal = ref(false)
 const showRegenerateRandomGroupsModal = ref(false)
 const showEditCompetitionModal = ref(false)
+const showParticipantsModal = ref(false)
 
 const competitionId = computed(() => route.params.id)
 
@@ -177,26 +179,6 @@ const bracketRoute = computed(() => `/competitions/${competitionId.value}/bracke
 const registrationsRoute = computed(
   () => `/competitions/${competitionId.value}/registrations`,
 )
-
-const PARTICIPANTS_PREVIEW_LIMIT = 8
-
-const participantPreview = computed(() =>
-  registrations.value?.slice(0, PARTICIPANTS_PREVIEW_LIMIT) ?? [],
-)
-
-const hasMoreParticipants = computed(
-  () => (registrations.value?.length ?? 0) > PARTICIPANTS_PREVIEW_LIMIT,
-)
-
-const formatParticipantName = (registration) => {
-  const player = registration?.player
-
-  if (!player) {
-    return 'Jugador desconocido'
-  }
-
-  return `${player.first_name ?? ''} ${player.last_name ?? ''}`.trim()
-}
 
 const resultSummary = computed(() => competition.value?.result_summary ?? null)
 
@@ -404,59 +386,97 @@ const structureAction = computed(() => {
   return null
 })
 
-const primaryActions = computed(() => {
-  const base = {
-    key: 'registrations',
-    type: 'link',
-    to: registrationsRoute.value,
-    icon: UserGroupIcon,
-  }
-
-  if (!registrationsEditable.value) {
-    return [
-      {
-        ...base,
-        label: 'Ver participantes',
-        description: registrationsLockMessage.value ?? 'Consultar jugadores inscriptos',
-      },
-    ]
-  }
-
-  return [
-    {
-      ...base,
-      label: 'Administrar inscripciones',
-      description: 'Gestionar jugadores inscriptos',
-    },
-  ]
-})
-
-const hasMainActionsContent = computed(
-  () =>
-    primaryActions.value.length > 0 ||
-    Boolean(structureAction.value) ||
-    canRegenerateRandomGroups.value ||
-    Boolean(randomGroupsSuccessMessage.value) ||
-    isKnockoutDirect.value,
+const groupStructureAction = computed(() =>
+  structureAction.value?.key === 'generate-groups' ? structureAction.value : null,
 )
 
-const actionCardClasses =
-  'group flex items-start gap-3 rounded-md border border-slate-200 bg-white p-4 text-sm transition dark:border-slate-700 dark:bg-slate-900'
+const bracketStructureAction = computed(() => {
+  const action = structureAction.value
 
-const actionCardInteractiveClasses =
-  'hover:border-slate-300 hover:bg-slate-50 dark:hover:border-slate-600 dark:hover:bg-slate-800/80'
+  if (!action) {
+    return null
+  }
 
-const structureActionCardClasses =
-  'group flex w-full items-start gap-3 rounded-md border border-slate-700 border-blue-500/30 bg-slate-900 p-4 text-left text-sm transition hover:border-blue-400/50 hover:bg-slate-800/70'
+  if (['view-bracket', 'generate-bracket', 'generate-bracket-disabled'].includes(action.key)) {
+    return action
+  }
 
-const structureActionDisabledClasses =
-  'flex w-full cursor-not-allowed items-start gap-3 rounded-md border border-dashed border-slate-700 bg-slate-900/60 p-4 text-left text-sm opacity-70'
+  return null
+})
 
-const structureActionIconContainerClasses =
-  'flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-blue-950/40 ring-1 ring-blue-500/20'
+const bracketBlockMessage = computed(() => {
+  if (hasBracket.value) {
+    return null
+  }
 
-const structureActionIconClasses =
-  'h-6 w-6 text-blue-300 group-hover:text-blue-200'
+  if (groupPhaseSummaries.value.some((summary) => summary.pendingGamesCount > 0)) {
+    return 'Todavía no se puede generar la llave. Hay partidos de grupo pendientes.'
+  }
+
+  if (hasGroupStage.value && !allGroupsReadyForBracket.value && groupPhaseBracketBlockMessage.value) {
+    return groupPhaseBracketBlockMessage.value
+  }
+
+  const action = bracketStructureAction.value
+
+  if (action?.type === 'disabled') {
+    return action.description
+  }
+
+  return null
+})
+
+const bracketCompactStats = computed(() => {
+  const preview = bracketGenerationPreview.value
+
+  if (!preview) {
+    return null
+  }
+
+  const groupCountNum = groups.value?.length ?? 0
+  const totalQualified = groupCountNum > 0 ? groupCountNum * qualifiedPerGroup.value : null
+  const bracketSizeLine = preview.statsLines.find((line) => line.includes('bracket de'))
+  const byesLine = preview.detailLines.find((line) => line.includes('BYE'))
+
+  let bracketSize = null
+
+  if (bracketSizeLine) {
+    const match = bracketSizeLine.match(/bracket de (\d+)/)
+    bracketSize = match ? Number(match[1]) : null
+  }
+
+  let byesCount = null
+
+  if (byesLine) {
+    const match = byesLine.match(/(\d+) BYE/)
+    byesCount = match ? Number(match[1]) : 0
+  } else if (bracketSize !== null && totalQualified !== null) {
+    byesCount = Math.max(0, bracketSize - totalQualified)
+  }
+
+  return {
+    qualifiedPerGroup: qualifiedPerGroup.value,
+    totalQualified,
+    bracketSize,
+    byesCount,
+    badge: preview.badge,
+    hasQualifyingRound: preview.hasQualifyingRound,
+    warnings: preview.warnings,
+  }
+})
+
+const hasBracketGenerationDetails = computed(
+  () =>
+    Boolean(bracketGenerationPreview.value) &&
+    (bracketGenerationPreview.value.introLines.length > 0 ||
+      bracketGenerationPreview.value.detailLines.length > 0),
+)
+
+const sectionCardClasses =
+  'overflow-hidden rounded-md border border-slate-200 bg-white text-sm dark:border-slate-700 dark:bg-slate-900'
+
+const sectionInteractiveClasses =
+  'w-full cursor-pointer text-left transition hover:bg-slate-50 dark:hover:bg-slate-800/50'
 
 const groupPhaseAccordionSummaryClasses =
   'flex cursor-pointer list-none items-center gap-3 rounded-md p-4 text-sm transition hover:bg-slate-50 dark:hover:bg-slate-800/50 [&::-webkit-details-marker]:hidden'
@@ -548,6 +568,10 @@ const openRegenerateRandomGroupsModal = () => {
   showRegenerateRandomGroupsModal.value = true
 }
 
+const openParticipantsModal = () => {
+  showParticipantsModal.value = true
+}
+
 const openEditCompetitionModal = () => {
   showEditCompetitionModal.value = true
 }
@@ -599,112 +623,6 @@ const handleEditCompetitionSaved = async () => {
       >
         {{ competitionStructureLockReason }}
       </p>
-
-      <div v-if="hasMainActionsContent">
-        <p class="mb-3 text-sm font-medium text-slate-700 dark:text-slate-200">Acciones principales</p>
-
-        <p
-          v-if="randomGroupsSuccessMessage"
-          class="mb-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
-        >
-          {{ randomGroupsSuccessMessage }}
-        </p>
-
-        <p
-          v-if="isKnockoutDirect"
-          class="mb-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-100"
-        >
-          Esta competencia es de eliminación directa. Los jugadores inscriptos pasan directamente a la llave.
-        </p>
-
-        <div v-if="primaryActions.length > 0">
-          <template v-for="action in primaryActions" :key="action.key">
-            <RouterLink
-              v-if="action.type === 'link'"
-              :to="action.to"
-              :class="[actionCardClasses, actionCardInteractiveClasses]"
-            >
-              <component
-                :is="action.icon"
-                class="mt-0.5 h-6 w-6 shrink-0 text-slate-500 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200"
-              />
-              <div>
-                <p class="font-medium text-slate-900 dark:text-slate-100">{{ action.label }}</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ action.description }}</p>
-              </div>
-            </RouterLink>
-
-            <div
-              v-else
-              :class="[actionCardClasses, 'cursor-not-allowed opacity-70']"
-              aria-disabled="true"
-            >
-              <component
-                :is="action.icon"
-                class="mt-0.5 h-6 w-6 shrink-0 text-slate-500 dark:text-slate-400"
-              />
-              <div>
-                <p class="font-medium text-slate-900 dark:text-slate-100">{{ action.label }}</p>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ action.description }}</p>
-              </div>
-            </div>
-          </template>
-        </div>
-
-        <div v-if="structureAction" :class="primaryActions.length > 0 ? 'mt-3' : ''">
-          <RouterLink
-            v-if="structureAction.type === 'link'"
-            :to="structureAction.to"
-            :class="structureActionCardClasses"
-          >
-            <span :class="structureActionIconContainerClasses">
-              <component :is="structureAction.icon" :class="structureActionIconClasses" />
-            </span>
-            <div>
-              <p class="font-medium text-slate-100">{{ structureAction.label }}</p>
-              <p class="mt-1 text-xs text-slate-400">{{ structureAction.description }}</p>
-            </div>
-          </RouterLink>
-
-          <button
-            v-else-if="structureAction.type === 'modal'"
-            type="button"
-            :class="structureActionCardClasses"
-            @click="openGenerateRandomGroupsModal"
-          >
-            <span :class="structureActionIconContainerClasses">
-              <component :is="structureAction.icon" :class="structureActionIconClasses" />
-            </span>
-            <div>
-              <p class="font-medium text-slate-100">{{ structureAction.label }}</p>
-              <p class="mt-1 text-xs text-slate-400">{{ structureAction.description }}</p>
-            </div>
-          </button>
-
-          <div v-else :class="structureActionDisabledClasses" aria-disabled="true">
-            <span :class="structureActionIconContainerClasses">
-              <component
-                :is="structureAction.icon"
-                class="h-6 w-6 text-slate-500"
-              />
-            </span>
-            <div>
-              <p class="font-medium text-slate-100">{{ structureAction.label }}</p>
-              <p class="mt-1 text-xs text-slate-400">{{ structureAction.description }}</p>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="canRegenerateRandomGroups" class="mt-3">
-          <button
-            type="button"
-            class="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-950/50"
-            @click="openRegenerateRandomGroupsModal"
-          >
-            Regenerar grupos y partidos
-          </button>
-        </div>
-      </div>
 
       <div
         class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-700 dark:bg-slate-900/60"
@@ -761,85 +679,52 @@ const handleEditCompetitionSaved = async () => {
         </p>
       </div>
 
-      <details
+      <button
         v-if="registrations !== null"
-        class="group/participants overflow-hidden rounded-md border border-slate-200 bg-white text-sm dark:border-slate-700 dark:bg-slate-900"
+        type="button"
+        :class="[sectionCardClasses, sectionInteractiveClasses]"
+        @click="openParticipantsModal"
       >
-        <summary :class="groupPhaseAccordionSummaryClasses">
+        <span :class="[groupPhaseAccordionSummaryClasses, 'pointer-events-none']">
           <span :class="groupPhaseAccordionIconContainerClasses">
             <UserGroupIcon :class="groupPhaseAccordionIconClasses" />
           </span>
 
-          <div class="min-w-0 flex-1">
-            <p class="font-medium text-slate-900 dark:text-slate-100">Participantes</p>
-            <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+          <span class="min-w-0 flex-1 text-left">
+            <span class="block font-medium text-slate-900 dark:text-slate-100">Participantes</span>
+            <span class="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
               Jugadores inscriptos en esta competencia
-            </p>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            </span>
+            <span class="mt-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
               {{ registeredCount }} jugador{{ registeredCount === 1 ? '' : 'es' }}
-            </p>
-          </div>
+            </span>
+          </span>
 
           <ChevronDownIcon
-            class="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200 group-open/participants:rotate-180"
+            class="h-5 w-5 shrink-0 -rotate-90 text-slate-400"
             aria-hidden="true"
           />
-        </summary>
+        </span>
+      </button>
 
-        <div class="space-y-3 border-t border-slate-200 px-4 pb-4 pt-3 dark:border-slate-700">
-          <p
-            v-if="registeredCount === 0"
-            class="text-sm text-slate-600 dark:text-slate-300"
-          >
-            Todavía no hay jugadores inscriptos.
-          </p>
-
-          <div v-else class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            <article
-              v-for="registration in participantPreview"
-              :key="registration.id"
-              class="rounded-md border border-slate-200 p-3 dark:border-slate-700 dark:bg-slate-950/30"
-            >
-              <p class="font-medium text-slate-900 dark:text-slate-100">
-                {{ formatParticipantName(registration) }}
-              </p>
-              <p
-                v-if="registration.player?.nickname"
-                class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
-              >
-                {{ registration.player.nickname }}
-              </p>
-            </article>
-          </div>
-
-          <p v-if="registeredCount > 0">
-            <RouterLink
-              :to="registrationsRoute"
-              class="text-xs text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline dark:text-slate-400 dark:hover:text-slate-300"
-            >
-              {{
-                hasMoreParticipants
-                  ? 'Ver todos los participantes'
-                  : 'Ver listado completo'
-              }}
-            </RouterLink>
-          </p>
-        </div>
-      </details>
-
-      <details
-        v-if="hasGroupStage && groups !== null && groups.length > 0"
-        class="group/details overflow-hidden rounded-md border border-slate-200 bg-white text-sm dark:border-slate-700 dark:bg-slate-900"
+      <p
+        v-if="registrations !== null && !registrationsEditable && registrationsLockMessage"
+        class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
       >
-        <summary :class="groupPhaseAccordionSummaryClasses">
+        {{ registrationsLockMessage }}
+      </p>
+
+      <div
+        v-if="hasGroupStage"
+        :class="sectionCardClasses"
+      >
+        <div :class="groupPhaseAccordionSummaryClasses">
           <span :class="groupPhaseAccordionIconContainerClasses">
             <Squares2X2Icon :class="groupPhaseAccordionIconClasses" />
           </span>
 
           <div class="min-w-0 flex-1">
-            <p class="font-medium text-slate-900 dark:text-slate-100">
-              Fase de grupos
-            </p>
+            <p class="font-medium text-slate-900 dark:text-slate-100">Fase de grupos</p>
             <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
               Gestionar grupos, partidos y posiciones
             </p>
@@ -854,87 +739,295 @@ const handleEditCompetitionSaved = async () => {
               </template>
             </p>
           </div>
-
-          <ChevronDownIcon
-            class="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200 group-open/details:rotate-180"
-            aria-hidden="true"
-          />
-        </summary>
+        </div>
 
         <div class="space-y-3 border-t border-slate-200 px-4 pb-4 pt-3 dark:border-slate-700">
           <p
-            class="rounded-md px-3 py-2 text-xs font-medium"
-            :class="
-              groupsNeedingAttention.length > 0
-                ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100'
-                : 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100'
-            "
+            v-if="randomGroupsSuccessMessage"
+            class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
           >
-            {{
-              groupsNeedingAttention.length > 0
-                ? `${groupsNeedingAttention.length} grupo${groupsNeedingAttention.length === 1 ? '' : 's'} requieren atención`
-                : 'Fase de grupos en orden'
-            }}
+            {{ randomGroupsSuccessMessage }}
           </p>
 
-          <div class="space-y-3">
-          <article
-            v-for="summary in groupPhaseSummaries"
-            :key="summary.group.id"
-            class="rounded-md border p-3"
-            :class="groupPhaseCardClasses(summary)"
+          <div v-if="groupStructureAction" class="space-y-2">
+            <button
+              v-if="groupStructureAction.type === 'modal'"
+              type="button"
+              class="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+              @click="openGenerateRandomGroupsModal"
+            >
+              <Squares2X2Icon class="h-4 w-4" />
+              {{ groupStructureAction.label }}
+            </button>
+
+            <p
+              v-else
+              class="rounded-md border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-600 dark:border-slate-600 dark:text-slate-400"
+            >
+              {{ groupStructureAction.description }}
+            </p>
+
+            <p
+              v-if="groupStructureAction.type === 'modal'"
+              class="text-xs text-slate-500 dark:text-slate-400"
+            >
+              {{ groupStructureAction.description }}
+            </p>
+          </div>
+
+          <div v-if="canRegenerateRandomGroups">
+            <button
+              type="button"
+              class="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-950/50"
+              @click="openRegenerateRandomGroupsModal"
+            >
+              Regenerar grupos y partidos
+            </button>
+          </div>
+
+          <p
+            v-if="!hasExistingGroups && groups !== null"
+            class="text-sm text-slate-600 dark:text-slate-300"
           >
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <p class="font-medium text-slate-900 dark:text-slate-100">{{ summary.group.name }}</p>
+            Todavía no hay grupos generados para esta competencia.
+          </p>
+
+          <template v-if="hasExistingGroups">
+            <p
+              class="rounded-md px-3 py-2 text-xs font-medium"
+              :class="
+                groupsNeedingAttention.length > 0
+                  ? 'bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100'
+                  : 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100'
+              "
+            >
+              {{
+                groupsNeedingAttention.length > 0
+                  ? `${groupsNeedingAttention.length} grupo${groupsNeedingAttention.length === 1 ? '' : 's'} requieren atención`
+                  : 'Fase de grupos en orden'
+              }}
+            </p>
+
+            <div class="space-y-3">
+              <article
+                v-for="summary in groupPhaseSummaries"
+                :key="summary.group.id"
+                class="rounded-md border p-3"
+                :class="groupPhaseCardClasses(summary)"
+              >
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <p class="font-medium text-slate-900 dark:text-slate-100">{{ summary.group.name }}</p>
+
+                  <span
+                    class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+                    :class="groupPhasePrimaryBadgeClasses(summary.primaryType)"
+                  >
+                    {{ summary.primaryLabel }}
+                  </span>
+                </div>
+
+                <div v-if="summary.alerts.length > 0" class="mt-2 flex flex-wrap gap-2">
+                  <span
+                    v-for="(alert, alertIndex) in summary.alerts"
+                    :key="`${summary.group.id}-alert-${alertIndex}`"
+                    class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+                    :class="groupPhaseAlertChipClasses(alert.type)"
+                  >
+                    {{ alert.label }}
+                  </span>
+                </div>
+
+                <div class="mt-3 flex flex-wrap gap-2">
+                  <RouterLink
+                    :to="groupStandingsRoute(summary.group)"
+                    class="inline-flex rounded-md px-3 py-1.5 text-xs font-medium"
+                    :class="
+                      summary.highlightLink === 'standings'
+                        ? 'bg-slate-900 text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200'
+                        : 'border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800'
+                    "
+                  >
+                    Ver posiciones
+                  </RouterLink>
+
+                  <RouterLink
+                    :to="groupDetailRoute(summary.group)"
+                    class="inline-flex rounded-md px-3 py-1.5 text-xs font-medium"
+                    :class="
+                      summary.highlightLink === 'group'
+                        ? 'bg-slate-900 text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200'
+                        : 'border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800'
+                    "
+                  >
+                    Ver grupo
+                  </RouterLink>
+                </div>
+              </article>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <div :class="sectionCardClasses">
+        <div class="flex flex-wrap items-start gap-3 p-4">
+          <span :class="groupPhaseAccordionIconContainerClasses">
+            <TrophyIcon :class="groupPhaseAccordionIconClasses" />
+          </span>
+
+          <div class="min-w-0 flex-1 space-y-3">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p class="font-medium text-slate-900 dark:text-slate-100">Llave eliminatoria</p>
+                <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  <template v-if="hasBracket">
+                    {{ bracketStatus || 'Generada' }}
+                    <template v-if="bracketGameCount > 0">
+                      · {{ bracketGameCount }} partido{{ bracketGameCount === 1 ? '' : 's' }}
+                    </template>
+                  </template>
+                  <template v-else>Todavía no generada</template>
+                </p>
+              </div>
 
               <span
+                v-if="!hasBracket && bracketCompactStats?.badge"
                 class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
-                :class="groupPhasePrimaryBadgeClasses(summary.primaryType)"
+                :class="
+                  bracketCompactStats.hasQualifyingRound
+                    ? 'bg-violet-100 text-violet-800 dark:bg-violet-900/60 dark:text-violet-200'
+                    : 'bg-sky-100 text-sky-800 dark:bg-sky-900/60 dark:text-sky-200'
+                "
               >
-                {{ summary.primaryLabel }}
+                {{ bracketCompactStats.badge }}
               </span>
             </div>
 
-            <div v-if="summary.alerts.length > 0" class="mt-2 flex flex-wrap gap-2">
-              <span
-                v-for="(alert, alertIndex) in summary.alerts"
-                :key="`${summary.group.id}-alert-${alertIndex}`"
-                class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
-                :class="groupPhaseAlertChipClasses(alert.type)"
-              >
-                {{ alert.label }}
-              </span>
-            </div>
-
-            <div class="mt-3 flex flex-wrap gap-2">
+            <template v-if="hasBracket">
               <RouterLink
-                :to="groupStandingsRoute(summary.group)"
-                class="inline-flex rounded-md px-3 py-1.5 text-xs font-medium"
-                :class="
-                  summary.highlightLink === 'standings'
-                    ? 'bg-slate-900 text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200'
-                    : 'border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800'
-                "
+                :to="bracketRoute"
+                class="inline-flex rounded-md bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
               >
-                Ver posiciones
+                Ver llave eliminatoria
               </RouterLink>
+            </template>
 
-              <RouterLink
-                :to="groupDetailRoute(summary.group)"
-                class="inline-flex rounded-md px-3 py-1.5 text-xs font-medium"
-                :class="
-                  summary.highlightLink === 'group'
-                    ? 'bg-slate-900 text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200'
-                    : 'border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800'
-                "
+            <template v-else>
+              <p
+                v-if="isKnockoutDirect"
+                class="text-sm text-slate-600 dark:text-slate-400"
               >
-                Ver grupo
-              </RouterLink>
-            </div>
-          </article>
+                Esta competencia es de eliminación directa. La llave se generará con los
+                {{ registeredCount }} jugador{{ registeredCount === 1 ? '' : 'es' }}
+                inscripto{{ registeredCount === 1 ? '' : 's' }}.
+              </p>
+
+              <p
+                v-if="bracketBlockMessage"
+                class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+              >
+                {{ bracketBlockMessage }}
+              </p>
+
+              <dl
+                v-if="bracketCompactStats"
+                class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
+              >
+                <div>
+                  <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Clasificados por grupo
+                  </dt>
+                  <dd class="mt-0.5 font-medium text-slate-900 dark:text-slate-100">
+                    {{ bracketCompactStats.qualifiedPerGroup }}
+                  </dd>
+                </div>
+
+                <div v-if="bracketCompactStats.totalQualified !== null">
+                  <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Total clasificados
+                  </dt>
+                  <dd class="mt-0.5 font-medium text-slate-900 dark:text-slate-100">
+                    {{ bracketCompactStats.totalQualified }}
+                  </dd>
+                </div>
+
+                <div v-if="bracketCompactStats.bracketSize !== null">
+                  <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Tamaño del bracket
+                  </dt>
+                  <dd class="mt-0.5 font-medium text-slate-900 dark:text-slate-100">
+                    {{ bracketCompactStats.bracketSize }}
+                  </dd>
+                </div>
+
+                <div v-if="bracketCompactStats.byesCount !== null && bracketCompactStats.byesCount > 0">
+                  <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    BYEs
+                  </dt>
+                  <dd class="mt-0.5 font-medium text-slate-900 dark:text-slate-100">
+                    {{ bracketCompactStats.byesCount }}
+                  </dd>
+                </div>
+              </dl>
+
+              <div
+                v-if="bracketCompactStats?.warnings?.length"
+                class="space-y-2"
+              >
+                <p
+                  v-for="(warning, index) in bracketCompactStats.warnings"
+                  :key="`bracket-warning-${index}`"
+                  class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+                >
+                  {{ warning }}
+                </p>
+              </div>
+
+              <details
+                v-if="hasBracketGenerationDetails"
+                class="group/bracket-details rounded-md border border-slate-200 dark:border-slate-700"
+              >
+                <summary
+                  class="cursor-pointer px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800/50 [&::-webkit-details-marker]:hidden"
+                >
+                  Ver detalles de generación
+                </summary>
+
+                <div class="space-y-2 border-t border-slate-200 px-3 py-3 dark:border-slate-700">
+                  <p
+                    v-for="(line, index) in bracketGenerationPreview.introLines"
+                    :key="`intro-${index}`"
+                    class="text-slate-600 dark:text-slate-300"
+                  >
+                    {{ line }}
+                  </p>
+
+                  <ul
+                    v-if="bracketGenerationPreview.detailLines.length > 0"
+                    class="list-inside list-disc space-y-1 text-slate-600 dark:text-slate-300"
+                  >
+                    <li
+                      v-for="(line, index) in bracketGenerationPreview.detailLines"
+                      :key="`detail-${index}`"
+                    >
+                      {{ line }}
+                    </li>
+                  </ul>
+                </div>
+              </details>
+
+              <div v-if="bracketStructureAction?.type === 'link'" class="pt-1">
+                <RouterLink
+                  :to="bracketStructureAction.to"
+                  class="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                >
+                  <TrophyIcon class="h-4 w-4" />
+                  {{ bracketStructureAction.label }}
+                </RouterLink>
+              </div>
+            </template>
           </div>
         </div>
-      </details>
+      </div>
 
       <div
         v-if="resultSummary"
@@ -1050,90 +1143,14 @@ const handleEditCompetitionSaved = async () => {
         </div>
       </details>
 
-      <div
-        v-if="!hasBracket"
-        class="rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
-      >
-        <p class="font-medium text-slate-700 dark:text-slate-200">Llave eliminatoria</p>
-
-        <p class="mt-3 text-slate-600 dark:text-slate-300">
-          Todavía no se generó la llave eliminatoria.
-        </p>
-
-        <p
-          v-if="hasGroupStage && !allGroupsReadyForBracket && groupPhaseBracketBlockMessage"
-          class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
-        >
-          {{ groupPhaseBracketBlockMessage }}
-        </p>
-
-        <p
-          v-if="isKnockoutDirect"
-          class="mt-2 text-sm text-slate-600 dark:text-slate-400"
-        >
-          La llave se generará con los {{ registeredCount }} jugador{{ registeredCount === 1 ? '' : 'es' }}
-          inscripto{{ registeredCount === 1 ? '' : 's' }}.
-        </p>
-
-        <div
-          v-if="bracketGenerationPreview"
-          class="mt-3 space-y-2 rounded-md border border-sky-200 bg-sky-50/60 p-3 dark:border-sky-900 dark:bg-sky-950/20"
-        >
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <p class="font-medium text-slate-800 dark:text-slate-100">
-              {{ bracketGenerationPreview.title }}
-            </p>
-            <span
-              v-if="bracketGenerationPreview.badge"
-              class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
-              :class="
-                bracketGenerationPreview.hasQualifyingRound
-                  ? 'bg-violet-100 text-violet-800 dark:bg-violet-900/60 dark:text-violet-200'
-                  : 'bg-sky-100 text-sky-800 dark:bg-sky-900/60 dark:text-sky-200'
-              "
-            >
-              {{ bracketGenerationPreview.badge }}
-            </span>
-          </div>
-
-          <p
-            v-for="(line, index) in bracketGenerationPreview.introLines"
-            :key="`intro-${index}`"
-            class="text-slate-600 dark:text-slate-300"
-          >
-            {{ line }}
-          </p>
-
-          <template v-if="bracketGenerationPreview.statsLines.length > 0">
-            <p
-              v-for="(line, index) in bracketGenerationPreview.statsLines"
-              :key="`stats-${index}`"
-              class="text-slate-700 dark:text-slate-200"
-            >
-              {{ line }}
-            </p>
-            <ul
-              v-if="bracketGenerationPreview.detailLines.length > 0"
-              class="list-inside list-disc space-y-1 text-slate-600 dark:text-slate-300"
-            >
-              <li
-                v-for="(line, index) in bracketGenerationPreview.detailLines"
-                :key="`detail-${index}`"
-              >
-                {{ line }}
-              </li>
-            </ul>
-          </template>
-
-          <p
-            v-for="(warning, index) in bracketGenerationPreview.warnings"
-            :key="`warning-${index}`"
-            class="rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
-          >
-            {{ warning }}
-          </p>
-        </div>
-      </div>
+      <CompetitionParticipantsModal
+        v-if="registrations !== null"
+        :show="showParticipantsModal"
+        :registrations="registrations"
+        :registrations-editable="registrationsEditable"
+        :registrations-route="registrationsRoute"
+        @close="showParticipantsModal = false"
+      />
 
       <GenerateRandomGroupsModal
         v-if="hasGroupStage"
