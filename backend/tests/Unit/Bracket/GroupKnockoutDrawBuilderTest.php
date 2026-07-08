@@ -204,7 +204,34 @@ class GroupKnockoutDrawBuilderTest extends TestCase
         }
     }
 
-    public function test_rejects_q3_when_compatible_assignment_does_not_exist(): void
+    public function test_can_build_play_in_draw_returns_false_for_two_groups_with_q3(): void
+    {
+        $qualifiers = $this->qualifiersForNamedGroups(['A', 'B'], qualifiedPerGroup: 3);
+
+        $this->assertFalse(
+            app(GroupKnockoutDrawBuilder::class)->canBuildPlayInDraw($qualifiers, 3),
+        );
+    }
+
+    public function test_can_build_play_in_draw_returns_true_for_four_groups_with_q3(): void
+    {
+        $qualifiers = $this->qualifiersForNamedGroups(['A', 'B', 'C', 'D'], qualifiedPerGroup: 3);
+
+        $this->assertTrue(
+            app(GroupKnockoutDrawBuilder::class)->canBuildPlayInDraw($qualifiers, 3),
+        );
+    }
+
+    public function test_builds_direct_player_ids_for_two_groups_with_q3(): void
+    {
+        $qualifiers = $this->qualifiersForNamedGroups(['A', 'B'], qualifiedPerGroup: 3);
+
+        $playerIds = app(GroupKnockoutDrawBuilder::class)->buildDirectPlayerIds($qualifiers, 3);
+
+        $this->assertSame([101, 201, 102, 202, 103, 203], $playerIds);
+    }
+
+    public function test_build_draw_still_rejects_q3_when_compatible_assignment_does_not_exist(): void
     {
         $qualifiers = $this->qualifiersForNamedGroups(['A', 'B'], qualifiedPerGroup: 3);
 

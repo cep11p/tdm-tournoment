@@ -93,11 +93,33 @@ final class CreateBracketKnockoutAction
         $groupQualifiers = $this->groupQualifiersCollector->collect($competition);
 
         if ($qualifiersPerGroup === 3) {
-            $draw = $this->groupKnockoutDrawBuilder->buildDraw($groupQualifiers, $qualifiersPerGroup);
+            if ($this->groupKnockoutDrawBuilder->canBuildPlayInDraw($groupQualifiers, $qualifiersPerGroup)) {
+                $draw = $this->groupKnockoutDrawBuilder->buildDraw($groupQualifiers, $qualifiersPerGroup);
 
-            return $this->buildBracketFromDrawResult(
+                return $this->buildBracketFromDrawResult(
+                    competition: $competition,
+                    draw: $draw,
+                    qualifiersPerGroup: $qualifiersPerGroup,
+                    payload: $payload,
+                );
+            }
+
+            $playerIds = $this->groupKnockoutDrawBuilder->buildDirectPlayerIds(
+                $groupQualifiers,
+                $qualifiersPerGroup,
+            );
+
+            if (count($playerIds) < 2) {
+                throw ValidationException::withMessages([
+                    'qualified_per_group' => [
+                        'Se requieren al menos 2 clasificados para generar el cuadro eliminatorio.',
+                    ],
+                ]);
+            }
+
+            return $this->buildBracketFromPlayerIds(
                 competition: $competition,
-                draw: $draw,
+                playerIds: $playerIds,
                 qualifiersPerGroup: $qualifiersPerGroup,
                 payload: $payload,
             );

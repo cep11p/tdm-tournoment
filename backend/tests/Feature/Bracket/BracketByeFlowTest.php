@@ -8,7 +8,7 @@ use Tests\TestCase;
 
 class BracketByeFlowTest extends TestCase
 {
-    public function test_rejects_q3_bracket_for_single_group(): void
+    public function test_creates_q3_bracket_with_padding_bye_for_single_group(): void
     {
         $context = $this->tournamentContext();
         $competition = $context->createCompetition();
@@ -24,10 +24,11 @@ class BracketByeFlowTest extends TestCase
         $response = $context->createBracket($competition);
 
         $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['qualified_per_group']);
+            ->assertCreated()
+            ->assertJsonPath('data.bracket_size', 4)
+            ->assertJsonPath('data.byes_count', 1);
 
-        $this->assertDatabaseCount('brackets', 0);
+        $this->assertDatabaseCount('brackets', 1);
     }
 
     public function test_creates_bracket_of_sixteen_with_four_byes_for_twelve_qualifiers(): void

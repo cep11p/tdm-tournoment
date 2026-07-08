@@ -82,6 +82,83 @@ final class GroupKnockoutDrawBuilder
     /**
      * @param  Collection<int, GroupQualifierData>  $qualifiers
      */
+    public function canBuildPlayInDraw(Collection $qualifiers, int $qualifiedPerGroup = 3): bool
+    {
+        if ($qualifiedPerGroup !== 3) {
+            return false;
+        }
+
+        $groups = $this->orderedGroups($qualifiers);
+        $groupCount = $groups->count();
+
+        if ($groupCount < 4 || ! $this->isPowerOfTwo($groupCount)) {
+            return false;
+        }
+
+        $firsts = [];
+        $seconds = [];
+        $thirds = [];
+
+        foreach ($groups as $groupQualifiers) {
+            $byPosition = $this->qualifiersByPosition($groupQualifiers);
+
+            if (! isset($byPosition[1], $byPosition[2], $byPosition[3])) {
+                return false;
+            }
+
+            $firsts[] = $byPosition[1];
+            $seconds[] = $byPosition[2];
+            $thirds[] = $byPosition[3];
+        }
+
+        if (count($firsts) !== count($seconds) || count($firsts) !== count($thirds)) {
+            return false;
+        }
+
+        $playIns = $this->tryBuildPlayInCandidates($seconds, $thirds, $groupCount);
+
+        if ($playIns === null) {
+            return false;
+        }
+
+        return $this->assignCompatiblePlayIns($firsts, $playIns) !== null;
+    }
+
+    /**
+     * @param  Collection<int, GroupQualifierData>  $qualifiers
+     * @return array<int, int>
+     */
+    public function buildDirectPlayerIds(Collection $qualifiers, int $qualifiedPerGroup): array
+    {
+        $groups = $this->orderedGroups($qualifiers);
+        $playerIds = [];
+
+        for ($position = 1; $position <= $qualifiedPerGroup; $position++) {
+            foreach ($groups as $groupQualifiers) {
+                $byPosition = $this->qualifiersByPosition($groupQualifiers);
+
+                if (! isset($byPosition[$position])) {
+                    throw ValidationException::withMessages([
+                        'qualified_per_group' => [
+                            sprintf(
+                                'Falta el %d° clasificado del grupo "%s".',
+                                $position,
+                                $groupQualifiers->first()->groupName,
+                            ),
+                        ],
+                    ]);
+                }
+
+                $playerIds[] = $byPosition[$position]->playerId;
+            }
+        }
+
+        return $playerIds;
+    }
+
+    /**
+     * @param  Collection<int, GroupQualifierData>  $qualifiers
+     */
     public function buildDraw(Collection $qualifiers, int $qualifiedPerGroup): GroupKnockoutDrawResult
     {
         if ($qualifiedPerGroup !== 3) {
@@ -224,6 +301,30 @@ final class GroupKnockoutDrawBuilder
      */
     private function buildPlayInCandidates(array $seconds, array $thirds, int $groupCount): array
     {
+        $playIns = $this->tryBuildPlayInCandidates($seconds, $thirds, $groupCount);
+
+        if ($playIns === null) {
+            $second = $seconds[0];
+            throw ValidationException::withMessages([
+                'qualified_per_group' => [
+                    sprintf(
+                        'El play-in no puede enfrentar jugadores del mismo grupo ("%s").',
+                        $second->groupName,
+                    ),
+                ],
+            ]);
+        }
+
+        return $playIns;
+    }
+
+    /**
+     * @param  array<int, GroupQualifierData>  $seconds
+     * @param  array<int, GroupQualifierData>  $thirds
+     * @return list<array{second: GroupQualifierData, third: GroupQualifierData}>|null
+     */
+    private function tryBuildPlayInCandidates(array $seconds, array $thirds, int $groupCount): ?array
+    {
         $playIns = [];
 
         for ($index = 0; $index < $groupCount; $index++) {
@@ -231,14 +332,7 @@ final class GroupKnockoutDrawBuilder
             $third = $thirds[$groupCount - 1 - $index];
 
             if ($second->groupId === $third->groupId) {
-                throw ValidationException::withMessages([
-                    'qualified_per_group' => [
-                        sprintf(
-                            'El play-in no puede enfrentar jugadores del mismo grupo ("%s").',
-                            $second->groupName,
-                        ),
-                    ],
-                ]);
+                return null;
             }
 
             $playIns[] = [
