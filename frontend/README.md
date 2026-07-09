@@ -19,9 +19,9 @@ Copiar `.env.example` a `.env` y ajustar segun entorno:
 cp .env.example .env
 ```
 
-Variable requerida:
+Variable opcional:
 
-- `VITE_API_URL` (ejemplo: `http://localhost:8080/api/v1`)
+- `VITE_API_URL` — si no se define, el cliente usa `http://<hostname-de-la-pagina>:8080/api/v1`. Así funciona en la PC (`localhost`) y en el celular (IP de la LAN) sin cambiar `.env`.
 
 ## Levantar frontend con Docker
 
@@ -32,6 +32,12 @@ docker compose up frontend
 ```
 
 La app queda disponible en [http://localhost:5173](http://localhost:5173).
+
+Desde otro dispositivo en la misma Wi-Fi (reemplazar por la IP de la PC):
+
+```text
+http://192.168.x.x:5173
+```
 
 ## Estructura inicial
 
