@@ -28,6 +28,33 @@ export function calculateBalancedGroupSizes(playerCount, groupsCount) {
 }
 
 /**
+ * @param {number} playerCount
+ * @returns {number}
+ */
+export function maxValidGroupsCount(playerCount) {
+  if (!Number.isInteger(playerCount) || playerCount < 2) {
+    return 0
+  }
+
+  return Math.floor(playerCount / 2)
+}
+
+/**
+ * @param {number} playerCount
+ * @param {number} groupsCount
+ * @returns {boolean}
+ */
+export function isValidGroupDistribution(playerCount, groupsCount) {
+  return (
+    Number.isInteger(playerCount) &&
+    Number.isInteger(groupsCount) &&
+    playerCount >= 2 &&
+    groupsCount >= 1 &&
+    playerCount >= groupsCount * 2
+  )
+}
+
+/**
  * @param {number[]} sizes
  * @returns {string}
  */
@@ -44,4 +71,35 @@ export function formatBalancedGroupSizes(sizes) {
   const prefix = sizes.slice(0, -1).join(', ')
 
   return `${prefix} y ${lastSize} jugador${lastSize === 1 ? '' : 'es'}`
+}
+
+/**
+ * @param {number} playerCount
+ * @param {number} groupsCount
+ * @returns {string}
+ */
+export function formatEstimatedDistributionSummary(playerCount, groupsCount) {
+  if (playerCount < 2 || groupsCount < 1) {
+    return ''
+  }
+
+  const playersLabel = `${playerCount} jugador${playerCount === 1 ? '' : 'es'}`
+  const groupsLabel = `${groupsCount} grupo${groupsCount === 1 ? '' : 's'}`
+
+  return `${playersLabel} · ${groupsLabel}`
+}
+
+/**
+ * @param {number} playerCount
+ * @param {number} groupsCount
+ * @returns {string}
+ */
+export function formatEstimatedDistributionSizes(playerCount, groupsCount) {
+  const sizes = calculateBalancedGroupSizes(playerCount, groupsCount)
+
+  if (!sizes.length) {
+    return ''
+  }
+
+  return formatBalancedGroupSizes(sizes)
 }

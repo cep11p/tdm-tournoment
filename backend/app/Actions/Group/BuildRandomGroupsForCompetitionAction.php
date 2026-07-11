@@ -5,6 +5,7 @@ namespace App\Actions\Group;
 use App\Models\Competition;
 use App\Models\Group;
 use App\Models\GroupPlayer;
+use App\Support\Group\RandomGroupDistributionGuard;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -53,6 +54,8 @@ final class BuildRandomGroupsForCompetitionAction
             ]);
         }
 
+        RandomGroupDistributionGuard::ensureValid($playerCount, $groupsCount);
+
         $groupSizes = $this->calculateBalancedGroupSizes($playerCount, $groupsCount);
         $shuffledPlayerIds = $playerIds;
         shuffle($shuffledPlayerIds);
@@ -96,6 +99,7 @@ final class BuildRandomGroupsForCompetitionAction
         $gamesCreated = 0;
 
         foreach ($createdGroups as $group) {
+            // Defensa de dominio: no debería alcanzarse tras validar la distribución.
             if ($group->groupPlayers->count() < 2) {
                 continue;
             }

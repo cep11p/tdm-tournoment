@@ -9,6 +9,7 @@ use App\Models\Group;
 use App\Models\GroupPlayer;
 use App\Models\Registration;
 use App\Support\Competition\CompetitionStructureGuard;
+use App\Support\Group\RandomGroupDistributionGuard;
 use Tests\TestCase;
 
 class RegenerateRandomGroupsTest extends TestCase
@@ -311,6 +312,114 @@ class RegenerateRandomGroupsTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['competition'])
             ->assertJsonPath('errors.competition.0', 'La competencia no tiene grupos para regenerar.');
+    }
+
+    public function test_cannot_regenerate_groups_when_one_group_would_have_only_one_player(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+        $players = $context->createPlayers(7);
+        $context->registerPlayers($competition, $players);
+
+        $context->generateRandomGroups($competition, groupsCount: 3)->assertCreated();
+
+        $response = $context->regenerateRandomGroups($competition, groupsCount: 4);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['groups_count'])
+            ->assertJsonPath(
+                'errors.groups_count.0',
+                RandomGroupDistributionGuard::validationMessage(7, 4),
+            );
+    }
+
+    public function test_regeneration_preserves_existing_structure_when_distribution_is_invalid(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+        $players = $context->createPlayers(6);
+        $context->registerPlayers($competition, $players);
+
+        $context->generateRandomGroups($competition, groupsCount: 2)->assertCreated();
+
+        $originalGroupIds = Group::query()
+            ->where('competition_id', $competition->id)
+            ->orderBy('id')
+            ->pluck('id')
+            ->all();
+
+        $originalGroupPlayerIds = GroupPlayer::query()
+            ->whereHas('group', fn ($query) => $query->where('competition_id', $competition->id))
+            ->orderBy('id')
+            ->pluck('id')
+            ->all();
+
+        $bracket = Bracket::query()->create([
+            'competition_id' => $competition->id,
+            'name' => 'Eliminatoria',
+            'qualifiers_per_group' => 2,
+            'bracket_size' => 4,
+            'byes_count' => 1,
+        ]);
+
+        $bracketGame = Game::query()->create([
+            'competition_id' => $competition->id,
+            'bracket_id' => $bracket->id,
+            'player1_id' => $players[0]->id,
+            'player2_id' => null,
+            'round' => 'Ronda clasificatoria',
+            'status' => GameStatus::Finished,
+            'is_bye' => true,
+            'bracket_round' => 1,
+            'bracket_match' => 1,
+            'best_of' => 5,
+            'sets_to_win' => 3,
+        ]);
+
+        $originalGameIds = Game::query()
+            ->where('competition_id', $competition->id)
+            ->orderBy('id')
+            ->pluck('id')
+            ->all();
+
+        $groupsCountBefore = Group::query()->where('competition_id', $competition->id)->count();
+        $groupPlayersCountBefore = GroupPlayer::query()
+            ->whereHas('group', fn ($query) => $query->where('competition_id', $competition->id))
+            ->count();
+        $gamesCountBefore = Game::query()->where('competition_id', $competition->id)->count();
+        $bracketsCountBefore = Bracket::query()->where('competition_id', $competition->id)->count();
+
+        $response = $context->regenerateRandomGroups($competition, groupsCount: 4);
+
+        $response->assertUnprocessable()->assertJsonValidationErrors(['groups_count']);
+
+        $this->assertSame($originalGroupIds, Group::query()
+            ->where('competition_id', $competition->id)
+            ->orderBy('id')
+            ->pluck('id')
+            ->all());
+
+        $this->assertSame($originalGroupPlayerIds, GroupPlayer::query()
+            ->whereHas('group', fn ($query) => $query->where('competition_id', $competition->id))
+            ->orderBy('id')
+            ->pluck('id')
+            ->all());
+
+        $this->assertSame($originalGameIds, Game::query()
+            ->where('competition_id', $competition->id)
+            ->orderBy('id')
+            ->pluck('id')
+            ->all());
+
+        $this->assertSame($groupsCountBefore, Group::query()->where('competition_id', $competition->id)->count());
+        $this->assertSame($groupPlayersCountBefore, GroupPlayer::query()
+            ->whereHas('group', fn ($query) => $query->where('competition_id', $competition->id))
+            ->count());
+        $this->assertSame($gamesCountBefore, Game::query()->where('competition_id', $competition->id)->count());
+        $this->assertSame($bracketsCountBefore, Bracket::query()->where('competition_id', $competition->id)->count());
+        $this->assertTrue(Bracket::query()->whereKey($bracket->id)->exists());
+        $this->assertTrue(Game::query()->whereKey($bracketGame->id)->exists());
     }
 
     public function test_rolls_back_when_generation_fails(): void

@@ -8,6 +8,7 @@ use App\Models\Competition;
 use App\Models\Game;
 use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Competition\CompetitionStructureGuard;
+use App\Support\Group\RandomGroupDistributionGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -38,6 +39,16 @@ final class RegenerateRandomGroupsForCompetitionAction
                 'competition' => ['La competencia no tiene grupos para regenerar.'],
             ]);
         }
+
+        $playerCount = $competition->registrations()->count();
+
+        if ($playerCount < 2) {
+            throw ValidationException::withMessages([
+                'competition' => ['Se requieren al menos 2 jugadores inscriptos para regenerar grupos.'],
+            ]);
+        }
+
+        RandomGroupDistributionGuard::ensureValid($playerCount, $groupsCount);
 
         return DB::transaction(function () use ($competition, $groupsCount): array {
             $groupsRemoved = $competition->groups()->count();

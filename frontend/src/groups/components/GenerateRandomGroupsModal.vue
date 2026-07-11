@@ -1,11 +1,14 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 
+import { extractApiErrorMessage } from '../../shared/utils/extractApiErrorMessage'
 import GroupService from '../services/GroupService'
 import { buildRandomGroupsSuccessMessage } from '../utils/buildRandomGroupsSuccessMessage'
 import {
-  calculateBalancedGroupSizes,
-  formatBalancedGroupSizes,
+  formatEstimatedDistributionSizes,
+  formatEstimatedDistributionSummary,
+  isValidGroupDistribution,
+  maxValidGroupsCount,
 } from '../utils/calculateBalancedGroupSizes'
 
 const props = defineProps({
@@ -38,17 +41,15 @@ const isSubmitting = ref(false)
 const submitError = ref('')
 const successMessage = ref('')
 
-const maxGroups = computed(() => Math.max(props.registeredCount, 1))
+const maxGroups = computed(() => maxValidGroupsCount(props.registeredCount))
 
-const estimatedDistribution = computed(() => {
-  const sizes = calculateBalancedGroupSizes(props.registeredCount, groupsCount.value)
+const estimatedDistributionSummary = computed(() =>
+  formatEstimatedDistributionSummary(props.registeredCount, groupsCount.value),
+)
 
-  if (sizes.length === 0) {
-    return ''
-  }
-
-  return `${props.registeredCount} jugadores en ${groupsCount.value} grupo${groupsCount.value === 1 ? '' : 's'}: ${formatBalancedGroupSizes(sizes)} por grupo`
-})
+const estimatedDistributionSizes = computed(() =>
+  formatEstimatedDistributionSizes(props.registeredCount, groupsCount.value),
+)
 
 const confirmDisabledReason = computed(() => {
   if (props.isCompetitionCompleted) {
@@ -63,8 +64,16 @@ const confirmDisabledReason = computed(() => {
     return 'Se requieren al menos 2 jugadores inscriptos.'
   }
 
-  if (groupsCount.value < 1 || groupsCount.value > props.registeredCount) {
-    return 'La cantidad de grupos debe estar entre 1 y la cantidad de inscriptos.'
+  if (groupsCount.value < 1 || groupsCount.value > maxGroups.value) {
+    const maxLabel = maxGroups.value === 1 ? '1 grupo' : `${maxGroups.value} grupos`
+
+    return `Con ${props.registeredCount} jugadores, el máximo es ${maxLabel}.`
+  }
+
+  if (!isValidGroupDistribution(props.registeredCount, groupsCount.value)) {
+    const maxLabel = maxGroups.value === 1 ? '1 grupo' : `${maxGroups.value} grupos`
+
+    return `Con ${props.registeredCount} jugadores, el máximo es ${maxLabel}.`
   }
 
   if (isSubmitting.value) {
@@ -79,7 +88,8 @@ const canConfirm = computed(() => confirmDisabledReason.value === '')
 const isConfirmDisabled = computed(() => !canConfirm.value)
 
 const resetState = () => {
-  groupsCount.value = Math.min(2, Math.max(props.registeredCount, 1))
+  const max = maxValidGroupsCount(props.registeredCount)
+  groupsCount.value = max >= 2 ? Math.min(2, max) : Math.max(1, max)
   submitError.value = ''
   successMessage.value = ''
 }
@@ -110,11 +120,7 @@ const handleConfirm = async () => {
 
     emit('saved', result)
   } catch (error) {
-    submitError.value =
-      error?.response?.data?.errors?.competition?.[0] ||
-      error?.response?.data?.errors?.groups_count?.[0] ||
-      error?.response?.data?.message ||
-      'No se pudieron generar los grupos.'
+    submitError.value = extractApiErrorMessage(error, 'No se pudieron generar los grupos.')
   } finally {
     isSubmitting.value = false
   }
@@ -135,8 +141,10 @@ watch(
 watch(
   () => props.registeredCount,
   (count) => {
-    if (count > 0 && groupsCount.value > count) {
-      groupsCount.value = count
+    const max = maxValidGroupsCount(count)
+
+    if (max > 0 && groupsCount.value > max) {
+      groupsCount.value = max
     }
   },
 )
@@ -202,15 +210,18 @@ watch(
               v-model.number="groupsCount"
               type="number"
               min="1"
-              :max="maxGroups"
+              :max="maxGroups || 1"
               class="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
               :disabled="isSubmitting || registeredCount < 2 || hasExistingGroups || isCompetitionCompleted"
             />
           </label>
 
-          <p v-if="estimatedDistribution" class="text-slate-600 dark:text-slate-300">
-            Distribución estimada: {{ estimatedDistribution }}
-          </p>
+          <div v-if="estimatedDistributionSummary" class="space-y-1 text-slate-600 dark:text-slate-300">
+            <p>{{ estimatedDistributionSummary }}</p>
+            <p v-if="estimatedDistributionSizes">
+              Distribución estimada: {{ estimatedDistributionSizes }}
+            </p>
+          </div>
 
           <p v-if="confirmDisabledReason && !canConfirm" class="text-xs text-slate-500 dark:text-slate-400">
             {{ confirmDisabledReason }}

@@ -3,9 +3,11 @@
 namespace Tests\Feature\Group;
 
 use App\Enums\GameStatus;
+use App\Models\Bracket;
 use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupPlayer;
+use App\Support\Group\RandomGroupDistributionGuard;
 use Tests\TestCase;
 
 class GenerateRandomGroupsTest extends TestCase
@@ -184,24 +186,89 @@ class GenerateRandomGroupsTest extends TestCase
         $this->assertGamesHaveExpectedAttributes($competition->id, $groups);
     }
 
-    public function test_does_not_generate_games_for_single_player_groups(): void
+    public function test_cannot_generate_groups_when_one_group_would_have_only_one_player(): void
     {
         $context = $this->tournamentContext();
         $competition = $context->createCompetition();
-        $players = $context->createPlayers(4);
+        $players = $context->createPlayers(7);
         $context->registerPlayers($competition, $players);
 
         $response = $context->generateRandomGroups($competition, groupsCount: 4);
 
         $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['groups_count'])
+            ->assertJsonPath(
+                'errors.groups_count.0',
+                RandomGroupDistributionGuard::validationMessage(7, 4),
+            );
+
+        $this->assertDatabaseCount('groups', 0);
+        $this->assertDatabaseCount('group_players', 0);
+        $this->assertDatabaseCount('games', 0);
+    }
+
+    public function test_seven_players_cannot_be_distributed_into_four_groups(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+        $players = $context->createPlayers(7);
+        $context->registerPlayers($competition, $players);
+
+        $response = $context->generateRandomGroups($competition, groupsCount: 4);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['groups_count']);
+    }
+
+    public function test_seven_players_can_be_distributed_into_three_groups_as_3_2_2(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+        $players = $context->createPlayers(7);
+        $context->registerPlayers($competition, $players);
+
+        $response = $context->generateRandomGroups($competition, groupsCount: 3);
+
+        $response
             ->assertCreated()
             ->assertJson([
-                'groups_created' => 4,
-                'players_assigned' => 4,
-                'games_created' => 0,
+                'groups_created' => 3,
+                'players_assigned' => 7,
+                'games_created' => 5,
             ]);
 
-        $this->assertDatabaseCount('games', 0);
+        $playersPerGroup = GroupPlayer::query()
+            ->selectRaw('group_id, count(*) as total')
+            ->groupBy('group_id')
+            ->pluck('total')
+            ->sort()
+            ->values()
+            ->all();
+
+        $this->assertSame([2, 2, 3], $playersPerGroup);
+    }
+
+    public function test_group_generation_never_creates_single_player_groups(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+        $players = $context->createPlayers(8);
+        $context->registerPlayers($competition, $players);
+
+        $response = $context->generateRandomGroups($competition, groupsCount: 4);
+
+        $response->assertCreated();
+
+        $singlePlayerGroups = GroupPlayer::query()
+            ->selectRaw('group_id, count(*) as total')
+            ->groupBy('group_id')
+            ->having('total', '<', 2)
+            ->count();
+
+        $this->assertSame(0, $singlePlayerGroups);
+        $this->assertSame(4, Game::query()->where('competition_id', $competition->id)->count());
     }
 
     public function test_generates_thirty_games_for_twenty_players_in_five_groups(): void
