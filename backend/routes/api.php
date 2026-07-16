@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AuthenticatedUserController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\ClubController;
 use App\Http\Controllers\Api\V1\BracketNextRoundController;
@@ -22,6 +23,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix(config('api.version_prefix', 'v1'))
     ->group(function (): void {
+        Route::middleware('auth.keycloak')
+            ->get('me', AuthenticatedUserController::class)
+            ->name('me');
+
         Route::apiResource('tournaments', TournamentController::class)
             ->only(['store', 'index', 'show', 'update']);
 
