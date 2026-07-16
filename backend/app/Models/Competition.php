@@ -43,6 +43,11 @@ class Competition extends Model
         return $this->belongsTo(Tournament::class);
     }
 
+    public function categoryModel(): BelongsTo
+    {
+        return $this->belongsTo(Category::class, 'category_id');
+    }
+
     public function registrations(): HasMany
     {
         return $this->hasMany(Registration::class);

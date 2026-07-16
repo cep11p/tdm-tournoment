@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Api\V1\CategoryController;
+use App\Http\Controllers\Api\V1\ClubController;
 use App\Http\Controllers\Api\V1\BracketNextRoundController;
 use App\Http\Controllers\Api\V1\CompetitionBracketController;
 use App\Http\Controllers\Api\V1\CompetitionController;
@@ -42,6 +44,12 @@ Route::prefix(config('api.version_prefix', 'v1'))
             ->name('brackets.next-round.store');
 
         Route::apiResource('players', PlayerController::class);
+
+        Route::get('categories', [CategoryController::class, 'index'])
+            ->name('categories.index');
+
+        Route::get('clubs', [ClubController::class, 'index'])
+            ->name('clubs.index');
 
         Route::post('competitions/{competition}/registrations/bulk', [RegistrationController::class, 'bulkStore'])
             ->name('competitions.registrations.bulk');

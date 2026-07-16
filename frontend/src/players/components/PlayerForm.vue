@@ -1,5 +1,8 @@
 <script setup>
-import { reactive, watch } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
+
+import CategoryService from '../../categories/services/CategoryService'
+import ClubService from '../../clubs/services/ClubService'
 
 const props = defineProps({
   initialValues: {
@@ -8,6 +11,8 @@ const props = defineProps({
       first_name: '',
       last_name: '',
       nickname: '',
+      category_id: '',
+      club_id: '',
       active: true,
     }),
   },
@@ -31,10 +36,15 @@ const props = defineProps({
 
 const emit = defineEmits(['submit', 'cancel'])
 
+const categories = ref([])
+const clubs = ref([])
+
 const form = reactive({
   first_name: '',
   last_name: '',
   nickname: '',
+  category_id: '',
+  club_id: '',
   active: true,
 })
 
@@ -42,6 +52,8 @@ const syncForm = (values) => {
   form.first_name = values.first_name ?? ''
   form.last_name = values.last_name ?? ''
   form.nickname = values.nickname ?? ''
+  form.category_id = values.category_id ?? values.category?.id ?? ''
+  form.club_id = values.club_id ?? values.club?.id ?? ''
   form.active = values.active ?? true
 }
 
@@ -55,11 +67,24 @@ watch(
 
 const fieldError = (field) => props.errors?.[field]?.[0] ?? ''
 
+const loadCatalogs = async () => {
+  try {
+    const [categoryList, clubList] = await Promise.all([CategoryService.list(), ClubService.list()])
+    categories.value = categoryList
+    clubs.value = clubList
+  } catch {
+    categories.value = []
+    clubs.value = []
+  }
+}
+
 const handleSubmit = () => {
   const payload = {
     first_name: form.first_name.trim(),
     last_name: form.last_name.trim(),
     nickname: form.nickname.trim() || null,
+    category_id: form.category_id === '' ? null : Number(form.category_id),
+    club_id: form.club_id === '' ? null : Number(form.club_id),
   }
 
   if (props.showActiveToggle) {
@@ -72,6 +97,8 @@ const handleSubmit = () => {
 const handleCancel = () => {
   emit('cancel')
 }
+
+onMounted(loadCatalogs)
 </script>
 
 <template>
@@ -127,6 +154,46 @@ const handleCancel = () => {
       <p class="text-xs text-slate-500 dark:text-slate-400">Opcional. Debe ser único si se completa.</p>
       <p v-if="fieldError('nickname')" class="text-xs text-red-600 dark:text-red-400">
         {{ fieldError('nickname') }}
+      </p>
+    </div>
+
+    <div class="space-y-1">
+      <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="category_id">
+        Categoría principal
+      </label>
+      <select
+        id="category_id"
+        v-model="form.category_id"
+        :disabled="isSubmitting"
+        class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500 disabled:opacity-70 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+      >
+        <option value="">Sin categoría</option>
+        <option v-for="category in categories" :key="category.id" :value="category.id">
+          {{ category.name }}
+        </option>
+      </select>
+      <p v-if="fieldError('category_id')" class="text-xs text-red-600 dark:text-red-400">
+        {{ fieldError('category_id') }}
+      </p>
+    </div>
+
+    <div class="space-y-1">
+      <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="club_id">
+        Club
+      </label>
+      <select
+        id="club_id"
+        v-model="form.club_id"
+        :disabled="isSubmitting"
+        class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500 disabled:opacity-70 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+      >
+        <option value="">Sin club</option>
+        <option v-for="club in clubs" :key="club.id" :value="club.id">
+          {{ club.name }}
+        </option>
+      </select>
+      <p v-if="fieldError('club_id')" class="text-xs text-red-600 dark:text-red-400">
+        {{ fieldError('club_id') }}
       </p>
     </div>
 

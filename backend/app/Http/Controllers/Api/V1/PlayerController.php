@@ -24,6 +24,7 @@ class PlayerController extends Controller
         $sort = (string) $request->query('sort', '-id');
 
         $query = Player::query()
+            ->with(['category:id,name,slug', 'club:id,name'])
             ->when(! $includeInactive, fn ($builder) => $builder->active())
             ->when($q !== '', function ($builder) use ($q): void {
                 $builder->where(function ($subQuery) use ($q): void {
@@ -31,6 +32,12 @@ class PlayerController extends Controller
                         ->orWhere('last_name', 'like', "%{$q}%")
                         ->orWhere('nickname', 'like', "%{$q}%");
                 });
+            })
+            ->when($request->filled('category_id'), function ($builder) use ($request): void {
+                $builder->where('category_id', (int) $request->query('category_id'));
+            })
+            ->when($request->filled('club_id'), function ($builder) use ($request): void {
+                $builder->where('club_id', (int) $request->query('club_id'));
             });
 
         match ($sort) {
@@ -57,6 +64,7 @@ class PlayerController extends Controller
 
     public function show(Player $player): PlayerResource
     {
+        $player->load(['category:id,name,slug', 'club:id,name']);
         $player->loadCount([
             'registrations',
             'groupPlayers',
@@ -71,7 +79,10 @@ class PlayerController extends Controller
         StorePlayerRequest $request,
         CreatePlayerAction $createPlayer
     ): JsonResponse {
-        $player = $createPlayer($request->validated());
+        $player = $createPlayer($request->validated())->load([
+            'category:id,name,slug',
+            'club:id,name',
+        ]);
 
         return (new PlayerResource($player))
             ->response()
@@ -84,7 +95,8 @@ class PlayerController extends Controller
         UpdatePlayerAction $updatePlayer
     ): PlayerResource {
         return new PlayerResource(
-            $updatePlayer($player, $request->validated()),
+            $updatePlayer($player, $request->validated())
+                ->load(['category:id,name,slug', 'club:id,name']),
         );
     }
 

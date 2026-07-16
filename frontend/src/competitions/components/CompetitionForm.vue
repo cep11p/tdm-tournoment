@@ -1,6 +1,7 @@
 <script setup>
-import { computed, reactive, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 
+import CategoryService from '../../categories/services/CategoryService'
 import { FORMAT_OPTIONS } from '../constants/competitionFormats'
 import { getCompetitionTypeLabel } from '../../shared/constants/competitionType'
 import {
@@ -42,9 +43,11 @@ const props = defineProps({
 
 const emit = defineEmits(['submit', 'cancel'])
 
+const categories = ref([])
+
 const form = reactive({
   name: '',
-  category: '',
+  category_id: '',
   type: 'singles',
   format: 'groups_knockout',
   points_per_set: 11,
@@ -59,7 +62,7 @@ const bestOfOptions = [1, 3, 5, 7]
 
 const syncForm = (values) => {
   form.name = values.name ?? ''
-  form.category = values.category ?? ''
+  form.category_id = values.category_id ?? ''
   form.type = values.type ?? 'singles'
   form.format = values.format ?? 'groups_knockout'
   form.points_per_set = values.points_per_set ?? 11
@@ -110,6 +113,16 @@ const handleSubmit = () => {
 const handleCancel = () => {
   emit('cancel')
 }
+
+const loadCategories = async () => {
+  try {
+    categories.value = await CategoryService.list()
+  } catch {
+    categories.value = []
+  }
+}
+
+onMounted(loadCategories)
 </script>
 
 <template>
@@ -149,16 +162,20 @@ const handleCancel = () => {
         <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="competition-category">
           Categoría
         </label>
-        <input
+        <select
           id="competition-category"
-          v-model="form.category"
-          type="text"
+          v-model="form.category_id"
           required
           :disabled="isSubmitting"
           :class="inputClasses"
-        />
-        <p v-if="fieldError('category')" class="text-xs text-red-600 dark:text-red-400">
-          {{ fieldError('category') }}
+        >
+          <option value="" disabled>Seleccionar categoría</option>
+          <option v-for="category in categories" :key="category.id" :value="category.id">
+            {{ category.name }}
+          </option>
+        </select>
+        <p v-if="fieldError('category_id')" class="text-xs text-red-600 dark:text-red-400">
+          {{ fieldError('category_id') }}
         </p>
       </div>
 

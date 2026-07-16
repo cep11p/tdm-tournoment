@@ -176,4 +176,38 @@ class RegistrationBulkTest extends TestCase
 
         $this->assertDatabaseCount('registrations', 3);
     }
+
+    public function test_allows_bulk_registration_with_different_player_category(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+        $primera = \App\Models\Category::query()->where('slug', 'primera')->firstOrFail();
+        $segunda = \App\Models\Category::query()->where('slug', 'segunda')->firstOrFail();
+
+        $player = \App\Models\Player::query()->create([
+            'first_name' => 'Otra',
+            'last_name' => 'Categoria',
+            'category_id' => $segunda->id,
+        ]);
+
+        $this->assertSame($primera->id, $competition->fresh()->category_id);
+
+        $response = $this->postJson(
+            $context->apiUrl("competitions/{$competition->id}/registrations/bulk"),
+            ['player_ids' => [$player->id]],
+        );
+
+        $response
+            ->assertOk()
+            ->assertJson([
+                'created' => 1,
+                'skipped' => 0,
+                'total' => 1,
+            ]);
+
+        $this->assertDatabaseHas('registrations', [
+            'competition_id' => $competition->id,
+            'player_id' => $player->id,
+        ]);
+    }
 }

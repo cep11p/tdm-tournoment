@@ -26,6 +26,8 @@ class UpdatePlayerRequest extends FormRequest
                 Rule::unique('players', 'nickname')->ignore($player),
             ],
             'active' => ['sometimes', 'boolean'],
+            'category_id' => ['nullable', 'integer', Rule::exists('categories', 'id')],
+            'club_id' => ['nullable', 'integer', Rule::exists('clubs', 'id')],
         ];
     }
 

@@ -16,6 +16,29 @@ class PlayerResource extends JsonResource
             'nickname' => $this->nickname,
             'full_name' => trim("{$this->first_name} {$this->last_name}"),
             'active' => $this->active,
+            'category_id' => $this->category_id,
+            'club_id' => $this->club_id,
+            'category' => $this->whenLoaded('category', function () {
+                if ($this->category === null) {
+                    return null;
+                }
+
+                return [
+                    'id' => $this->category->id,
+                    'name' => $this->category->name,
+                    'slug' => $this->category->slug,
+                ];
+            }),
+            'club' => $this->whenLoaded('club', function () {
+                if ($this->club === null) {
+                    return null;
+                }
+
+                return [
+                    'id' => $this->club->id,
+                    'name' => $this->club->name,
+                ];
+            }),
             'created_at' => optional($this->created_at)->toISOString(),
             'updated_at' => optional($this->updated_at)->toISOString(),
         ];

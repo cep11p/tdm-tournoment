@@ -19,6 +19,7 @@ class CompetitionController extends Controller
     public function index(Tournament $tournament): AnonymousResourceCollection
     {
         $competitions = $tournament->competitions()
+            ->with('categoryModel:id,name,slug')
             ->latest('id')
             ->get();
 
@@ -27,6 +28,8 @@ class CompetitionController extends Controller
 
     public function show(Competition $competition): CompetitionResource
     {
+        $competition->load('categoryModel:id,name,slug');
+
         return new CompetitionResource($competition);
     }
 
@@ -40,7 +43,7 @@ class CompetitionController extends Controller
             'tournament_id' => $tournament->id,
         ]);
 
-        return (new CompetitionResource($competition))
+        return (new CompetitionResource($competition->load('categoryModel:id,name,slug')))
             ->response()
             ->setStatusCode(Response::HTTP_CREATED);
     }
@@ -52,6 +55,7 @@ class CompetitionController extends Controller
     ): CompetitionResource {
         return new CompetitionResource(
             $updateCompetition($competition, $request->validated())
+                ->load('categoryModel:id,name,slug')
         );
     }
 }

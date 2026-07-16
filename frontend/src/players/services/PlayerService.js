@@ -1,37 +1,24 @@
 import httpClient from '../../services/httpClient'
+import { buildPlayerQueryParams } from '../utils/buildPlayerQueryParams'
 
 const unwrap = (response) => response?.data?.data
 
 const PlayerService = {
-  async getPlayers({ q = '' } = {}) {
+  async getPlayers(filters = {}) {
     const response = await httpClient.get('/players', {
-      params: {
-        q,
-      },
+      params: buildPlayerQueryParams(filters),
     })
 
     return unwrap(response) ?? []
   },
 
-  async search(query = '') {
-    return this.getPlayers({ q: query })
+  async search(query = '', filters = {}) {
+    return this.getPlayers({ ...filters, q: query })
   },
 
-  async listPaginated({
-    page = 1,
-    per_page = 15,
-    q = '',
-    include_inactive = false,
-    sort = '-id',
-  } = {}) {
+  async listPaginated(filters = {}) {
     const response = await httpClient.get('/players', {
-      params: {
-        page,
-        per_page,
-        q,
-        ...(include_inactive ? { include_inactive: 1 } : {}),
-        sort,
-      },
+      params: buildPlayerQueryParams(filters),
     })
 
     return {

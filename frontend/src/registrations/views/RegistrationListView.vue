@@ -11,6 +11,7 @@ import {
 } from '../../competitions/utils/competitionStructure'
 import BulkPlayerRegistrationModal from '../components/BulkPlayerRegistrationModal.vue'
 import RegistrationService from '../services/RegistrationService'
+import { resolveCompetitionCategorySlug } from '../../players/utils/playerRegistrationRowStatus'
 
 const route = useRoute()
 const competitionId = computed(() => route.params.id)
@@ -26,6 +27,8 @@ const bulkRegistrationSuccessMessage = ref('')
 const registeredPlayerIds = computed(() =>
   registrations.value.map((registration) => registration.player?.id).filter(Boolean),
 )
+
+const competitionCategorySlug = computed(() => resolveCompetitionCategorySlug(competition.value))
 
 const registrationsEditable = computed(() => isRegistrationsEditable(competition.value))
 
@@ -147,6 +150,7 @@ onMounted(async () => {
     <BulkPlayerRegistrationModal
       :show="showBulkRegistrationModal"
       :competition-id="competitionId"
+      :competition-category-slug="competitionCategorySlug"
       :registered-player-ids="registeredPlayerIds"
       @close="handleBulkRegistrationClose"
       @saved="handleBulkRegistrationSaved"

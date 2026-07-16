@@ -18,6 +18,8 @@ class StorePlayerRequest extends FormRequest
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'nickname' => ['nullable', 'string', 'max:255', Rule::unique('players', 'nickname')],
+            'category_id' => ['nullable', 'integer', Rule::exists('categories', 'id')],
+            'club_id' => ['nullable', 'integer', Rule::exists('clubs', 'id')],
             'active' => ['sometimes', 'boolean'],
         ];
     }

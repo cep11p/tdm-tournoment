@@ -35,6 +35,7 @@ class UpdateCompetitionRequest extends FormRequest
     {
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'category_id' => ['sometimes', 'integer', Rule::exists('categories', 'id')->where('active', true)],
             'category' => ['sometimes', 'required', 'string', 'max:255'],
             'type' => ['sometimes', Rule::enum(CompetitionType::class)],
             'format' => ['sometimes', Rule::enum(CompetitionFormat::class)],
@@ -45,6 +46,24 @@ class UpdateCompetitionRequest extends FormRequest
             'semifinal_best_of' => ['sometimes', 'integer', Rule::in([1, 3, 5, 7])],
             'final_best_of' => ['sometimes', 'integer', Rule::in([1, 3, 5, 7])],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $payload = [];
+
+        if (! $this->filled('category_id') && $this->filled('category')) {
+            $slug = mb_strtolower(trim((string) $this->input('category')));
+            $categoryId = \App\Models\Category::query()->where('slug', $slug)->value('id');
+
+            if ($categoryId !== null) {
+                $payload['category_id'] = $categoryId;
+            }
+        }
+
+        if ($payload !== []) {
+            $this->merge($payload);
+        }
     }
 
     public function withValidator(Validator $validator): void

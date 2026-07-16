@@ -19,7 +19,8 @@ class StoreCompetitionRequest extends FormRequest
         return [
             'tournament_id' => ['required', 'integer', 'exists:tournaments,id'],
             'name' => ['required', 'string', 'max:255'],
-            'category' => ['required', 'string', 'max:255'],
+            'category_id' => ['required', 'integer', Rule::exists('categories', 'id')->where('active', true)],
+            'category' => ['sometimes', 'string', 'max:255'],
             'type' => ['required', Rule::enum(CompetitionType::class)],
             'format' => ['required', Rule::enum(CompetitionFormat::class)],
             'points_per_set' => ['required', 'integer', 'min:1'],
@@ -33,12 +34,25 @@ class StoreCompetitionRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $payload = [];
+
         $tournament = $this->route('tournament');
 
         if ($tournament !== null) {
-            $this->merge([
-                'tournament_id' => $tournament->getKey(),
-            ]);
+            $payload['tournament_id'] = $tournament->getKey();
+        }
+
+        if (! $this->filled('category_id') && $this->filled('category')) {
+            $slug = mb_strtolower(trim((string) $this->input('category')));
+            $categoryId = \App\Models\Category::query()->where('slug', $slug)->value('id');
+
+            if ($categoryId !== null) {
+                $payload['category_id'] = $categoryId;
+            }
+        }
+
+        if ($payload !== []) {
+            $this->merge($payload);
         }
     }
 }

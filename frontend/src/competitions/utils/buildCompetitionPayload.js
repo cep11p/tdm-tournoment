@@ -4,7 +4,7 @@ function showGroupStageFields(format) {
 
 export const DEFAULT_COMPETITION_FORM_VALUES = {
   name: '',
-  category: '',
+  category_id: '',
   type: 'singles',
   format: 'groups_knockout',
   points_per_set: 11,
@@ -22,7 +22,7 @@ export function competitionToFormValues(competition) {
 
   return {
     name: competition.name ?? '',
-    category: competition.category ?? '',
+    category_id: competition.category_id ?? competition.category_ref?.id ?? '',
     type: competition.type ?? 'singles',
     format: competition.format ?? 'groups_knockout',
     points_per_set: competition.points_per_set ?? 11,
@@ -38,7 +38,7 @@ export function buildCompetitionPayload(form, { structureEditable = true } = {})
   if (!structureEditable) {
     return {
       name: form.name,
-      category: form.category,
+      category_id: form.category_id === '' ? null : Number(form.category_id),
     }
   }
 
@@ -46,7 +46,7 @@ export function buildCompetitionPayload(form, { structureEditable = true } = {})
 
   return {
     name: form.name,
-    category: form.category,
+    category_id: form.category_id === '' ? null : Number(form.category_id),
     type: form.type,
     format: form.format,
     points_per_set: Number(form.points_per_set),

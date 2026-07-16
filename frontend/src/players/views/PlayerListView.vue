@@ -2,11 +2,14 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 
+import PlayerFilters from '../components/PlayerFilters.vue'
 import PlayerService from '../services/PlayerService'
 
 const players = ref([])
 const meta = ref({})
 const searchQuery = ref('')
+const categoryId = ref('')
+const clubId = ref('')
 const includeInactive = ref(false)
 const currentPage = ref(1)
 const perPage = 15
@@ -26,6 +29,8 @@ const currentPageLabel = computed(() => meta.value.current_page ?? 1)
 const lastPageLabel = computed(() => meta.value.last_page ?? 1)
 
 const displayNickname = (player) => player.nickname || '-'
+const displayCategory = (player) => player.category?.name || 'Sin categoría'
+const displayClub = (player) => player.club?.name || 'Sin club'
 
 const toggleActiveLabel = (player) => (player.active ? 'Desactivar' : 'Reactivar')
 
@@ -37,8 +42,10 @@ const loadPlayers = async () => {
     const result = await PlayerService.listPaginated({
       page: currentPage.value,
       per_page: perPage,
-      q: searchQuery.value.trim(),
-      include_inactive: includeInactive.value,
+      q: searchQuery.value,
+      categoryId: categoryId.value,
+      clubId: clubId.value,
+      includeInactive: includeInactive.value,
     })
 
     players.value = result.data
@@ -147,38 +154,15 @@ onMounted(loadPlayers)
       </RouterLink>
     </div>
 
-    <form class="flex flex-wrap items-end gap-3" @submit.prevent="handleSearch">
-      <label class="min-w-[16rem] flex-1">
-        <span class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200">
-          Buscar jugador
-        </span>
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="Nombre, apellido o apodo"
-          class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-          :disabled="isLoading"
-        />
-      </label>
-
-      <button
-        type="submit"
-        class="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-        :disabled="isLoading"
-      >
-        Buscar
-      </button>
-
-      <label class="flex items-center gap-2 pb-2 text-sm text-slate-700 dark:text-slate-200">
-        <input
-          v-model="includeInactive"
-          type="checkbox"
-          class="rounded border-slate-300 dark:border-slate-600"
-          :disabled="isLoading"
-        />
-        Incluir inactivos
-      </label>
-    </form>
+    <PlayerFilters
+      v-model:search-query="searchQuery"
+      v-model:category-id="categoryId"
+      v-model:club-id="clubId"
+      v-model:include-inactive="includeInactive"
+      show-include-inactive
+      :disabled="isLoading"
+      @search="handleSearch"
+    />
 
     <p v-if="successMessage" class="text-sm text-emerald-700 dark:text-emerald-300">
       {{ successMessage }}
@@ -214,6 +198,16 @@ onMounted(loadPlayers)
             <th
               class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
             >
+              Categoría
+            </th>
+            <th
+              class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
+            >
+              Club
+            </th>
+            <th
+              class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
+            >
               Estado
             </th>
             <th
@@ -234,6 +228,12 @@ onMounted(loadPlayers)
             </td>
             <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
               {{ displayNickname(player) }}
+            </td>
+            <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
+              {{ displayCategory(player) }}
+            </td>
+            <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
+              {{ displayClub(player) }}
             </td>
             <td class="px-4 py-3 text-sm">
               <span

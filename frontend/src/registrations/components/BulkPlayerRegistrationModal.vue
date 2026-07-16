@@ -1,7 +1,14 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 
+import PlayerFilters from '../../players/components/PlayerFilters.vue'
 import PlayerService from '../../players/services/PlayerService'
+import {
+  isPlayerRegistrationRowSelectable,
+  isPlayerRegistrationRowWarning,
+  PLAYER_REGISTRATION_ROW_STATUS,
+  resolvePlayerRegistrationRowStatus,
+} from '../../players/utils/playerRegistrationRowStatus'
 import RegistrationService from '../services/RegistrationService'
 
 const props = defineProps({
@@ -13,6 +20,10 @@ const props = defineProps({
     type: [String, Number],
     required: true,
   },
+  competitionCategorySlug: {
+    type: String,
+    default: '',
+  },
   registeredPlayerIds: {
     type: Array,
     default: () => [],
@@ -22,6 +33,8 @@ const props = defineProps({
 const emit = defineEmits(['close', 'saved'])
 
 const searchQuery = ref('')
+const categoryId = ref('')
+const clubId = ref('')
 const players = ref([])
 const selectedIds = ref(new Set())
 const isLoadingPlayers = ref(false)
@@ -34,11 +47,33 @@ const registeredSet = computed(() => new Set(props.registeredPlayerIds))
 
 const visiblePlayers = computed(() => players.value)
 
+const playerRowStatus = (player) =>
+  resolvePlayerRegistrationRowStatus(player, {
+    registeredPlayerIds: registeredSet.value,
+    competitionCategorySlug: props.competitionCategorySlug,
+  })
+
 const selectablePlayers = computed(() =>
-  visiblePlayers.value.filter((player) => !registeredSet.value.has(player.id)),
+  visiblePlayers.value.filter((player) =>
+    isPlayerRegistrationRowSelectable(playerRowStatus(player)),
+  ),
 )
 
 const selectedCount = computed(() => selectedIds.value.size)
+
+const selectedWarningCount = computed(() => {
+  let count = 0
+
+  for (const playerId of selectedIds.value) {
+    const player = players.value.find((entry) => entry.id === playerId)
+
+    if (player && isPlayerRegistrationRowWarning(playerRowStatus(player))) {
+      count += 1
+    }
+  }
+
+  return count
+})
 
 const allFilteredSelected = computed(() => {
   if (selectablePlayers.value.length === 0) {
@@ -70,8 +105,39 @@ const playerDisplayName = (player) => {
   return fullName || `Jugador #${player.id}`
 }
 
+const displayCategory = (player) => player.category?.name || 'Sin categoría'
+const displayClub = (player) => player.club?.name || 'Sin club'
+
+const rowStatusLabel = (status) => {
+  switch (status) {
+    case PLAYER_REGISTRATION_ROW_STATUS.UNAVAILABLE:
+      return 'No disponible'
+    case PLAYER_REGISTRATION_ROW_STATUS.CATEGORY_MISMATCH:
+      return 'Categoría distinta'
+    case PLAYER_REGISTRATION_ROW_STATUS.CATEGORY_UNINFORMED:
+      return 'Sin categoría'
+    default:
+      return 'Disponible'
+  }
+}
+
+const rowStatusClass = (status) => {
+  switch (status) {
+    case PLAYER_REGISTRATION_ROW_STATUS.CATEGORY_MISMATCH:
+      return 'bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100'
+    case PLAYER_REGISTRATION_ROW_STATUS.CATEGORY_UNINFORMED:
+      return 'bg-sky-100 text-sky-900 dark:bg-sky-950/40 dark:text-sky-100'
+    case PLAYER_REGISTRATION_ROW_STATUS.UNAVAILABLE:
+      return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+    default:
+      return 'text-slate-500 dark:text-slate-400'
+  }
+}
+
 const resetState = () => {
   searchQuery.value = ''
+  categoryId.value = ''
+  clubId.value = ''
   players.value = []
   selectedIds.value = new Set()
   loadError.value = ''
@@ -84,7 +150,11 @@ const loadPlayers = async () => {
   loadError.value = ''
 
   try {
-    players.value = await PlayerService.getPlayers({ q: searchQuery.value.trim() })
+    players.value = await PlayerService.getPlayers({
+      q: searchQuery.value.trim(),
+      categoryId: categoryId.value,
+      clubId: clubId.value,
+    })
   } catch (error) {
     loadError.value = error?.response?.data?.message || 'No se pudo cargar la lista de jugadores.'
     players.value = []
@@ -93,21 +163,21 @@ const loadPlayers = async () => {
   }
 }
 
-const isPlayerRegistered = (playerId) => registeredSet.value.has(playerId)
-
 const isPlayerSelected = (playerId) => selectedIds.value.has(playerId)
 
-const togglePlayer = (playerId) => {
-  if (isPlayerRegistered(playerId)) {
+const togglePlayer = (player) => {
+  const status = playerRowStatus(player)
+
+  if (!isPlayerRegistrationRowSelectable(status)) {
     return
   }
 
   const next = new Set(selectedIds.value)
 
-  if (next.has(playerId)) {
-    next.delete(playerId)
+  if (next.has(player.id)) {
+    next.delete(player.id)
   } else {
-    next.add(playerId)
+    next.add(player.id)
   }
 
   selectedIds.value = next
@@ -216,7 +286,7 @@ watch([allFilteredSelected, someFilteredSelected, selectablePlayers], () => {
       @click.self="handleClose"
     >
       <div
-        class="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-md border border-slate-200 bg-white text-sm shadow-xl dark:border-slate-700 dark:bg-slate-900"
+        class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-md border border-slate-200 bg-white text-sm shadow-xl dark:border-slate-700 dark:bg-slate-900"
         role="dialog"
         aria-modal="true"
         aria-labelledby="bulk-registration-modal-title"
@@ -234,26 +304,14 @@ watch([allFilteredSelected, someFilteredSelected, selectablePlayers], () => {
             </p>
           </div>
 
-          <form class="flex items-end gap-2" @submit.prevent="handleSearch">
-            <label class="flex-1">
-              <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Buscar jugador</span>
-              <input
-                v-model="searchQuery"
-                type="text"
-                placeholder="Nombre, apellido o apodo"
-                class="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                :disabled="isLoadingPlayers || isSubmitting"
-              />
-            </label>
-
-            <button
-              type="submit"
-              class="rounded-md bg-slate-900 px-3 py-2 font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-              :disabled="isLoadingPlayers || isSubmitting"
-            >
-              {{ isLoadingPlayers ? 'Buscando...' : 'Buscar' }}
-            </button>
-          </form>
+          <PlayerFilters
+            v-model:search-query="searchQuery"
+            v-model:category-id="categoryId"
+            v-model:club-id="clubId"
+            compact
+            :disabled="isLoadingPlayers || isSubmitting"
+            @search="handleSearch"
+          />
 
           <div class="flex flex-wrap items-center gap-2">
             <button
@@ -280,6 +338,9 @@ watch([allFilteredSelected, someFilteredSelected, selectablePlayers], () => {
 
             <span v-if="selectedCount > 0" class="text-xs text-slate-600 dark:text-slate-400">
               {{ selectedCount }} seleccionado{{ selectedCount === 1 ? '' : 's' }}
+              <template v-if="selectedWarningCount > 0">
+                · {{ selectedWarningCount }} con advertencia
+              </template>
             </span>
           </div>
 
@@ -319,6 +380,12 @@ watch([allFilteredSelected, someFilteredSelected, selectablePlayers], () => {
                     Jugador
                   </th>
                   <th scope="col" class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Categoría
+                  </th>
+                  <th scope="col" class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    Club
+                  </th>
+                  <th scope="col" class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     Estado
                   </th>
                 </tr>
@@ -328,25 +395,38 @@ watch([allFilteredSelected, someFilteredSelected, selectablePlayers], () => {
                   v-for="player in visiblePlayers"
                   :key="player.id"
                   class="text-slate-900 dark:text-slate-100"
-                  :class="isPlayerRegistered(player.id) ? 'bg-slate-50 dark:bg-slate-800/40' : ''"
+                  :class="playerRowStatus(player) === PLAYER_REGISTRATION_ROW_STATUS.UNAVAILABLE ? 'bg-slate-50 dark:bg-slate-800/40' : ''"
                 >
                   <td class="px-3 py-2">
                     <input
                       type="checkbox"
                       :checked="isPlayerSelected(player.id)"
-                      :disabled="isPlayerRegistered(player.id) || isSubmitting"
-                      @change="togglePlayer(player.id)"
+                      :disabled="!isPlayerRegistrationRowSelectable(playerRowStatus(player)) || isSubmitting"
+                      @change="togglePlayer(player)"
                     />
                   </td>
                   <td class="px-3 py-2">
                     {{ playerDisplayName(player) }}
                   </td>
+                  <td class="px-3 py-2 text-xs text-slate-600 dark:text-slate-300">
+                    {{ displayCategory(player) }}
+                  </td>
+                  <td class="px-3 py-2 text-xs text-slate-600 dark:text-slate-300">
+                    {{ displayClub(player) }}
+                  </td>
                   <td class="px-3 py-2">
                     <span
-                      v-if="isPlayerRegistered(player.id)"
+                      v-if="registeredSet.has(player.id)"
                       class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                     >
                       Ya inscripto
+                    </span>
+                    <span
+                      v-else-if="playerRowStatus(player) !== PLAYER_REGISTRATION_ROW_STATUS.COMPATIBLE"
+                      class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+                      :class="rowStatusClass(playerRowStatus(player))"
+                    >
+                      {{ rowStatusLabel(playerRowStatus(player)) }}
                     </span>
                     <span v-else class="text-xs text-slate-500 dark:text-slate-400">Disponible</span>
                   </td>

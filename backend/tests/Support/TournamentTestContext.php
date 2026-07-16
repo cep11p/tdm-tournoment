@@ -6,6 +6,7 @@ use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
 use App\Enums\TournamentStatus;
 use App\Models\Bracket;
+use App\Models\Category;
 use App\Models\Competition;
 use App\Models\Game;
 use App\Models\Group;
@@ -48,6 +49,7 @@ final class TournamentTestContext
             'name' => 'Singles Test',
             'type' => CompetitionType::Singles,
             'category' => 'primera',
+            'category_id' => Category::query()->where('slug', 'primera')->value('id'),
             'format' => $format,
             'sets_to_win' => $setsToWin,
             'points_per_set' => $pointsPerSet,
@@ -261,7 +263,7 @@ final class TournamentTestContext
     ): TestResponse {
         return $this->test->postJson($this->apiUrl("tournaments/{$tournamentId}/competitions"), [
             'name' => 'Singles Test',
-            'category' => 'primera',
+            'category_id' => Category::query()->where('slug', 'primera')->value('id'),
             'type' => 'singles',
             'format' => 'groups_knockout',
             'points_per_set' => 11,

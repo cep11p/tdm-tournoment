@@ -32,6 +32,18 @@ class CompetitionResource extends JsonResource
             'tournament_id' => $this->tournament_id,
             'name' => $this->name,
             'category' => $this->category,
+            'category_id' => $this->category_id,
+            'category_ref' => $this->whenLoaded('categoryModel', function () {
+                if ($this->categoryModel === null) {
+                    return null;
+                }
+
+                return [
+                    'id' => $this->categoryModel->id,
+                    'name' => $this->categoryModel->name,
+                    'slug' => $this->categoryModel->slug,
+                ];
+            }),
             'type' => $type,
             'format' => $format,
             'format_label' => $normalizedFormat->label(),

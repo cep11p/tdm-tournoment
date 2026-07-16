@@ -85,7 +85,8 @@ Representa una competencia concreta dentro de un torneo.
 | tournament_id   | bigint   | FK a Tournament.                                    |
 | name            | string   | Nombre descriptivo (ej: "Singles Primera").         |
 | type            | enum     | `singles` (en MVP solo singles).                    |
-| category        | string   | División (ej: primera, amateur, libre).             |
+| category        | string   | División legacy (ej: primera). Se mantiene por compatibilidad. |
+| category_id     | bigint   | FK nullable a Category. Preferido en formularios nuevos.       |
 | format          | enum     | `manual` (en MVP solo manual).                      |
 | sets_to_win              | int      | **Legacy (columna DB).** No se expone ni configura por API. Se rellena al crear desde `group_stage_best_of` solo por compatibilidad de esquema. |
 | points_per_set           | int      | Puntos necesarios para ganar un set (ej: 11).       |
@@ -183,12 +184,46 @@ Si la competencia no está finalizada, falta final, falta ganador o falta rival,
 
 Representa a una persona que participa como jugador.
 
-| Campo       | Tipo     | Descripción                  |
-|-------------|----------|------------------------------|
-| id          | bigint   | Identificador único.         |
-| first_name  | string   | Nombre.                      |
-| last_name   | string   | Apellido.                    |
-| nickname    | string   | Apodo (nullable).            |
+| Campo        | Tipo     | Descripción                                      |
+|--------------|----------|--------------------------------------------------|
+| id           | bigint   | Identificador único.                             |
+| first_name   | string   | Nombre.                                          |
+| last_name    | string   | Apellido.                                        |
+| nickname     | string   | Apodo (nullable, único).                         |
+| category_id  | bigint   | FK nullable a Category (categoría principal).    |
+| club_id      | bigint   | FK nullable a Club.                              |
+| active       | boolean  | Default `true`. Inactivos no se inscriben.       |
+
+La categoría del jugador es la **categoría principal actual**. No hay historial de cambios en el MVP.
+
+---
+
+### Category
+
+Catálogo de categorías/divisions normalizadas.
+
+| Campo  | Tipo    | Descripción                    |
+|--------|---------|--------------------------------|
+| id     | bigint  | Identificador único.           |
+| name   | string  | Nombre visible (ej: Primera).  |
+| slug   | string  | Identificador único (primera). |
+| active | boolean | Default `true`.                |
+
+Categorías iniciales: `primera`, `segunda`, `tercera`, `cuarta`, `libre`.
+
+---
+
+### Club
+
+Catálogo de clubes o instituciones.
+
+| Campo  | Tipo    | Descripción          |
+|--------|---------|----------------------|
+| id     | bigint  | Identificador único. |
+| name   | string  | Nombre del club.     |
+| active | boolean | Default `true`.      |
+
+Un jugador puede no tener club (`club_id = null`).
 
 ---
 
@@ -387,12 +422,15 @@ Tournament
 
 Competition
   ├── belongsTo Tournament
+  ├── belongsTo Category (nullable, category_id)
   ├── hasMany Registration
   ├── hasMany Group
   ├── hasMany Bracket
   └── hasMany Game
 
 Player
+  ├── belongsTo Category (nullable)
+  ├── belongsTo Club (nullable)
   ├── hasMany Registration
   ├── hasMany GroupPlayer
   ├── hasMany Game (player1)
@@ -436,6 +474,13 @@ Game
 
 GameSet
   └── belongsTo Game
+
+Category
+  ├── hasMany Player
+  └── hasMany Competition
+
+Club
+  └── hasMany Player
 ```
 
 ---
@@ -557,11 +602,62 @@ También se pueden crear games manuales directamente en la competencia.
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
+| GET | `/api/v1/categories` | Listar categorías activas |
+| GET | `/api/v1/clubs` | Listar clubes activos |
 | POST | `/api/v1/players` | Crear jugador |
-| GET | `/api/v1/players` | Listar jugadores |
+| GET | `/api/v1/players` | Listar jugadores (`q`, `category_id`, `club_id`, `include_inactive`, `sort`, `page`, `per_page`) |
 | GET | `/api/v1/players/{player}` | Ver jugador |
+| PATCH | `/api/v1/players/{player}` | Actualizar jugador |
+| DELETE | `/api/v1/players/{player}` | Eliminar jugador (solo sin historial) |
 | POST | `/api/v1/competitions/{competition}/registrations` | Inscribir jugador |
+| POST | `/api/v1/competitions/{competition}/registrations/bulk` | Inscripción masiva (`player_ids`) |
 | GET | `/api/v1/competitions/{competition}/registrations` | Listar inscripciones |
+
+#### Filtros de jugadores (`GET /players`)
+
+| Parámetro | Descripción |
+|-----------|-------------|
+| `q` | Búsqueda por nombre, apellido o apodo |
+| `category_id` | Filtra por categoría principal |
+| `club_id` | Filtra por club |
+| `include_inactive` | Incluye jugadores inactivos |
+| `sort` | `-id` (default), `id`, `last_name`, `-last_name` |
+| `page` / `per_page` | Paginación (sin `page` devuelve todos los resultados) |
+
+#### Inscripción masiva
+
+`POST /competitions/{competition}/registrations/bulk`
+
+```json
+{ "player_ids": [1, 2, 3] }
+```
+
+Respuesta:
+
+```json
+{
+  "message": "Inscripción masiva procesada.",
+  "created": 2,
+  "skipped": 1,
+  "total": 3
+}
+```
+
+- Omite jugadores ya inscriptos (`skipped`).
+- Rechaza jugadores inactivos o inexistentes.
+- **No bloquea** por diferencia de categoría entre jugador y competencia.
+- La advertencia por categoría distinta es **solo visual** en la UI antes de confirmar.
+
+#### Compatibilidad de categoría en inscripción (UI)
+
+| Estado | Criterio |
+|--------|----------|
+| Compatible | Activo, no inscripto, misma categoría |
+| Categoría distinta | Activo, no inscripto, categoría diferente (advertencia, inscripción permitida) |
+| Sin categoría | Activo, no inscripto, `category_id` null (inscripción permitida) |
+| No disponible | Ya inscripto, inactivo u otra restricción real |
+
+**Postergado:** historial `player_categories`, políticas configurables (`strict`/`warning`/`open`), inscripción por filtro completo.
 
 ### Grupos y standings
 
