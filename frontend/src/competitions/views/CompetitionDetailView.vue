@@ -35,6 +35,7 @@ import {
   registrationsLockReason,
   structureLockReason,
 } from '../utils/competitionStructure'
+import { getCompetitionTypeLabel } from '../../shared/constants/competitionType'
 
 const route = useRoute()
 
@@ -322,7 +323,7 @@ const structureAction = computed(() => {
     return {
       key: 'generate-bracket-disabled',
       type: 'disabled',
-      label: 'Generar bracket',
+      label: 'Generar llave',
       description:
         groupPhaseBracketBlockMessage.value ??
         'La fase de grupos requiere atención antes de generar la llave.',
@@ -335,7 +336,7 @@ const structureAction = computed(() => {
       return {
         key: 'generate-bracket-disabled',
         type: 'disabled',
-        label: 'Generar bracket',
+        label: 'Generar llave',
         description:
           groupPhaseBracketBlockMessage.value ??
           'La fase de grupos requiere atención antes de generar la llave.',
@@ -347,7 +348,7 @@ const structureAction = computed(() => {
       key: 'generate-bracket',
       type: 'link',
       to: bracketRoute.value,
-      label: 'Generar bracket',
+      label: 'Generar llave',
       description: 'Crear la llave eliminatoria',
       icon: TrophyIcon,
     }
@@ -357,7 +358,7 @@ const structureAction = computed(() => {
     return {
       key: 'generate-bracket-disabled',
       type: 'disabled',
-      label: 'Generar bracket',
+      label: 'Generar llave',
       description: 'Hay partidos de grupo pendientes. Completalos antes de generar la llave.',
       icon: TrophyIcon,
     }
@@ -367,7 +368,7 @@ const structureAction = computed(() => {
     return {
       key: 'generate-bracket-disabled',
       type: 'disabled',
-      label: 'Generar bracket',
+      label: 'Generar llave',
       description: 'Hay grupos sin partidos generados.',
       icon: TrophyIcon,
     }
@@ -377,7 +378,7 @@ const structureAction = computed(() => {
     return {
       key: 'generate-bracket-disabled',
       type: 'disabled',
-      label: 'Generar bracket',
+      label: 'Generar llave',
       description: 'Necesitás al menos 2 jugadores inscriptos',
       icon: TrophyIcon,
     }
@@ -435,20 +436,22 @@ const bracketCompactStats = computed(() => {
 
   const groupCountNum = groups.value?.length ?? 0
   const totalQualified = groupCountNum > 0 ? groupCountNum * qualifiedPerGroup.value : null
-  const bracketSizeLine = preview.statsLines.find((line) => line.includes('bracket de'))
-  const byesLine = preview.detailLines.find((line) => line.includes('BYE'))
+  const bracketSizeLine = preview.statsLines.find((line) => line.includes('llave de'))
+  const byesLine = preview.detailLines.find(
+    (line) => line.includes('Pase directo') || line.includes('pases directos'),
+  )
 
   let bracketSize = null
 
   if (bracketSizeLine) {
-    const match = bracketSizeLine.match(/bracket de (\d+)/)
+    const match = bracketSizeLine.match(/llave de (\d+)/)
     bracketSize = match ? Number(match[1]) : null
   }
 
   let byesCount = null
 
   if (byesLine) {
-    const match = byesLine.match(/(\d+) BYE/)
+    const match = byesLine.match(/(\d+) pase/)
     byesCount = match ? Number(match[1]) : 0
   } else if (bracketSize !== null && totalQualified !== null) {
     byesCount = Math.max(0, bracketSize - totalQualified)
@@ -952,7 +955,7 @@ const handleEditCompetitionSaved = async () => {
 
                 <div v-if="bracketCompactStats.bracketSize !== null">
                   <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    Tamaño del bracket
+                    Tamaño de la llave
                   </dt>
                   <dd class="mt-0.5 font-medium text-slate-900 dark:text-slate-100">
                     {{ bracketCompactStats.bracketSize }}
@@ -961,7 +964,7 @@ const handleEditCompetitionSaved = async () => {
 
                 <div v-if="bracketCompactStats.byesCount !== null && bracketCompactStats.byesCount > 0">
                   <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    BYEs
+                    Pases directos
                   </dt>
                   <dd class="mt-0.5 font-medium text-slate-900 dark:text-slate-100">
                     {{ bracketCompactStats.byesCount }}
@@ -1113,7 +1116,9 @@ const handleEditCompetitionSaved = async () => {
 
             <div>
               <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Tipo</dt>
-              <dd class="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{{ competition.type }}</dd>
+              <dd class="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+                {{ getCompetitionTypeLabel(competition.type) }}
+              </dd>
             </div>
 
             <div>

@@ -16,8 +16,8 @@ const STATUS_LABEL_BY_CODE = {
   group_stage_pending: 'Fase de grupos pendiente',
   group_stage_in_progress: 'Fase de grupos en curso',
   group_stage_attention_required: 'Fase de grupos requiere atención',
-  ready_for_bracket: 'Llave pendiente',
-  knockout_in_progress: 'Llave en curso',
+  ready_for_bracket: 'Lista para generar llave',
+  knockout_in_progress: 'Eliminatoria en curso',
   completed: 'Finalizada',
   no_groups: 'Sin grupos',
   awaiting_registrations: 'Esperando inscriptos',
@@ -60,13 +60,17 @@ export function getStructureSecondary(competition) {
 }
 
 export function getStatusLabel(competition) {
+  if (competition?.status_summary?.label) {
+    return competition.status_summary.label
+  }
+
   const code = competition?.status_summary?.code
 
   if (code && STATUS_LABEL_BY_CODE[code]) {
     return STATUS_LABEL_BY_CODE[code]
   }
 
-  return competition?.status_summary?.label ?? '-'
+  return '-'
 }
 
 export function getStatusBadgeClasses(competition) {

@@ -115,7 +115,7 @@ const handleCancel = () => {
 
     <div class="space-y-1">
       <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="nickname">
-        Nickname
+        Apodo
       </label>
       <input
         id="nickname"

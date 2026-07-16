@@ -76,7 +76,7 @@ const formatParticipantName = (registration) => {
           {{ formatParticipantName(registration) }}
         </p>
         <p class="text-slate-600 dark:text-slate-400">
-          Nickname: {{ registration.player?.nickname || '-' }}
+          Apodo: {{ registration.player?.nickname || '-' }}
         </p>
       </article>
     </div>

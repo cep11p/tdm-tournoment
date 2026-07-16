@@ -14,14 +14,20 @@ import GameService from '../../games/services/GameService'
 import GroupService from '../../groups/services/GroupService'
 import GameResultModal from '../../games/components/GameResultModal.vue'
 import { extractApiErrorMessage } from '../../shared/utils/extractApiErrorMessage'
+import {
+  getGameStatusBadgeClasses,
+  getGameStatusLabel,
+} from '../../shared/constants/gameStatus'
 import StandingService from '../../standings/services/StandingService'
 import BracketService from '../services/BracketService'
 import {
   BYE_BADGE_LABEL,
   BYE_BADGE_LABEL_GROUP_FIRST,
+  BYE_OPPONENT_LABEL,
   PLAY_IN_BADGE_LABEL,
   PLAY_IN_ROUND_LABEL,
   QUALIFYING_ROUND_BANNER,
+  UNASSIGNED_PLAYER_LABEL,
 } from '../constants/bracketLabels'
 
 const route = useRoute()
@@ -208,7 +214,7 @@ const loadData = async () => {
 
 const playerName = (player) => {
   if (!player?.id) {
-    return 'BYE'
+    return BYE_OPPONENT_LABEL
   }
 
   return `${player.first_name} ${player.last_name}`.trim()
@@ -236,10 +242,10 @@ const byeBadgeLabel = (game) => {
 
 const opponentLabel = (game, player) => {
   if (isByeGame(game)) {
-    return isQualifyingRoundGame(game) ? 'Sin rival' : 'BYE'
+    return isQualifyingRoundGame(game) ? 'Sin rival' : BYE_OPPONENT_LABEL
   }
 
-  return playerName(player)
+  return player?.id ? playerName(player) : UNASSIGNED_PLAYER_LABEL
 }
 
 const matchFormatLabel = (game) => {
@@ -283,19 +289,7 @@ const statusLabel = (game) => {
     return isQualifyingRoundGame(game) ? BYE_BADGE_LABEL : 'Avance automático'
   }
 
-  if (game?.status === 'finished') {
-    return 'Finalizado'
-  }
-
-  if (game?.status === 'in_progress') {
-    return 'En curso'
-  }
-
-  if (game?.status === 'pending') {
-    return 'Pendiente'
-  }
-
-  return game?.status || 'Sin estado'
+  return getGameStatusLabel(game?.status)
 }
 
 const winnerName = (game) => {
@@ -320,14 +314,10 @@ const winnerName = (game) => {
 
 const statusBadgeClasses = (game) => {
   if (isByeGame(game) || game?.status === 'finished') {
-    return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
+    return getGameStatusBadgeClasses('finished')
   }
 
-  if (game?.status === 'in_progress') {
-    return 'bg-sky-100 text-sky-800 dark:bg-sky-900/60 dark:text-sky-200'
-  }
-
-  return 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200'
+  return getGameStatusBadgeClasses(game?.status ?? 'pending')
 }
 
 const setsResult = (game) => {
@@ -744,7 +734,7 @@ onMounted(loadData)
           </div>
 
           <div>
-            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">BYEs</dt>
+            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Pases directos</dt>
             <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ bracket.byes_count ?? 0 }}</dd>
           </div>
 

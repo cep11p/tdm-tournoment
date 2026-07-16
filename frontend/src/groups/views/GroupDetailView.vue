@@ -10,6 +10,10 @@ import CompetitionService from '../../competitions/services/CompetitionService'
 import { structureLockReason } from '../../competitions/utils/competitionStructure'
 import GameResultModal from '../../games/components/GameResultModal.vue'
 import GameService from '../../games/services/GameService'
+import {
+  getGameStatusBadgeClasses,
+  getGameStatusLabel,
+} from '../../shared/constants/gameStatus'
 import StandingService from '../../standings/services/StandingService'
 import {
   getQualificationBadgeClasses,
@@ -391,19 +395,15 @@ const statusLabel = (game) => {
     return 'Avance automático'
   }
 
-  if (game?.status === 'finished') {
-    return 'Finalizado'
+  return getGameStatusLabel(game?.status)
+}
+
+const statusBadgeClasses = (game) => {
+  if (isByeGame(game) || game?.status === 'finished') {
+    return getGameStatusBadgeClasses('finished')
   }
 
-  if (game?.status === 'in_progress') {
-    return 'En curso'
-  }
-
-  if (game?.status === 'pending') {
-    return 'Pendiente'
-  }
-
-  return game?.status || 'Sin estado'
+  return getGameStatusBadgeClasses(game?.status ?? 'pending')
 }
 
 const winnerName = (game) => {
@@ -424,18 +424,6 @@ const winnerName = (game) => {
   }
 
   return `Jugador #${game.winner_id}`
-}
-
-const statusBadgeClasses = (game) => {
-  if (isByeGame(game) || game?.status === 'finished') {
-    return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
-  }
-
-  if (game?.status === 'in_progress') {
-    return 'bg-sky-100 text-sky-800 dark:bg-sky-900/60 dark:text-sky-200'
-  }
-
-  return 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200'
 }
 
 const setsResult = (game) => {
@@ -563,13 +551,13 @@ const handleGenerateRoundRobin = async () => {
 
   try {
     const createdGames = await GroupService.generateRoundRobin(groupId.value)
-    roundRobinSuccessMessage.value = `Round robin generado. Partidos creados: ${createdGames.length}.`
+    roundRobinSuccessMessage.value = `Todos contra todos generado. Partidos creados: ${createdGames.length}.`
     await Promise.all([loadGroupGames(), loadStandings()])
   } catch (error) {
     roundRobinError.value =
       error?.response?.data?.errors?.group?.[0] ||
       error?.response?.data?.message ||
-      'No se pudo generar el round robin.'
+      'No se pudo generar el cuadro de todos contra todos.'
   } finally {
     isGeneratingRoundRobin.value = false
   }
@@ -803,7 +791,7 @@ onMounted(async () => {
           :disabled="isGeneratingRoundRobin"
           @click="handleGenerateRoundRobin"
         >
-          {{ isGeneratingRoundRobin ? 'Generando...' : 'Generar round robin' }}
+          {{ isGeneratingRoundRobin ? 'Generando...' : 'Generar todos contra todos' }}
         </button>
       </div>
 

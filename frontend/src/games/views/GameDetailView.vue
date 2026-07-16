@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import GameService from '../services/GameService'
+import { getGameStatusLabel } from '../../shared/constants/gameStatus'
 
 const route = useRoute()
 const gameId = computed(() => route.params.id)
@@ -76,7 +77,7 @@ const setsSummary = computed(() => {
 
 const matchFormatLabel = computed(() => {
   if (game.value?.is_bye) {
-    return 'Avance automático por BYE'
+    return 'Pase directo (BYE)'
   }
 
   if (game.value?.best_of && game.value?.sets_to_win) {
@@ -176,7 +177,7 @@ onMounted(loadGame)
         "
       >
         <p class="font-medium text-slate-900 dark:text-slate-100">Resultado del partido</p>
-        <p class="text-slate-600 dark:text-slate-300">Estado: {{ game.status }}</p>
+        <p class="text-slate-600 dark:text-slate-300">Estado: {{ getGameStatusLabel(game.status) }}</p>
         <p
           v-if="isFinished"
           class="font-semibold text-emerald-800 dark:text-emerald-300"

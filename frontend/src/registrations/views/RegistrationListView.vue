@@ -140,7 +140,7 @@ onMounted(async () => {
         <p class="font-medium text-slate-900 dark:text-slate-100">
           {{ registration.player.first_name }} {{ registration.player.last_name }}
         </p>
-        <p class="text-slate-600 dark:text-slate-400">Nickname: {{ registration.player.nickname || '-' }}</p>
+        <p class="text-slate-600 dark:text-slate-400">Apodo: {{ registration.player.nickname || '-' }}</p>
       </article>
     </div>
 

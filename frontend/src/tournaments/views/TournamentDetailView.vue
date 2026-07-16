@@ -19,6 +19,7 @@ import {
   getStructurePrimary,
   getStructureSecondary,
 } from '../../competitions/utils/competitionListDisplay'
+import { getCompetitionTypeLabel } from '../../shared/constants/competitionType'
 import TournamentFormModal from '../components/TournamentFormModal.vue'
 import TournamentService from '../services/TournamentService'
 import {
@@ -306,7 +307,7 @@ const handleCompetitionSaved = async () => {
                     v-if="competition.category || competition.type"
                     class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
                   >
-                    {{ [competition.category, competition.type].filter(Boolean).join(' · ') }}
+                    {{ [competition.category, getCompetitionTypeLabel(competition.type)].filter(Boolean).join(' · ') }}
                   </p>
                 </td>
                 <td class="px-4 py-3 text-sm">

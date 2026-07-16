@@ -1,8 +1,12 @@
-const STATUS_LABELS = {
-  draft: 'Draft',
-  in_progress: 'En curso',
-  finished: 'Finalizado',
-}
+export const TOURNAMENT_STATUS_OPTIONS = [
+  { value: 'draft', label: 'Borrador' },
+  { value: 'in_progress', label: 'En curso' },
+  { value: 'finished', label: 'Finalizado' },
+]
+
+const STATUS_LABELS = Object.fromEntries(
+  TOURNAMENT_STATUS_OPTIONS.map(({ value, label }) => [value, label]),
+)
 
 export function getTournamentStatusLabel(status) {
   if (!status) {

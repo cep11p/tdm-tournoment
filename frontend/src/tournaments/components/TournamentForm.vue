@@ -2,6 +2,7 @@
 import { reactive, watch } from 'vue'
 
 import { buildTournamentPayload } from '../utils/buildTournamentPayload'
+import { TOURNAMENT_STATUS_OPTIONS } from '../utils/tournamentListDisplay'
 
 const props = defineProps({
   initialValues: {
@@ -159,9 +160,13 @@ const handleCancel = () => {
         :disabled="isSubmitting"
         :class="inputClasses"
       >
-        <option value="draft">draft</option>
-        <option value="in_progress">in_progress</option>
-        <option value="finished">finished</option>
+        <option
+          v-for="option in TOURNAMENT_STATUS_OPTIONS"
+          :key="option.value"
+          :value="option.value"
+        >
+          {{ option.label }}
+        </option>
       </select>
       <p v-if="fieldError('status')" class="text-xs text-red-600 dark:text-red-400">
         {{ fieldError('status') }}

@@ -155,7 +155,7 @@ onMounted(loadPlayers)
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="Nombre, apellido o nickname"
+          placeholder="Nombre, apellido o apodo"
           class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           :disabled="isLoading"
         />
@@ -209,7 +209,7 @@ onMounted(loadPlayers)
             <th
               class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
             >
-              Nickname
+              Apodo
             </th>
             <th
               class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"

@@ -2,6 +2,7 @@
 import { computed, reactive, watch } from 'vue'
 
 import { FORMAT_OPTIONS } from '../constants/competitionFormats'
+import { getCompetitionTypeLabel } from '../../shared/constants/competitionType'
 import {
   buildCompetitionPayload,
   DEFAULT_COMPETITION_FORM_VALUES,
@@ -173,7 +174,7 @@ const handleCancel = () => {
             :disabled="fieldsDisabled || isSubmitting"
             :class="structuralInputClass"
           >
-            <option value="singles">singles</option>
+            <option value="singles">{{ getCompetitionTypeLabel('singles') }}</option>
           </select>
           <p v-if="fieldError('type')" class="text-xs text-red-600 dark:text-red-400">
             {{ fieldError('type') }}
@@ -206,7 +207,7 @@ const handleCancel = () => {
         class="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/30 dark:text-sky-100"
       >
         En eliminación directa, todos los inscriptos pasan directamente a la llave. No se generan grupos ni
-        standings.
+        tablas de posiciones.
       </p>
 
       <div class="space-y-1">

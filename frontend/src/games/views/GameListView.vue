@@ -3,6 +3,11 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import GameService from '../services/GameService'
+import {
+  getGameListStatusBadge,
+  getGameStatusBadgeClasses,
+  getGameStatusLabel,
+} from '../../shared/constants/gameStatus'
 
 const route = useRoute()
 const competitionId = computed(() => route.params.id)
@@ -35,41 +40,21 @@ const winnerName = (game) => {
   return `Jugador #${game.winner_id}`
 }
 
-const statusBadge = (game) => {
-  if (game?.status === 'finished') {
-    return '✓ Finalizado'
-  }
-
-  if (game?.status === 'pending') {
-    return '⏳ Pendiente'
-  }
-
-  return game?.status || 'Sin estado'
-}
+const statusBadge = (game) => getGameListStatusBadge(game?.status)
 
 const cardClasses = (game) => {
   if (game?.status === 'finished') {
     return 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/40'
   }
 
-  if (game?.status === 'pending') {
+  if (game?.status === 'pending' || game?.status === 'in_progress') {
     return 'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40'
   }
 
   return 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/50'
 }
 
-const badgeClasses = (game) => {
-  if (game?.status === 'finished') {
-    return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
-  }
-
-  if (game?.status === 'pending') {
-    return 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200'
-  }
-
-  return 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
-}
+const badgeClasses = (game) => getGameStatusBadgeClasses(game?.status)
 
 const winnerClasses = (game) =>
   game?.status === 'finished'
@@ -156,7 +141,7 @@ onMounted(loadGames)
           </span>
         </div>
 
-        <p class="text-slate-600 dark:text-slate-300">Estado: {{ game.status }}</p>
+        <p class="text-slate-600 dark:text-slate-300">Estado: {{ getGameStatusLabel(game.status) }}</p>
         <p class="font-medium" :class="winnerClasses(game)">Ganador: {{ winnerName(game) }}</p>
         <p class="text-slate-600 dark:text-slate-300">Sets: {{ setsResult(game) }}</p>
 

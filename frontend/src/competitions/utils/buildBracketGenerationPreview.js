@@ -22,6 +22,13 @@ const nextPowerOfTwo = (count) => {
 
 const canUsePlayInDraw = (groupCount) => groupCount >= 4 && isPowerOfTwo(groupCount)
 
+const formatByeCountLabel = (count, suffix = '') => {
+  const base =
+    count === 1 ? `${count} pase directo (BYE)` : `${count} pases directos (BYE)`
+
+  return suffix ? `${base} ${suffix}` : base
+}
+
 export function buildBracketGenerationPreview({ qualifiedPerGroup = 2, groupCount = null } = {}) {
   const q = Number(qualifiedPerGroup) || 2
   const hasGroupCount = typeof groupCount === 'number'
@@ -40,7 +47,7 @@ export function buildBracketGenerationPreview({ qualifiedPerGroup = 2, groupCoun
   } else if (q === 3 && usesPlayIn) {
     introLines.push(
       'Clasifican 3 jugadores por grupo.',
-      'Se generará una ronda clasificatoria: los 1° de grupo pasan directo y los 2°/3° juegan play-in.',
+      'Se generará una ronda clasificatoria: los 1° de grupo pasan directo y los 2°/3° juegan la ronda preliminar.',
     )
   } else if (q === 3) {
     introLines.push(
@@ -71,16 +78,18 @@ export function buildBracketGenerationPreview({ qualifiedPerGroup = 2, groupCoun
         const byesCount = groupCount
         const playInCount = groupCount
 
-        statsLines.push(`Se generará un bracket de ${bracketSize} lugares:`)
-        detailLines.push(`${byesCount} BYE${byesCount === 1 ? '' : 's'} para los 1° de grupo`)
-        detailLines.push(`${playInCount} partido${playInCount === 1 ? '' : 's'} play-in entre 2° y 3°`)
+        statsLines.push(`Se generará una llave de ${bracketSize} lugares:`)
+        detailLines.push(formatByeCountLabel(byesCount, 'para los 1° de grupo'))
+        detailLines.push(
+          `${playInCount} partido${playInCount === 1 ? '' : 's'} de ronda preliminar entre 2° y 3°`,
+        )
       } else if (q === 2 || q === 3 || q === 1) {
         statsLines.push(`Se generará una llave de ${bracketSize} posiciones.`)
 
         const byesCount = bracketSize - totalQualified
 
         if (byesCount > 0) {
-          detailLines.push(`${byesCount} BYE${byesCount === 1 ? '' : 's'} en la primera ronda`)
+          detailLines.push(formatByeCountLabel(byesCount, 'en la primera ronda'))
         }
       }
 
@@ -112,6 +121,6 @@ export function buildBracketGenerationPreview({ qualifiedPerGroup = 2, groupCoun
     detailLines,
     warnings,
     hasQualifyingRound: usesPlayIn,
-    hasByes: detailLines.some((line) => line.includes('BYE')),
+    hasByes: detailLines.some((line) => line.includes('Pase directo') || line.includes('pases directos')),
   }
 }

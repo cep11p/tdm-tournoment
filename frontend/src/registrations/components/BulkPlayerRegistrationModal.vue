@@ -240,7 +240,7 @@ watch([allFilteredSelected, someFilteredSelected, selectablePlayers], () => {
               <input
                 v-model="searchQuery"
                 type="text"
-                placeholder="Nombre, apellido o nickname"
+                placeholder="Nombre, apellido o apodo"
                 class="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 :disabled="isLoadingPlayers || isSubmitting"
               />

@@ -2,6 +2,8 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
+import { BREADCRUMB_BRACKET, BREADCRUMB_TOURNAMENTS } from '../shared/constants/navigation'
+
 const props = defineProps({
   context: {
     type: Object,
@@ -23,7 +25,7 @@ const breadcrumbItems = computed(() => {
   const gameId = context.gameId ?? route.params.id
   const gameName = context.gameName
 
-  const items = [{ label: 'Tournaments', to: '/tournaments' }]
+  const items = [{ label: BREADCRUMB_TOURNAMENTS, to: '/tournaments' }]
 
   switch (route.name) {
     case 'tournaments-detail':
@@ -140,7 +142,7 @@ const breadcrumbItems = computed(() => {
         label: competitionName || `Competencia #${competitionId}`,
         to: `/competitions/${competitionId}`,
       })
-      items.push({ label: 'Bracket' })
+      items.push({ label: BREADCRUMB_BRACKET })
       break
 
     default:

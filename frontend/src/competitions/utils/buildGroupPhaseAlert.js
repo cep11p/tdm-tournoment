@@ -106,7 +106,7 @@ export function buildGroupPhaseAlert({ group, standings = [], meta = {}, games =
     needsAttention = false
     isReady = false
   } else if (!hasGroupGames) {
-    primaryLabel = 'Sin round robin'
+    primaryLabel = 'Sin todos contra todos'
     primaryType = 'muted'
     needsAttention = true
     isReady = false
@@ -192,7 +192,7 @@ export function summarizeGroupPhaseBracketGate(summaries = []) {
     }
   }
 
-  if (normalizedSummaries.some((summary) => summary.primaryLabel === 'Sin round robin')) {
+  if (normalizedSummaries.some((summary) => summary.primaryLabel === 'Sin todos contra todos')) {
     return {
       allGroupsReadyForBracket: false,
       blockMessage: 'Hay grupos sin partidos generados.',
