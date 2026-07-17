@@ -156,6 +156,43 @@ class AuditLogResourceTest extends TestCase
         $this->assertTrue($payload['subject']['exists']);
     }
 
+    public function test_tournament_and_player_subject_aliases_are_public(): void
+    {
+        $tournament = Tournament::query()->create([
+            'name' => 'Torneo Alias Resource',
+            'location' => 'Club',
+            'start_date' => now()->toDateString(),
+            'status' => 'draft',
+        ]);
+
+        $player = \App\Models\Player::query()->create([
+            'first_name' => 'Resource',
+            'last_name' => 'Player',
+        ]);
+
+        $tournamentPayload = (new AuditLogResource(
+            app(AuditLogger::class)->log(new AuditEntry(
+                action: AuditAction::TOURNAMENT_CREATED,
+                logName: 'tournaments',
+                subject: $tournament,
+            ))->load(['subject']),
+        ))->resolve();
+
+        $playerPayload = (new AuditLogResource(
+            app(AuditLogger::class)->log(new AuditEntry(
+                action: AuditAction::PLAYER_CREATED,
+                logName: 'players',
+                subject: $player,
+            ))->load(['subject']),
+        ))->resolve();
+
+        $this->assertSame('tournament', $tournamentPayload['subject']['type']);
+        $this->assertSame('Torneo Alias Resource', $tournamentPayload['subject']['label']);
+
+        $this->assertSame('player', $playerPayload['subject']['type']);
+        $this->assertSame('Resource Player', $playerPayload['subject']['label']);
+    }
+
     private function createActivityWithFullProperties(): Activity
     {
         $user = User::factory()->create([

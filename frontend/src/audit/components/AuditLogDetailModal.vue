@@ -47,6 +47,8 @@ const contextLines = computed(() => {
   return [
     { label: 'Torneo', value: context.tournament_name ?? (context.tournament_id ? `#${context.tournament_id}` : null) },
     { label: 'Competencia', value: context.competition_name ?? (context.competition_id ? `#${context.competition_id}` : null) },
+    { label: 'Jugador', value: context.player_name ?? (context.player_id ? `#${context.player_id}` : null) },
+    { label: 'Inscripción', value: context.registration_id ? `#${context.registration_id}` : null },
     { label: 'Grupo', value: context.group_name ?? (context.group_id ? `#${context.group_id}` : null) },
     { label: 'Llave', value: context.bracket_id ? `#${context.bracket_id}` : null },
     {

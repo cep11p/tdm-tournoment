@@ -1,10 +1,10 @@
-# Auditoría de operaciones deportivas críticas
+# Auditoría de operaciones críticas
 
-Este documento describe la estrategia de auditoría explícita (Slice 2.5A) y la consulta protegida de actividades (Slice 2.5B).
+Este documento describe la estrategia de auditoría explícita (Slices 2.5A–2.5C) y la consulta protegida de actividades (Slice 2.5B).
 
 ## Objetivo
 
-Registrar **una actividad legible por acción funcional confirmada**, incluso cuando la operación cree, actualice o elimine muchos registros internamente. La auditoría cubre operaciones deportivas críticas que modifican el estado del torneo.
+Registrar **una actividad legible por acción funcional confirmada**, incluso cuando la operación cree, actualice o elimine muchos registros internamente. La auditoría cubre operaciones administrativas y deportivas que modifican el estado del torneo.
 
 ## Paquete
 
@@ -23,7 +23,8 @@ Componentes:
 | `AuditAction` | Códigos estables de operación y labels |
 | `AuditEntry` | DTO con action, logName, subject, context, old, new, summary, reason |
 | `AuditContext` | Resuelve usuario, Keycloak ID, IP y user agent |
-| `AuditContextBuilder` | Construye contexto deportivo (torneo, competencia, grupo, etc.) |
+| `AuditContextBuilder` | Construye contexto deportivo y administrativo (torneo, competencia, jugador, etc.) |
+| `AuditChangeResolver` | Resuelve `old`/`new` desde campos dirty con normalización |
 | `AuditLogger` | Wrapper sobre Spatie; persiste `properties` con contrato uniforme |
 | `ListAuditLogsAction` | Consulta paginada con filtros |
 | `AuditLogSubjectPresenter` | Resuelve subject público con fallback histórico |
@@ -48,6 +49,9 @@ Todas las actividades guardan:
     "tournament_name": null,
     "competition_id": null,
     "competition_name": null,
+    "registration_id": null,
+    "player_id": null,
+    "player_name": null,
     "group_id": null,
     "group_name": null,
     "bracket_id": null,
@@ -75,6 +79,16 @@ El campo `description` de Spatie almacena el **código estable** (`AuditAction`)
 
 | Código | Label |
 |--------|-------|
+| `tournament.created` | Creación de torneo |
+| `tournament.updated` | Actualización de torneo |
+| `competition.created` | Creación de competencia |
+| `competition.updated` | Actualización de competencia |
+| `player.created` | Creación de jugador |
+| `player.updated` | Actualización de jugador |
+| `player.deactivated` | Desactivación de jugador |
+| `player.deleted` | Eliminación de jugador |
+| `registration.created` | Inscripción de jugador |
+| `registration.bulk_created` | Inscripción masiva |
 | `groups.regenerated` | Regeneración de grupos |
 | `bracket.created` | Generación de llave |
 | `bracket.round_advanced` | Avance de ronda |
@@ -83,7 +97,37 @@ El campo `description` de Spatie almacena el **código estable** (`AuditAction`)
 | `groups.player_status_changed` | Cambio de estado de jugador |
 | `groups.manual_tiebreak_applied` | Desempate manual |
 
+## Log names (módulos)
+
+| log_name | Uso |
+|----------|-----|
+| `tournaments` | CRUD de torneos |
+| `competitions` | CRUD de competencias |
+| `players` | CRUD y baja de jugadores |
+| `registrations` | Inscripciones individual y masiva |
+| `groups` | Grupos y operaciones de fase de grupos |
+| `bracket` | Llave eliminatoria |
+| `games` | Partidos y resultados |
+
 ## Operaciones incluidas
+
+### Administración (Slice 2.5C-1)
+
+| Action | log_name | Subject |
+|--------|----------|---------|
+| `CreateTournamentAction` | `tournaments` | `Tournament` |
+| `UpdateTournamentAction` | `tournaments` | `Tournament` |
+| `CreateCompetitionAction` | `competitions` | `Competition` |
+| `UpdateCompetitionAction` | `competitions` | `Competition` |
+| `CreatePlayerAction` | `players` | `Player` |
+| `UpdatePlayerAction` | `players` | `Player` |
+| `DeletePlayerAction` | `players` | `Player` |
+| `RegisterPlayerToCompetitionAction` | `registrations` | `Competition` |
+| `BulkRegisterPlayersToCompetitionAction` | `registrations` | `Competition` |
+
+`PersistRegistrationAction` persiste inscripciones sin auditar; la usa el flujo individual y el bulk.
+
+### Deportivas (Slices 2.5A–2.5B)
 
 | Action | log_name | Subject |
 |--------|----------|---------|
@@ -123,7 +167,7 @@ permission:audit.view
 | `page` | integer ≥ 1 | Página (default: 1) |
 | `per_page` | integer 1–100 | Tamaño (default: 25) |
 | `action` | `AuditAction` | Filtra por `description` |
-| `log_name` | `groups`, `bracket`, `games` | Módulo |
+| `log_name` | `tournaments`, `competitions`, `players`, `registrations`, `groups`, `bracket`, `games` | Módulo |
 | `actor_id` | integer | Usuario local (`causer`) |
 | `tournament_id` | integer | `properties.context.tournament_id` |
 | `competition_id` | integer | `properties.context.competition_id` |
@@ -141,11 +185,15 @@ Orden estable: `created_at desc`, `id desc`.
 
 | Alias | Modelo interno |
 |-------|----------------|
+| `tournament` | `App\Models\Tournament` |
 | `competition` | `App\Models\Competition` |
+| `player` | `App\Models\Player` |
 | `group` | `App\Models\Group` |
 | `bracket` | `App\Models\Bracket` |
 | `game` | `App\Models\Game` |
 | `unknown` | Tipo no reconocido |
+
+Las inscripciones usan **`Competition`** como subject (no existe alias `registration`).
 
 No se exponen nombres PHP como contrato de API.
 
@@ -159,6 +207,7 @@ La búsqueda (`search`) opera sobre:
 - `properties.context.tournament_name`
 - `properties.context.competition_name`
 - `properties.context.group_name`
+- `properties.context.player_name`
 
 **No** busca en `old`, `new`, `summary` completo ni JSON arbitrario.
 
@@ -278,10 +327,43 @@ Los intentos fallidos no deben auditarse.
 }
 ```
 
+## Políticas de auditoría administrativa (Slice 2.5C-1)
+
+### Updates sin cambios (no-op)
+
+Si un update no modifica ningún campo auditables (`getDirty()` vacío), **no se genera actividad**. La petición HTTP sigue siendo exitosa.
+
+### Inscripción masiva agregada
+
+`registration.bulk_created` produce **una sola actividad** por petición bulk exitosa, aunque cree decenas de filas. No se emiten `registration.created` individuales durante bulk.
+
+Metadata de bulk:
+
+- Siempre: `requested_count`, `created_count`, `skipped_count`
+- Si `total ≤ 20`: `created_player_ids`, `skipped_player_ids`
+- Si `total > 20`: `sample_created_names`, `sample_skipped_names` (máx. 5 cada una)
+
+Un bulk idempotente (`created = 0`, `skipped = N`) **sí audita** con contadores.
+
+### Desactivación vs eliminación de jugador
+
+- **`active = false`** vía PATCH → `player.deactivated` (prioritario aunque haya otros cambios).
+- **`DELETE /players/{id}`** → `player.deleted` (eliminación física; solo jugadores huérfanos).
+
+### Datos sensibles excluidos
+
+El modelo `Player` no tiene email, teléfono ni documento. La auditoría registra nombre, apodo, categoría, club y estado activo.
+
+No se auditan: `sets_to_win` (derivado legacy en competencias), `status_summary`, timestamps.
+
+### Subject eliminado
+
+Tras `player.deleted`, el morph en `activity_log` conserva `subject_type`/`subject_id`; el presenter usa `properties.context.player_name` como fallback histórico.
+
 ## Operaciones excluidas (por ahora)
 
-- CRUD de torneos, competencias y jugadores
-- Inscripciones
+- Generación inicial de grupos, creación manual de grupos, asignación, round robin
+- Creación o eliminación manual de partidos
 - Lecturas (GET)
 - Intentos fallidos (422, 401, etc.)
 - Observers genéricos y auditoría automática por modelos
@@ -289,6 +371,7 @@ Los intentos fallidos no deben auditarse.
 - Retención automática programada
 - Correlación por `batch_uuid`
 - Estadísticas y dashboard
+- Filtro `player_id` en listado de auditoría
 
 ## Actor Keycloak
 

@@ -4,6 +4,30 @@ const STATUS_LABELS = {
   finished: 'partido finalizado',
 }
 
+const FIELD_LABELS = {
+  name: 'nombre',
+  location: 'ubicación',
+  start_date: 'fecha de inicio',
+  end_date: 'fecha de fin',
+  status: 'estado',
+  type: 'tipo',
+  format: 'formato',
+  category_id: 'categoría',
+  category_name: 'nombre de categoría',
+  points_per_set: 'puntos por set',
+  qualified_per_group: 'clasificados por grupo',
+  group_stage_best_of: 'mejor de en grupos',
+  knockout_stage_best_of: 'mejor de en eliminatoria',
+  semifinal_best_of: 'mejor de en semifinal',
+  final_best_of: 'mejor de en final',
+  first_name: 'nombre',
+  last_name: 'apellido',
+  nickname: 'apodo',
+  club_id: 'club',
+  club_name: 'nombre de club',
+  active: 'activo',
+}
+
 function formatCount(value, singular, plural) {
   if (value === undefined || value === null) {
     return null
@@ -26,11 +50,95 @@ function formatStatus(status) {
   return STATUS_LABELS[status] ?? status
 }
 
+function formatChangedFields(fields) {
+  if (!Array.isArray(fields) || fields.length === 0) {
+    return null
+  }
+
+  const labels = fields
+    .map((field) => FIELD_LABELS[field] ?? field)
+    .filter(Boolean)
+
+  if (labels.length === 0) {
+    return 'Se modificaron campos'
+  }
+
+  if (labels.length === 1) {
+    return `Se modificó ${labels[0]}`
+  }
+
+  if (labels.length === 2) {
+    return `Se modificaron ${labels[0]} y ${labels[1]}`
+  }
+
+  return `Se modificaron ${labels.slice(0, -1).join(', ')} y ${labels[labels.length - 1]}`
+}
+
+function displayName(auditLog, fallback = 'Entidad') {
+  return (
+    auditLog?.summary?.tournament_name
+    ?? auditLog?.summary?.competition_name
+    ?? auditLog?.summary?.player_name
+    ?? auditLog?.context?.tournament_name
+    ?? auditLog?.context?.competition_name
+    ?? auditLog?.context?.player_name
+    ?? auditLog?.subject?.label
+    ?? fallback
+  )
+}
+
 export function buildAuditSummary(auditLog) {
   const action = auditLog?.action
   const summary = auditLog?.summary ?? {}
 
   switch (action) {
+    case 'tournament.created': {
+      const name = summary.tournament_name ?? displayName(auditLog, 'Torneo')
+      return `Torneo "${name}" creado`
+    }
+
+    case 'tournament.updated':
+      return formatChangedFields(summary.changed_fields) ?? 'Torneo actualizado'
+
+    case 'competition.created': {
+      const name = summary.competition_name ?? displayName(auditLog, 'Competencia')
+      return `Competencia "${name}" creada`
+    }
+
+    case 'competition.updated':
+      return formatChangedFields(summary.changed_fields) ?? 'Competencia actualizada'
+
+    case 'player.created': {
+      const name = summary.player_name ?? displayName(auditLog, 'Jugador')
+      return `${name} registrado`
+    }
+
+    case 'player.updated':
+      return formatChangedFields(summary.changed_fields) ?? `${displayName(auditLog, 'Jugador')} actualizado`
+
+    case 'player.deactivated': {
+      const name = summary.player_name ?? displayName(auditLog, 'Jugador')
+      return `${name} desactivado`
+    }
+
+    case 'player.deleted': {
+      const name = summary.player_name ?? displayName(auditLog, 'Jugador')
+      return `${name} eliminado`
+    }
+
+    case 'registration.created': {
+      const playerName = summary.player_name ?? 'Jugador'
+      const competitionName = auditLog?.context?.competition_name ?? 'competencia'
+      return `${playerName} inscripto en ${competitionName}`
+    }
+
+    case 'registration.bulk_created': {
+      const created = formatCount(summary.created_count, 'inscripción creada', 'inscripciones creadas')
+      const skipped = formatCount(summary.skipped_count, 'omitida', 'omitidas')
+
+      return [created, skipped ? `${skipped} omitidas` : null].filter(Boolean).join(' · ')
+    }
+
     case 'groups.regenerated': {
       const parts = [
         formatCount(summary.groups_removed, 'grupo eliminado', 'grupos eliminados'),

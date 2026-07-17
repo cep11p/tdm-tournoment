@@ -7,9 +7,52 @@ use App\Models\Competition;
 use App\Models\Game;
 use App\Models\Group;
 use App\Models\Player;
+use App\Models\Registration;
+use App\Models\Tournament;
 
 final class AuditContextBuilder
 {
+    /**
+     * @return array<string, mixed>
+     */
+    public static function fromTournament(Tournament $tournament): array
+    {
+        return [
+            'tournament_id' => $tournament->id,
+            'tournament_name' => $tournament->name,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function fromPlayer(Player $player): array
+    {
+        return [
+            'player_id' => $player->id,
+            'player_name' => self::playerDisplayName($player),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function fromRegistrationContext(
+        Competition $competition,
+        Player $player,
+        ?Registration $registration = null,
+    ): array {
+        $competition->loadMissing('tournament');
+
+        $context = self::fromCompetition($competition);
+
+        return array_merge($context, [
+            'registration_id' => $registration?->id,
+            'player_id' => $player->id,
+            'player_name' => self::playerDisplayName($player),
+        ]);
+    }
+
     /**
      * @return array<string, mixed>
      */

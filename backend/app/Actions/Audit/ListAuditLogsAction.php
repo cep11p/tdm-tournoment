@@ -87,6 +87,7 @@ final class ListAuditLogsAction
                     ->orWhere('properties->context->tournament_name', 'like', $like)
                     ->orWhere('properties->context->competition_name', 'like', $like)
                     ->orWhere('properties->context->group_name', 'like', $like)
+                    ->orWhere('properties->context->player_name', 'like', $like)
                     ->orWhereHas('causer', function ($causerQuery) use ($like): void {
                         $causerQuery->where('name', 'like', $like)
                             ->orWhere('email', 'like', $like);

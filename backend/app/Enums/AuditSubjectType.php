@@ -6,11 +6,15 @@ use App\Models\Bracket;
 use App\Models\Competition;
 use App\Models\Game;
 use App\Models\Group;
+use App\Models\Player;
+use App\Models\Tournament;
 use Illuminate\Database\Eloquent\Model;
 
 enum AuditSubjectType: string
 {
+    case Tournament = 'tournament';
     case Competition = 'competition';
+    case Player = 'player';
     case Group = 'group';
     case Bracket = 'bracket';
     case Game = 'game';
@@ -21,7 +25,9 @@ enum AuditSubjectType: string
     public function modelClass(): string
     {
         return match ($this) {
+            self::Tournament => Tournament::class,
             self::Competition => Competition::class,
+            self::Player => Player::class,
             self::Group => Group::class,
             self::Bracket => Bracket::class,
             self::Game => Game::class,
@@ -31,7 +37,9 @@ enum AuditSubjectType: string
     public function label(): string
     {
         return match ($this) {
+            self::Tournament => 'Torneo',
             self::Competition => 'Competencia',
+            self::Player => 'Jugador',
             self::Group => 'Grupo',
             self::Bracket => 'Llave',
             self::Game => 'Partido',
@@ -45,7 +53,9 @@ enum AuditSubjectType: string
         }
 
         return match ($model::class) {
+            Tournament::class => self::Tournament,
             Competition::class => self::Competition,
+            Player::class => self::Player,
             Group::class => self::Group,
             Bracket::class => self::Bracket,
             Game::class => self::Game,
@@ -60,7 +70,9 @@ enum AuditSubjectType: string
         }
 
         return match ($subjectType) {
+            Tournament::class => self::Tournament,
             Competition::class => self::Competition,
+            Player::class => self::Player,
             Group::class => self::Group,
             Bracket::class => self::Bracket,
             Game::class => self::Game,

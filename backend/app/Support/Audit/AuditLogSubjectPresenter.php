@@ -7,6 +7,8 @@ use App\Models\Bracket;
 use App\Models\Competition;
 use App\Models\Game;
 use App\Models\Group;
+use App\Models\Player;
+use App\Models\Tournament;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Models\Activity;
 
@@ -64,8 +66,16 @@ final class AuditLogSubjectPresenter
         string $publicType,
         mixed $id,
     ): string {
+        if ($subject instanceof Tournament) {
+            return $subject->name;
+        }
+
         if ($subject instanceof Competition) {
             return $subject->name;
+        }
+
+        if ($subject instanceof Player) {
+            return self::playerDisplayName($subject) ?? "Jugador #{$subject->id}";
         }
 
         if ($subject instanceof Group) {
@@ -130,7 +140,9 @@ final class AuditLogSubjectPresenter
     private static function historicalLabel(?AuditSubjectType $type, array $context, array $summary): ?string
     {
         return match ($type) {
+            AuditSubjectType::Tournament => data_get($context, 'tournament_name'),
             AuditSubjectType::Competition => data_get($context, 'competition_name'),
+            AuditSubjectType::Player => data_get($context, 'player_name'),
             AuditSubjectType::Group => data_get($context, 'group_name'),
             AuditSubjectType::Bracket => self::historicalBracketLabel($context),
             AuditSubjectType::Game => self::gameLabel($context, $summary, (int) (data_get($context, 'game_id') ?? 0)),
@@ -171,8 +183,16 @@ final class AuditLogSubjectPresenter
             return AuditSubjectType::Bracket;
         }
 
+        if (data_get($context, 'player_id') !== null && data_get($context, 'competition_id') === null) {
+            return AuditSubjectType::Player;
+        }
+
         if (data_get($context, 'competition_id') !== null) {
             return AuditSubjectType::Competition;
+        }
+
+        if (data_get($context, 'tournament_id') !== null) {
+            return AuditSubjectType::Tournament;
         }
 
         return null;
@@ -184,7 +204,9 @@ final class AuditLogSubjectPresenter
     private static function inferIdFromContext(array $context, ?AuditSubjectType $type): ?int
     {
         $key = match ($type) {
+            AuditSubjectType::Tournament => 'tournament_id',
             AuditSubjectType::Competition => 'competition_id',
+            AuditSubjectType::Player => 'player_id',
             AuditSubjectType::Group => 'group_id',
             AuditSubjectType::Bracket => 'bracket_id',
             AuditSubjectType::Game => 'game_id',
@@ -198,5 +220,12 @@ final class AuditLogSubjectPresenter
         $value = data_get($context, $key);
 
         return $value !== null ? (int) $value : null;
+    }
+
+    private static function playerDisplayName(Player $player): ?string
+    {
+        $name = trim(sprintf('%s %s', $player->first_name, $player->last_name));
+
+        return $name !== '' ? $name : null;
     }
 }

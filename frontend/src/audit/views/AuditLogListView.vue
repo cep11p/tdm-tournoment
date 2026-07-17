@@ -11,16 +11,31 @@ import { buildAuditSummary } from '../utils/buildAuditSummary'
 
 const AUDIT_ACTIONS = [
   { value: '', label: 'Todas las acciones' },
+  { value: 'tournament.created', label: 'Creación de torneo' },
+  { value: 'tournament.updated', label: 'Actualización de torneo' },
+  { value: 'competition.created', label: 'Creación de competencia' },
+  { value: 'competition.updated', label: 'Actualización de competencia' },
+  { value: 'player.created', label: 'Creación de jugador' },
+  { value: 'player.updated', label: 'Actualización de jugador' },
+  { value: 'player.deactivated', label: 'Desactivación de jugador' },
+  { value: 'player.deleted', label: 'Eliminación de jugador' },
+  { value: 'registration.created', label: 'Inscripción de jugador' },
+  { value: 'registration.bulk_created', label: 'Inscripción masiva' },
   { value: 'groups.regenerated', label: 'Regeneración de grupos' },
   { value: 'bracket.created', label: 'Generación de llave' },
   { value: 'bracket.round_advanced', label: 'Avance de ronda' },
   { value: 'game.set_recorded', label: 'Registro de set' },
+  { value: 'game.result_corrected', label: 'Corrección de resultado' },
   { value: 'groups.player_status_changed', label: 'Cambio de estado de jugador' },
   { value: 'groups.manual_tiebreak_applied', label: 'Desempate manual' },
 ]
 
 const LOG_NAMES = [
   { value: '', label: 'Todos los módulos' },
+  { value: 'tournaments', label: 'Torneos' },
+  { value: 'competitions', label: 'Competencias' },
+  { value: 'players', label: 'Jugadores' },
+  { value: 'registrations', label: 'Inscripciones' },
   { value: 'groups', label: 'Grupos' },
   { value: 'bracket', label: 'Llave' },
   { value: 'games', label: 'Partidos' },
@@ -78,6 +93,14 @@ const lastPageLabel = computed(() => meta.value.last_page ?? 1)
 
 const moduleBadgeClass = (logNameValue) => {
   switch (logNameValue) {
+    case 'tournaments':
+      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200'
+    case 'competitions':
+      return 'bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-200'
+    case 'players':
+      return 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-200'
+    case 'registrations':
+      return 'bg-teal-100 text-teal-800 dark:bg-teal-950/40 dark:text-teal-200'
     case 'groups':
       return 'bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-200'
     case 'bracket':

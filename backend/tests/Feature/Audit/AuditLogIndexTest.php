@@ -342,6 +342,122 @@ class AuditLogIndexTest extends TestCase
             ->assertUnprocessable();
     }
 
+    public function test_filters_by_new_admin_actions_and_log_names(): void
+    {
+        $tournament = Tournament::query()->create([
+            'name' => 'Torneo Admin',
+            'location' => 'Club',
+            'start_date' => now()->toDateString(),
+            'status' => 'draft',
+        ]);
+
+        $player = Player::query()->create([
+            'first_name' => 'Ana',
+            'last_name' => 'Audit',
+        ]);
+
+        $tournamentActivity = app(AuditLogger::class)->log(new AuditEntry(
+            action: AuditAction::TOURNAMENT_CREATED,
+            logName: 'tournaments',
+            subject: $tournament,
+            context: [
+                'tournament_id' => $tournament->id,
+                'tournament_name' => $tournament->name,
+            ],
+        ));
+
+        $playerActivity = app(AuditLogger::class)->log(new AuditEntry(
+            action: AuditAction::PLAYER_CREATED,
+            logName: 'players',
+            subject: $player,
+            context: [
+                'player_id' => $player->id,
+                'player_name' => 'Ana Audit',
+            ],
+        ));
+
+        $this->createAuditActivity(AuditAction::GROUPS_REGENERATED, 'groups');
+
+        $this->getJson(
+            '/api/v1/audit-logs?action='.AuditAction::TOURNAMENT_CREATED->value,
+            $this->adminHeaders(),
+        )
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $tournamentActivity->id);
+
+        $this->getJson('/api/v1/audit-logs?log_name=players', $this->adminHeaders())
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $playerActivity->id);
+    }
+
+    public function test_filters_by_tournament_and_player_subject_aliases(): void
+    {
+        $tournament = Tournament::query()->create([
+            'name' => 'Torneo Alias',
+            'location' => 'Club',
+            'start_date' => now()->toDateString(),
+            'status' => 'draft',
+        ]);
+
+        $player = Player::query()->create([
+            'first_name' => 'Alias',
+            'last_name' => 'Jugador',
+        ]);
+
+        $tournamentActivity = app(AuditLogger::class)->log(new AuditEntry(
+            action: AuditAction::TOURNAMENT_UPDATED,
+            logName: 'tournaments',
+            subject: $tournament,
+        ));
+
+        $playerActivity = app(AuditLogger::class)->log(new AuditEntry(
+            action: AuditAction::PLAYER_UPDATED,
+            logName: 'players',
+            subject: $player,
+        ));
+
+        $this->getJson(
+            "/api/v1/audit-logs?subject_type=tournament&subject_id={$tournament->id}",
+            $this->adminHeaders(),
+        )
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $tournamentActivity->id);
+
+        $this->getJson(
+            "/api/v1/audit-logs?subject_type=player&subject_id={$player->id}",
+            $this->adminHeaders(),
+        )
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $playerActivity->id);
+    }
+
+    public function test_search_by_player_name_in_context(): void
+    {
+        $competition = $this->createCompetition();
+        $player = Player::query()->create([
+            'first_name' => 'Búsqueda',
+            'last_name' => 'Jugador',
+        ]);
+
+        $activity = app(AuditLogger::class)->log(new AuditEntry(
+            action: AuditAction::REGISTRATION_CREATED,
+            logName: 'registrations',
+            subject: $competition,
+            context: [
+                'competition_id' => $competition->id,
+                'competition_name' => $competition->name,
+                'player_id' => $player->id,
+                'player_name' => 'Búsqueda Jugador',
+            ],
+        ));
+
+        $this->createAuditActivity(AuditAction::BRACKET_CREATED, 'bracket');
+
+        $this->getJson('/api/v1/audit-logs?search=Búsqueda+Jugador', $this->adminHeaders())
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $activity->id);
+    }
+
     /**
      * @return array<string, string>
      */

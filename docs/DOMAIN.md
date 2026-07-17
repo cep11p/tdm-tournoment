@@ -196,6 +196,8 @@ Representa a una persona que participa como jugador.
 
 La categoría del jugador es la **categoría principal actual**. No hay historial de cambios en el MVP.
 
+**Auditoría:** `active = false` vía PATCH se registra como desactivación (`player.deactivated`). `DELETE /players/{id}` elimina físicamente solo jugadores sin historial (inscripciones, grupos, partidos) y produce `player.deleted`. Ver [AUDIT.md](./AUDIT.md).
+
 ---
 
 ### Category
@@ -239,6 +241,8 @@ Representa la inscripción de un jugador a una competencia.
 
 **Regla:** un jugador no puede inscribirse dos veces en la misma competencia.
 Restricción única: `(competition_id, player_id)`.
+
+**Auditoría:** la inscripción individual produce `registration.created`. La inscripción masiva (`POST .../registrations/bulk`) produce **una sola** actividad `registration.bulk_created` con contadores, sin logs por jugador. Ver [AUDIT.md](./AUDIT.md).
 
 ---
 

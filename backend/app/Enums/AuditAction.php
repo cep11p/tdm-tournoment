@@ -4,6 +4,16 @@ namespace App\Enums;
 
 enum AuditAction: string
 {
+    case TOURNAMENT_CREATED = 'tournament.created';
+    case TOURNAMENT_UPDATED = 'tournament.updated';
+    case COMPETITION_CREATED = 'competition.created';
+    case COMPETITION_UPDATED = 'competition.updated';
+    case PLAYER_CREATED = 'player.created';
+    case PLAYER_UPDATED = 'player.updated';
+    case PLAYER_DEACTIVATED = 'player.deactivated';
+    case PLAYER_DELETED = 'player.deleted';
+    case REGISTRATION_CREATED = 'registration.created';
+    case REGISTRATION_BULK_CREATED = 'registration.bulk_created';
     case GROUPS_REGENERATED = 'groups.regenerated';
     case BRACKET_CREATED = 'bracket.created';
     case BRACKET_ROUND_ADVANCED = 'bracket.round_advanced';
@@ -15,6 +25,16 @@ enum AuditAction: string
     public function label(): string
     {
         return match ($this) {
+            self::TOURNAMENT_CREATED => 'Creación de torneo',
+            self::TOURNAMENT_UPDATED => 'Actualización de torneo',
+            self::COMPETITION_CREATED => 'Creación de competencia',
+            self::COMPETITION_UPDATED => 'Actualización de competencia',
+            self::PLAYER_CREATED => 'Creación de jugador',
+            self::PLAYER_UPDATED => 'Actualización de jugador',
+            self::PLAYER_DEACTIVATED => 'Desactivación de jugador',
+            self::PLAYER_DELETED => 'Eliminación de jugador',
+            self::REGISTRATION_CREATED => 'Inscripción de jugador',
+            self::REGISTRATION_BULK_CREATED => 'Inscripción masiva',
             self::GROUPS_REGENERATED => 'Regeneración de grupos',
             self::BRACKET_CREATED => 'Generación de llave',
             self::BRACKET_ROUND_ADVANCED => 'Avance de ronda',
@@ -28,6 +48,16 @@ enum AuditAction: string
     public function categoryLabel(): string
     {
         return match ($this) {
+            self::TOURNAMENT_CREATED,
+            self::TOURNAMENT_UPDATED => 'Torneos',
+            self::COMPETITION_CREATED,
+            self::COMPETITION_UPDATED => 'Competencias',
+            self::PLAYER_CREATED,
+            self::PLAYER_UPDATED,
+            self::PLAYER_DEACTIVATED,
+            self::PLAYER_DELETED => 'Jugadores',
+            self::REGISTRATION_CREATED,
+            self::REGISTRATION_BULK_CREATED => 'Inscripciones',
             self::GROUPS_REGENERATED,
             self::GROUP_PLAYER_STATUS_CHANGED,
             self::GROUP_MANUAL_TIEBREAK_APPLIED => 'Grupos',
@@ -56,6 +86,10 @@ enum AuditAction: string
         }
 
         return match ($logName) {
+            'tournaments' => 'Torneos',
+            'competitions' => 'Competencias',
+            'players' => 'Jugadores',
+            'registrations' => 'Inscripciones',
             'groups' => 'Grupos',
             'bracket' => 'Llave',
             'games' => 'Partidos',
