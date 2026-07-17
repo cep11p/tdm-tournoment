@@ -27,7 +27,10 @@ class GroupOperationsAuditTest extends TestCase
         $context->registerPlayers($competition, $players);
         $context->generateRandomGroups($competition, groupsCount: 2)->assertCreated();
 
-        $this->assertDatabaseCount('activity_log', 0);
+        $this->assertDatabaseCount('activity_log', 1);
+        $this->assertSame(AuditAction::GROUPS_GENERATED->value, Activity::query()->value('description'));
+
+        Activity::query()->delete();
 
         $context->regenerateRandomGroups($competition, groupsCount: 2)->assertCreated();
 

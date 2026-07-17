@@ -89,9 +89,15 @@ El campo `description` de Spatie almacena el **código estable** (`AuditAction`)
 | `player.deleted` | Eliminación de jugador |
 | `registration.created` | Inscripción de jugador |
 | `registration.bulk_created` | Inscripción masiva |
+| `groups.generated` | Generación de grupos |
+| `group.created` | Creación de grupo |
+| `group.player_assigned` | Asignación de jugador a grupo |
+| `groups.round_robin_generated` | Generación de todos contra todos |
 | `groups.regenerated` | Regeneración de grupos |
 | `bracket.created` | Generación de llave |
 | `bracket.round_advanced` | Avance de ronda |
+| `game.created` | Creación de partido |
+| `game.deleted` | Eliminación de partido |
 | `game.set_recorded` | Registro de set |
 | `game.result_corrected` | Corrección de resultado |
 | `groups.player_status_changed` | Cambio de estado de jugador |
@@ -131,13 +137,32 @@ El campo `description` de Spatie almacena el **código estable** (`AuditAction`)
 
 | Action | log_name | Subject |
 |--------|----------|---------|
+| `GenerateRandomGroupsForCompetitionAction` | `groups` | `Competition` |
 | `RegenerateRandomGroupsForCompetitionAction` | `groups` | `Competition` |
+| `CreateGroupAction` | `groups` | `Group` |
+| `AssignPlayerToGroupAction` | `groups` | `Group` |
+| `GenerateGroupRoundRobinGamesAction` | `groups` | `Group` |
+| `CreateManualGameAction` | `games` | `Game` |
+| `DeleteManualGameAction` | `games` | `Game` |
 | `CreateBracketKnockoutAction` | `bracket` | `Competition` |
 | `GenerateBracketNextRoundAction` | `bracket` | `Bracket` |
 | `RecordGameSetAction` | `games` | `Game` |
 | `CorrectFinishedGameResultAction` | `games` | `Game` |
 | `SetGroupPlayerStatusAction` | `groups` | `Group` |
 | `ApplyGroupManualTiebreakAction` | `groups` | `Group` |
+
+`CreateGameAction` y `DeleteGameAction` persisten partidos **sin auditar**. `BuildGroupRoundRobinGamesAction` genera partidos round robin **sin auditar**; solo `GenerateGroupRoundRobinGamesAction` (endpoint HTTP) registra `groups.round_robin_generated`. Los invocadores automáticos de grupos usan el builder silencioso.
+
+### Granularidad agregada (Slice 2.5C-2)
+
+| Operación funcional | Actividad | No genera |
+|---------------------|-----------|-----------|
+| Generación inicial aleatoria de grupos | `groups.generated` (1) | `group.created`, `group.player_assigned`, `groups.round_robin_generated`, `game.created` |
+| Regeneración de grupos | `groups.regenerated` (1) | logs hijos por grupo/jugador/partido |
+| Round robin por grupo | `groups.round_robin_generated` (1) | `game.created` por partido |
+| Llave y avance de ronda | `bracket.created`, `bracket.round_advanced` | `game.created` |
+| Creación manual de partido (HTTP) | `game.created` (1) | — |
+| Eliminación manual de partido (HTTP) | `game.deleted` (1) | — |
 
 ## Consulta de auditoría (Slice 2.5B)
 
@@ -360,18 +385,21 @@ No se auditan: `sets_to_win` (derivado legacy en competencias), `status_summary`
 
 Tras `player.deleted`, el morph en `activity_log` conserva `subject_type`/`subject_id`; el presenter usa `properties.context.player_name` como fallback histórico.
 
+Tras `game.deleted`, el partido ya no existe pero la actividad conserva `subject_type`/`subject_id`. El presenter prioriza nombres de jugadores en `context`/`summary` (`"Juan Pérez vs Pedro Gómez"`) antes de `"Partido #ID"`. El detalle expone `old.sets` en formato compacto.
+
 ## Operaciones excluidas (por ahora)
 
-- Generación inicial de grupos, creación manual de grupos, asignación, round robin
-- Creación o eliminación manual de partidos
+- Desasignación de jugadores de grupos; eliminación de grupos
+- Motivo obligatorio en eliminación de partidos
 - Lecturas (GET)
 - Intentos fallidos (422, 401, etc.)
-- Observers genéricos y auditoría automática por modelos
+- Observers genéricos y auditoría automática por modelos (`LogsActivity`)
 - Exportación, borrado y edición de auditorías
 - Retención automática programada
 - Correlación por `batch_uuid`
 - Estadísticas y dashboard
 - Filtro `player_id` en listado de auditoría
+- `player.reactivated`; propagación automática de ganadores tras corrección
 
 ## Actor Keycloak
 

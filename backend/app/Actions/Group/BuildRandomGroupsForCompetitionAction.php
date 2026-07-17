@@ -12,7 +12,7 @@ use Illuminate\Validation\ValidationException;
 final class BuildRandomGroupsForCompetitionAction
 {
     public function __construct(
-        private readonly GenerateGroupRoundRobinGamesAction $generateRoundRobin,
+        private readonly BuildGroupRoundRobinGamesAction $buildRoundRobin,
     ) {}
 
     /**
@@ -108,7 +108,7 @@ final class BuildRandomGroupsForCompetitionAction
                 continue;
             }
 
-            $gamesCreated += ($this->generateRoundRobin)($group)->count();
+            $gamesCreated += ($this->buildRoundRobin)($group)->count();
         }
 
         return [

@@ -7,6 +7,7 @@ use App\Enums\AuditAction;
 use App\Http\Resources\Audit\AuditLogDetailResource;
 use App\Http\Resources\Audit\AuditLogResource;
 use App\Models\Competition;
+use App\Models\Game;
 use App\Models\Tournament;
 use App\Models\User;
 use App\Support\Audit\AuditLogger;
@@ -191,6 +192,58 @@ class AuditLogResourceTest extends TestCase
 
         $this->assertSame('player', $playerPayload['subject']['type']);
         $this->assertSame('Resource Player', $playerPayload['subject']['label']);
+    }
+
+    public function test_new_group_and_game_action_labels(): void
+    {
+        $competition = $this->createCompetition();
+
+        $groupsGenerated = Activity::query()->create([
+            'log_name' => 'groups',
+            'description' => AuditAction::GROUPS_GENERATED->value,
+            'properties' => [],
+        ]);
+
+        $gameCreated = Activity::query()->create([
+            'log_name' => 'games',
+            'description' => AuditAction::GAME_CREATED->value,
+            'properties' => [],
+        ]);
+
+        $groupsPayload = (new AuditLogResource($groupsGenerated))->resolve();
+        $gamePayload = (new AuditLogResource($gameCreated))->resolve();
+
+        $this->assertSame('Generación de grupos', $groupsPayload['action_label']);
+        $this->assertSame('Grupos', $groupsPayload['category_label']);
+        $this->assertSame('Creación de partido', $gamePayload['action_label']);
+        $this->assertSame('Partidos', $gamePayload['category_label']);
+    }
+
+    public function test_deleted_game_subject_uses_historical_context(): void
+    {
+        $activity = Activity::query()->create([
+            'log_name' => 'games',
+            'description' => AuditAction::GAME_DELETED->value,
+            'subject_type' => Game::class,
+            'subject_id' => 404,
+            'properties' => [
+                'context' => [
+                    'game_id' => 404,
+                    'player1_name' => 'Juan Pérez',
+                    'player2_name' => 'Pedro Gómez',
+                ],
+                'summary' => [
+                    'player1_name' => 'Juan Pérez',
+                    'player2_name' => 'Pedro Gómez',
+                ],
+            ],
+        ]);
+
+        $payload = (new AuditLogResource($activity))->resolve();
+
+        $this->assertSame('game', $payload['subject']['type']);
+        $this->assertSame('Juan Pérez vs Pedro Gómez', $payload['subject']['label']);
+        $this->assertFalse($payload['subject']['exists']);
     }
 
     private function createActivityWithFullProperties(): Activity

@@ -139,6 +139,33 @@ export function buildAuditSummary(auditLog) {
       return [created, skipped ? `${skipped} omitidas` : null].filter(Boolean).join(' · ')
     }
 
+    case 'groups.generated': {
+      const parts = [
+        formatCount(summary.groups_created, 'grupo creado', 'grupos creados'),
+        formatCount(summary.players_assigned, 'jugador asignado', 'jugadores asignados'),
+        formatCount(summary.games_created, 'partido', 'partidos'),
+      ].filter(Boolean)
+
+      return parts.join(' · ')
+    }
+
+    case 'group.created': {
+      const name = summary.group_name ?? auditLog?.context?.group_name ?? 'Grupo'
+      return `Grupo "${name}" creado`
+    }
+
+    case 'group.player_assigned': {
+      const playerName = summary.player_name ?? auditLog?.context?.player_name ?? 'Jugador'
+      const groupName = summary.group_name ?? auditLog?.context?.group_name ?? 'grupo'
+      return `${playerName} asignado a ${groupName}`
+    }
+
+    case 'groups.round_robin_generated': {
+      const count = summary.games_created ?? summary.games_count
+      const formatted = formatCount(count, 'partido de todos contra todos creado', 'partidos de todos contra todos creados')
+      return formatted ?? 'Partidos de todos contra todos generados'
+    }
+
     case 'groups.regenerated': {
       const parts = [
         formatCount(summary.groups_removed, 'grupo eliminado', 'grupos eliminados'),
@@ -167,6 +194,18 @@ export function buildAuditSummary(auditLog) {
       ].filter(Boolean)
 
       return parts.join(' · ')
+    }
+
+    case 'game.created': {
+      const player1 = summary.player1_name ?? auditLog?.context?.player1_name ?? 'Jugador 1'
+      const player2 = summary.player2_name ?? auditLog?.context?.player2_name ?? 'Jugador 2'
+      return `Partido ${player1} vs. ${player2} creado`
+    }
+
+    case 'game.deleted': {
+      const player1 = summary.player1_name ?? auditLog?.context?.player1_name ?? 'Jugador 1'
+      const player2 = summary.player2_name ?? auditLog?.context?.player2_name ?? 'Jugador 2'
+      return `Partido ${player1} vs. ${player2} eliminado`
     }
 
     case 'game.set_recorded': {

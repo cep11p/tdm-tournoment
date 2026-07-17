@@ -458,6 +458,63 @@ class AuditLogIndexTest extends TestCase
             ->assertJsonPath('data.0.id', $activity->id);
     }
 
+    public function test_filters_by_groups_generated_action(): void
+    {
+        $match = $this->createAuditActivity(AuditAction::GROUPS_GENERATED, 'groups');
+        $this->createAuditActivity(AuditAction::GROUPS_REGENERATED, 'groups');
+
+        $response = $this->getJson(
+            '/api/v1/audit-logs?action='.AuditAction::GROUPS_GENERATED->value,
+            $this->adminHeaders(),
+        )->assertOk();
+
+        $this->assertSame([$match->id], collect($response->json('data'))->pluck('id')->all());
+        $this->assertSame('Generación de grupos', $response->json('data.0.action_label'));
+    }
+
+    public function test_filters_by_game_deleted_action(): void
+    {
+        $match = app(AuditLogger::class)->log(new AuditEntry(
+            action: AuditAction::GAME_DELETED,
+            logName: 'games',
+            subject: $this->createCompetition(),
+            context: [
+                'game_id' => 99,
+                'player1_name' => 'Juan Pérez',
+                'player2_name' => 'Pedro Gómez',
+            ],
+            old: [
+                'status' => 'pending',
+                'sets' => [
+                    ['set_number' => 1, 'player1_score' => 11, 'player2_score' => 8],
+                ],
+            ],
+            summary: [
+                'game_id' => 99,
+                'player1_name' => 'Juan Pérez',
+                'player2_name' => 'Pedro Gómez',
+                'sets_removed' => 1,
+            ],
+        ));
+
+        $this->createAuditActivity(AuditAction::GAME_CREATED, 'games');
+
+        $listResponse = $this->getJson(
+            '/api/v1/audit-logs?action='.AuditAction::GAME_DELETED->value,
+            $this->adminHeaders(),
+        )->assertOk();
+
+        $this->assertSame([$match->id], collect($listResponse->json('data'))->pluck('id')->all());
+        $this->assertSame('Eliminación de partido', $listResponse->json('data.0.action_label'));
+        $this->assertArrayNotHasKey('old', $listResponse->json('data.0'));
+
+        $this->getJson("/api/v1/audit-logs/{$match->id}", $this->adminHeaders())
+            ->assertOk()
+            ->assertJsonPath('data.old.sets.0.set_number', 1)
+            ->assertJsonPath('data.old.sets.0.player1_score', 11)
+            ->assertJsonPath('data.summary.sets_removed', 1);
+    }
+
     /**
      * @return array<string, string>
      */

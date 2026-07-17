@@ -39,6 +39,8 @@ class CorrectFinishedGameResultTest extends TestCase
         $context = $this->tournamentContext();
         $setup = $context->createPendingSinglesGame(setsToWin: 2, pointsPerSet: 11);
 
+        Carbon::setTestNow(Carbon::parse('2026-07-17 15:00:00'));
+
         $context->recordSet($setup['game'], setNumber: 1, player1Score: 11, player2Score: 5)->assertOk();
         $context->recordSet($setup['game'], setNumber: 2, player1Score: 11, player2Score: 6)->assertOk();
 

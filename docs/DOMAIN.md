@@ -259,6 +259,8 @@ Representa un grupo dentro de una competencia.
 **Regla:** el nombre de grupo es único por competencia.
 Restricción única: `(competition_id, name)`.
 
+**Auditoría:** la creación manual vía API (`POST .../groups`) produce `group.created`. La generación inicial aleatoria produce **una sola** actividad agregada `groups.generated` (contadores de grupos, jugadores y partidos), sin logs por grupo, asignación o partido interno. La regeneración produce `groups.regenerated`. Ver [AUDIT.md](./AUDIT.md).
+
 ---
 
 ### GroupPlayer
@@ -282,6 +284,8 @@ Reglas adicionales implementadas:
 - un jugador no puede estar en más de un grupo dentro de la misma competencia;
 - solo se puede pasar de `active` a `withdrawn` o `disqualified` (no hay reactivación en el MVP);
 - no se puede cambiar el estado si la competencia ya tiene bracket.
+
+**Auditoría:** la asignación manual vía API (`POST .../groups/{id}/players`) produce `group.player_assigned` con el estado inicial (`active`). Ver [AUDIT.md](./AUDIT.md).
 
 **Motivos de baja (`status_reason`):**
 
@@ -397,6 +401,8 @@ Representa un partido entre dos jugadores dentro de una competencia.
 Un partido puede pertenecer al flujo manual, a grupos o a bracket.
 
 Al crearse, cada partido real (no BYE) guarda `best_of` y `sets_to_win` según la fase/ronda vigente en la competencia. Ese snapshot no cambia aunque se edite la competencia después. Los partidos BYE mantienen ambos campos en `null` y no admiten sets.
+
+**Auditoría:** la creación manual vía API produce `game.created`. La eliminación manual produce `game.deleted` con snapshot del partido (incl. sets) antes del borrado. Los partidos creados automáticamente (round robin, generación/regeneración de grupos, llave, avance de ronda) **no** generan `game.created` individual. Ver [AUDIT.md](./AUDIT.md).
 
 ---
 
@@ -813,6 +819,8 @@ Flujo implementado:
 6. Resolver desempates manuales pendientes (si los hubiera).
 7. Gestionar bajas de jugadores (retiro/descalificación) cuando corresponda.
 8. Generar el bracket cuando todos los grupos cumplen las condiciones.
+
+**Auditoría:** la generación aleatoria inicial (`POST .../groups/random-generate`) produce una actividad agregada `groups.generated`. El round robin por grupo produce `groups.round_robin_generated` (una por ejecución). No hay logs individuales por partido creado en esos flujos. Ver [AUDIT.md](./AUDIT.md).
 
 Cada grupo tiene su propia tabla de posiciones. La competencia puede tener varios grupos en paralelo.
 

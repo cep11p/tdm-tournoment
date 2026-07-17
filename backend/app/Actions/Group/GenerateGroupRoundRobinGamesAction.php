@@ -2,12 +2,13 @@
 
 namespace App\Actions\Group;
 
-use App\Actions\Game\CreateGameAction;
+use App\Data\Audit\AuditEntry;
+use App\Enums\AuditAction;
 use App\Models\Game;
 use App\Models\Group;
+use App\Support\Audit\AuditContextBuilder;
+use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
-use App\Support\Game\GameFormatResolver;
-use App\Support\Group\RoundRobinScheduleBuilder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -15,8 +16,8 @@ use Illuminate\Validation\ValidationException;
 final class GenerateGroupRoundRobinGamesAction
 {
     public function __construct(
-        private readonly CreateGameAction $createGame,
-        private readonly RoundRobinScheduleBuilder $scheduleBuilder,
+        private readonly BuildGroupRoundRobinGamesAction $buildRoundRobin,
+        private readonly AuditLogger $auditLogger,
     ) {}
 
     /**
@@ -46,56 +47,28 @@ final class GenerateGroupRoundRobinGamesAction
             ]);
         }
 
-        $round = sprintf('Round Robin - %s', $group->name);
-        $competitionId = (int) $group->competition_id;
-        $matchFormat = GameFormatResolver::resolveForGroup($group->competition);
-        $schedule = $this->scheduleBuilder->build($playerIds);
+        $playerCount = count($playerIds);
 
-        return DB::transaction(function () use ($group, $schedule, $round, $competitionId, $matchFormat): Collection {
-            $created = collect();
+        return DB::transaction(function () use ($group, $playerCount): Collection {
+            $created = ($this->buildRoundRobin)($group);
+            $gamesCreated = $created->count();
 
-            foreach ($schedule as $roundIndex => $roundPairings) {
-                $groupRound = $roundIndex + 1;
-
-                foreach ($roundPairings as $matchIndex => $pairing) {
-                    $player1Id = $pairing['player1_id'];
-                    $player2Id = $pairing['player2_id'];
-
-                    if ($this->gameExistsBetweenPlayers($competitionId, $player1Id, $player2Id)) {
-                        continue;
-                    }
-
-                    $created->push(($this->createGame)([
-                        'competition_id' => $competitionId,
-                        'group_id' => $group->id,
-                        'player1_id' => $player1Id,
-                        'player2_id' => $player2Id,
-                        'round' => $round,
-                        'group_round' => $groupRound,
-                        'group_match' => $matchIndex + 1,
-                        'best_of' => $matchFormat['best_of'],
-                        'sets_to_win' => $matchFormat['sets_to_win'],
-                    ]));
-                }
-            }
+            $this->auditLogger->log(new AuditEntry(
+                action: AuditAction::GROUPS_ROUND_ROBIN_GENERATED,
+                logName: 'groups',
+                subject: $group,
+                context: AuditContextBuilder::fromGroup($group),
+                new: [
+                    'games_count' => $gamesCreated,
+                ],
+                summary: [
+                    'player_count' => $playerCount,
+                    'games_created' => $gamesCreated,
+                    'existing_games_before' => 0,
+                ],
+            ));
 
             return $created;
         });
-    }
-
-    private function gameExistsBetweenPlayers(int $competitionId, int $player1Id, int $player2Id): bool
-    {
-        return Game::query()
-            ->where('competition_id', $competitionId)
-            ->where(function ($query) use ($player1Id, $player2Id): void {
-                $query->where(function ($query) use ($player1Id, $player2Id): void {
-                    $query->where('player1_id', $player1Id)
-                        ->where('player2_id', $player2Id);
-                })->orWhere(function ($query) use ($player1Id, $player2Id): void {
-                    $query->where('player1_id', $player2Id)
-                        ->where('player2_id', $player1Id);
-                });
-            })
-            ->exists();
     }
 }

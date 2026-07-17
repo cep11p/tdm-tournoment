@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Game\CorrectFinishedGameResultAction;
-use App\Actions\Game\CreateGameAction;
-use App\Actions\Game\DeleteGameAction;
+use App\Actions\Game\CreateManualGameAction;
+use App\Actions\Game\DeleteManualGameAction;
 use App\Actions\Game\RecordGameSetAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Game\CorrectFinishedGameResultRequest;
@@ -50,11 +50,11 @@ class GameController extends Controller
     public function store(
         StoreGameRequest $request,
         Competition $competition,
-        CreateGameAction $createGame
+        CreateManualGameAction $createManualGame
     ): JsonResponse {
         $matchFormat = GameFormatResolver::resolveForGroup($competition);
 
-        $game = $createGame([
+        $game = $createManualGame([
             ...$request->validated(),
             'competition_id' => $competition->id,
             'best_of' => $matchFormat['best_of'],
@@ -86,9 +86,9 @@ class GameController extends Controller
         return new GameResource($game);
     }
 
-    public function destroy(Game $game, DeleteGameAction $deleteGame): Response
+    public function destroy(Game $game, DeleteManualGameAction $deleteManualGame): Response
     {
-        $deleteGame($game);
+        $deleteManualGame($game);
 
         return response()->noContent();
     }

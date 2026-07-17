@@ -24,6 +24,8 @@ class GameSetAuditTest extends TestCase
         $context = $this->tournamentContext();
         $setup = $context->createPendingSinglesGame();
 
+        Activity::query()->delete();
+
         $context->recordSet($setup['game'], setNumber: 1, player1Score: 11, player2Score: 7)
             ->assertOk();
 
@@ -39,6 +41,8 @@ class GameSetAuditTest extends TestCase
     {
         $context = $this->tournamentContext();
         $setup = $context->createPendingSinglesGame();
+
+        Activity::query()->delete();
 
         $context->recordSet($setup['game'], setNumber: 1, player1Score: 11, player2Score: 7)
             ->assertOk();
@@ -56,6 +60,8 @@ class GameSetAuditTest extends TestCase
     {
         $context = $this->tournamentContext();
         $setup = $context->createPendingSinglesGame();
+
+        Activity::query()->delete();
 
         $context->recordSet($setup['game'], setNumber: 1, player1Score: 11, player2Score: 7)
             ->assertOk();
@@ -75,6 +81,8 @@ class GameSetAuditTest extends TestCase
         $context = $this->tournamentContext();
         $setup = $context->createPendingSinglesGame(setsToWin: 2, pointsPerSet: 11);
 
+        Activity::query()->delete();
+
         $context->recordSet($setup['game'], setNumber: 1, player1Score: 11, player2Score: 5)->assertOk();
         $context->recordSet($setup['game'], setNumber: 2, player1Score: 11, player2Score: 6)->assertOk();
 
@@ -89,6 +97,8 @@ class GameSetAuditTest extends TestCase
     {
         $context = $this->tournamentContext();
         $setup = $context->createPendingSinglesGame(setsToWin: 2, pointsPerSet: 11);
+
+        Activity::query()->delete();
 
         $context->recordSet($setup['game'], setNumber: 1, player1Score: 11, player2Score: 4)->assertOk();
         $context->recordSet($setup['game'], setNumber: 2, player1Score: 11, player2Score: 6)->assertOk();

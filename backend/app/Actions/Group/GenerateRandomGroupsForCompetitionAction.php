@@ -2,7 +2,11 @@
 
 namespace App\Actions\Group;
 
+use App\Data\Audit\AuditEntry;
+use App\Enums\AuditAction;
 use App\Models\Competition;
+use App\Support\Audit\AuditContextBuilder;
+use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Competition\CompetitionStructureGuard;
 use Illuminate\Support\Facades\DB;
@@ -12,6 +16,7 @@ final class GenerateRandomGroupsForCompetitionAction
 {
     public function __construct(
         private readonly BuildRandomGroupsForCompetitionAction $buildRandomGroups,
+        private readonly AuditLogger $auditLogger,
     ) {}
 
     /**
@@ -33,6 +38,27 @@ final class GenerateRandomGroupsForCompetitionAction
             ]);
         }
 
-        return DB::transaction(fn (): array => ($this->buildRandomGroups)($competition, $groupsCount));
+        return DB::transaction(function () use ($competition, $groupsCount): array {
+            $result = ($this->buildRandomGroups)($competition, $groupsCount);
+
+            $this->auditLogger->log(new AuditEntry(
+                action: AuditAction::GROUPS_GENERATED,
+                logName: 'groups',
+                subject: $competition,
+                context: AuditContextBuilder::fromCompetition($competition),
+                new: [
+                    'groups_count' => $result['groups_created'],
+                    'games_count' => $result['games_created'],
+                ],
+                summary: [
+                    'requested_groups_count' => $groupsCount,
+                    'groups_created' => $result['groups_created'],
+                    'players_assigned' => $result['players_assigned'],
+                    'games_created' => $result['games_created'],
+                ],
+            ));
+
+            return $result;
+        });
     }
 }
