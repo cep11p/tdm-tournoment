@@ -3,24 +3,25 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
-use Firebase\JWT\JWT;
+use Tests\Support\ActsAsKeycloakUser;
 use Tests\Support\KeycloakTestKeys;
 use Tests\Support\KeycloakTestSupport;
 use Tests\TestCase;
 
 class AuthenticatedUserEndpointTest extends TestCase
 {
+    use ActsAsKeycloakUser;
+
     protected function setUp(): void
     {
         parent::setUp();
 
-        KeycloakTestSupport::setUp();
-        KeycloakTestSupport::primeJwksCache();
+        $this->bootstrapKeycloak();
     }
 
     protected function tearDown(): void
     {
-        JWT::$timestamp = null;
+        $this->resetKeycloakClock();
 
         parent::tearDown();
     }
@@ -67,9 +68,12 @@ class AuthenticatedUserEndpointTest extends TestCase
             ->assertJsonPath('data.email', 'usuario@example.com')
             ->assertJsonPath('data.roles', ['organizer', 'offline_access']);
 
+        $this->assertContains('tournaments.manage', $response->json('data.permissions'));
+
         $this->assertNotNull($response->json('data.id'));
         $this->assertArrayNotHasKey('claims', $response->json('data'));
         $this->assertArrayNotHasKey('access_token', $response->json('data'));
+        $this->assertIsArray($response->json('data.permissions'));
     }
 
     public function test_me_creates_local_user_on_first_access(): void

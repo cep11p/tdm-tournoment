@@ -27,14 +27,26 @@ Route::prefix(config('api.version_prefix', 'v1'))
             ->get('me', AuthenticatedUserController::class)
             ->name('me');
 
-        Route::apiResource('tournaments', TournamentController::class)
-            ->only(['store', 'index', 'show', 'update']);
+        Route::get('tournaments', [TournamentController::class, 'index'])->name('tournaments.index');
+        Route::get('tournaments/{tournament}', [TournamentController::class, 'show'])->name('tournaments.show');
+        Route::middleware('auth.tournaments.manage')
+            ->post('tournaments', [TournamentController::class, 'store'])
+            ->name('tournaments.store');
+        Route::middleware('auth.tournaments.manage')
+            ->match(['put', 'patch'], 'tournaments/{tournament}', [TournamentController::class, 'update'])
+            ->name('tournaments.update');
 
-        Route::apiResource('tournaments.competitions', CompetitionController::class)
-            ->only(['store', 'index']);
+        Route::get('tournaments/{tournament}/competitions', [CompetitionController::class, 'index'])
+            ->name('tournaments.competitions.index');
+        Route::middleware('auth.competitions.manage')
+            ->post('tournaments/{tournament}/competitions', [CompetitionController::class, 'store'])
+            ->name('tournaments.competitions.store');
 
-        Route::apiResource('competitions', CompetitionController::class)
-            ->only(['show', 'update']);
+        Route::get('competitions/{competition}', [CompetitionController::class, 'show'])
+            ->name('competitions.show');
+        Route::middleware('auth.competitions.manage')
+            ->match(['put', 'patch'], 'competitions/{competition}', [CompetitionController::class, 'update'])
+            ->name('competitions.update');
 
         Route::get('competitions/{competition}/standings', [CompetitionStandingsController::class, 'index'])
             ->name('competitions.standings.index');
@@ -97,5 +109,6 @@ Route::prefix(config('api.version_prefix', 'v1'))
             ->only(['show', 'destroy']);
 
         Route::post('games/{game}/sets', [GameController::class, 'storeSet'])
+            ->middleware('auth.matches.record_result')
             ->name('games.sets.store');
     });

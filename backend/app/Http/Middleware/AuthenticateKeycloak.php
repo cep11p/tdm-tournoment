@@ -3,10 +3,12 @@
 namespace App\Http\Middleware;
 
 use App\Actions\Auth\SyncKeycloakUserAction;
+use App\Support\Auth\AuthenticatedContext;
 use App\Support\Auth\Exceptions\KeycloakConfigurationException;
 use App\Support\Auth\Exceptions\TokenAuthenticationException;
 use App\Support\Auth\KeycloakConfiguration;
 use App\Support\Auth\KeycloakTokenValidator;
+use App\Support\Auth\PermissionService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,6 +22,7 @@ final class AuthenticateKeycloak
     public function __construct(
         private readonly KeycloakTokenValidator $tokenValidator,
         private readonly SyncKeycloakUserAction $syncKeycloakUser,
+        private readonly PermissionService $permissionService,
     ) {}
 
     public function handle(Request $request, Closure $next): Response
@@ -54,6 +57,10 @@ final class AuthenticateKeycloak
         Auth::setUser($user);
         $request->setUserResolver(fn (): \App\Models\User => $user);
         $request->attributes->set(self::IDENTITY_ATTRIBUTE, $identity);
+        $request->attributes->set(
+            AuthenticatedContext::ATTRIBUTE,
+            $this->permissionService->contextFor($user, $identity),
+        );
 
         return $next($request);
     }

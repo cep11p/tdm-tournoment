@@ -8,7 +8,8 @@ class SpanishValidationTest extends TestCase
 {
     public function test_standard_validation_messages_are_returned_in_spanish(): void
     {
-        $response = $this->postJson('/api/v1/tournaments', []);
+        $response = $this->actingAsKeycloak(['organizer'])
+            ->postJson('/api/v1/tournaments', []);
 
         $response
             ->assertUnprocessable()

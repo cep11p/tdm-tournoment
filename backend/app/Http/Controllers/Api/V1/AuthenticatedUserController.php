@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\AuthenticateKeycloak;
+use App\Support\Auth\AuthenticatedContext;
 use App\Support\Auth\AuthenticatedIdentity;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,6 +16,9 @@ class AuthenticatedUserController extends Controller
         /** @var AuthenticatedIdentity $identity */
         $identity = $request->attributes->get(AuthenticateKeycloak::IDENTITY_ATTRIBUTE);
 
+        /** @var AuthenticatedContext $context */
+        $context = $request->attributes->get(AuthenticatedContext::ATTRIBUTE);
+
         $user = $request->user();
 
         return response()->json([
@@ -24,6 +28,7 @@ class AuthenticatedUserController extends Controller
                 'name' => $user?->name,
                 'email' => $user?->email,
                 'roles' => $identity->roles,
+                'permissions' => $context->permissionValues(),
             ],
         ]);
     }

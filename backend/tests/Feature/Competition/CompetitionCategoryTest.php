@@ -51,6 +51,7 @@ class CompetitionCategoryTest extends TestCase
                 'format' => 'groups_knockout',
                 'points_per_set' => 11,
             ],
+            $this->keycloakAuthHeaders(['organizer']),
         );
 
         $response
@@ -73,6 +74,7 @@ class CompetitionCategoryTest extends TestCase
                 'format' => 'groups_knockout',
                 'points_per_set' => 11,
             ],
+            $this->keycloakAuthHeaders(['organizer']),
         );
 
         $response

@@ -100,6 +100,22 @@ final class TournamentTestContext
     }
 
     /**
+     * @param  list<string>  $roles
+     * @return array<string, string>
+     */
+    protected function authHeaders(array $roles = ['organizer']): array
+    {
+        if (! method_exists($this->test, 'keycloakAuthHeaders')) {
+            return [];
+        }
+
+        /** @var callable(array): array<string, string> $resolver */
+        $resolver = [$this->test, 'keycloakAuthHeaders'];
+
+        return $resolver($roles);
+    }
+
+    /**
      * @param  array<int, Player>  $players
      */
     public function registerPlayers(Competition $competition, array $players): void
@@ -161,12 +177,13 @@ final class TournamentTestContext
         int $setNumber,
         int $player1Score,
         int $player2Score,
+        array $roles = ['organizer'],
     ): TestResponse {
         return $this->test->postJson($this->apiUrl("games/{$game->id}/sets"), [
             'set_number' => $setNumber,
             'player1_score' => $player1Score,
             'player2_score' => $player2Score,
-        ]);
+        ], $this->authHeaders($roles));
     }
 
     /**
@@ -211,14 +228,14 @@ final class TournamentTestContext
                 'set_number' => $setNumber,
                 'player1_score' => $player1Score,
                 'player2_score' => $player2Score,
-            ]);
+            ], $this->authHeaders(['organizer']));
         }
 
         return $response ?? $this->test->postJson($this->apiUrl("games/{$game->id}/sets"), [
             'set_number' => 1,
             'player1_score' => $pointsPerSet,
             'player2_score' => 0,
-        ]);
+        ], $this->authHeaders(['organizer']));
     }
 
     public function generateRoundRobin(Group $group): TestResponse
@@ -268,12 +285,12 @@ final class TournamentTestContext
             'format' => 'groups_knockout',
             'points_per_set' => 11,
             ...$overrides,
-        ]);
+        ], $this->authHeaders(['organizer']));
     }
 
     public function updateCompetitionViaApi(Competition $competition, array $payload): TestResponse
     {
-        return $this->test->putJson($this->apiUrl("competitions/{$competition->id}"), $payload);
+        return $this->test->putJson($this->apiUrl("competitions/{$competition->id}"), $payload, $this->authHeaders(['organizer']));
     }
 
     public function generateBracketNextRound(Bracket $bracket): TestResponse

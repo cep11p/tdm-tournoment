@@ -14,6 +14,22 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'auth.keycloak' => \App\Http\Middleware\AuthenticateKeycloak::class,
+            'permission' => \App\Http\Middleware\EnsurePermission::class,
+        ]);
+
+        $middleware->group('auth.tournaments.manage', [
+            'auth.keycloak',
+            'permission:tournaments.manage',
+        ]);
+
+        $middleware->group('auth.competitions.manage', [
+            'auth.keycloak',
+            'permission:competitions.manage',
+        ]);
+
+        $middleware->group('auth.matches.record_result', [
+            'auth.keycloak',
+            'permission:matches.record_result',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
