@@ -494,6 +494,7 @@ Club
 5. El ganador del partido se calcula a partir de los GameSets cargados.
 6. Un jugador gana el partido cuando acumula el `sets_to_win` del **Game** (snapshot). Si el partido no tiene snapshot (datos legacy), se usa `Competition.sets_to_win`.
 7. No se pueden registrar sets en un partido ya finalizado.
+7b. Un partido finalizado puede corregirse excepcionalmente mediante reemplazo completo del resultado (`POST /games/{game}/corrections`), solo con permiso `matches.correct_result`, motivo obligatorio y restricciones de grupo/llave (ver §22).
 8. No se puede registrar un set empatado.
 9. El ganador del set debe alcanzar al menos `points_per_set`.
 10. El marcador del set debe representar un **resultado final válido** (no basta con diferencia mínima de puntos):
@@ -681,6 +682,7 @@ Respuesta:
 | GET | `/api/v1/competitions/{competition}/games` | Listar games de la competencia |
 | GET | `/api/v1/games/{game}` | Ver game consolidado |
 | POST | `/api/v1/games/{game}/sets` | Registrar set |
+| POST | `/api/v1/games/{game}/corrections` | Corregir resultado de partido finalizado (reemplazo completo) |
 | DELETE | `/api/v1/games/{game}` | Borrar game |
 
 ### Bracket
@@ -1142,6 +1144,62 @@ Panel de control de la fase de grupos. Por cada grupo muestra:
 Los clasificados visibles en la competencia filtran por `eligible_for_qualification !== false`.
 
 **Nota:** `status_summary` a nivel competencia es orientativo y puede decir `ready_for_bracket` aunque un grupo requiera desempate manual. El panel por grupo complementa esa información.
+
+---
+
+## 22. Corrección excepcional de resultados finalizados
+
+Operación administrativa para corregir errores reales de carga **sin** modificar la carga normal append-only de sets.
+
+### Endpoint
+
+```http
+POST /api/v1/games/{game}/corrections
+```
+
+Permiso: `matches.correct_result` (solo rol `admin`).
+
+### Payload
+
+```json
+{
+  "reason": "El árbitro informó que el segundo set fue cargado incorrectamente.",
+  "sets": [
+    { "player1_score": 11, "player2_score": 8 },
+    { "player1_score": 9, "player2_score": 11 },
+    { "player1_score": 11, "player2_score": 7 }
+  ]
+}
+```
+
+El cliente **no** envía `set_number`; el servidor asigna numeración correlativa `1..n` según el orden del array.
+
+### Reglas
+
+- Solo partidos **finalizados**, **no BYE**, con al menos un set cargado.
+- Reemplazo **completo** del resultado: se eliminan los sets anteriores y se crean los nuevos.
+- Motivo obligatorio (`min: 10`, `max: 500`).
+- Mismas validaciones de marcador por set que la carga normal.
+- No se permiten sets posteriores al set decisivo.
+- El partido corregido debe quedar `finished` con un ganador válido.
+
+### Restricciones por fase
+
+| Contexto | Restricción |
+|----------|-------------|
+| Partido de grupo | Bloqueado si la competencia ya tiene bracket generado |
+| Partido de llave | Bloqueado si existe **cualquier** partido del mismo bracket en una ronda posterior |
+| Competencia | Bloqueada si ya existe una final terminada con ganador |
+
+### Impacto
+
+- **Grupos:** standings se recalculan automáticamente; desempates manuales previos pueden quedar **stale**; no se eliminan automáticamente.
+- **Llave:** no hay propagación automática del ganador corregido a rondas posteriores (postergado).
+- **Auditoría:** una actividad `game.result_corrected` por operación exitosa.
+
+### BYEs
+
+Los partidos `is_bye = true` **no** son corregibles manualmente.
 
 ---
 

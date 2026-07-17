@@ -77,6 +77,27 @@ export function buildAuditSummary(auditLog) {
       return parts.join(' · ')
     }
 
+    case 'game.result_corrected': {
+      const oldWinner = auditLog?.old?.winner_name ?? (auditLog?.old?.winner_id ? `Jugador #${auditLog.old.winner_id}` : null)
+      const newWinner = auditLog?.new?.winner_name ?? (auditLog?.new?.winner_id ? `Jugador #${auditLog.new.winner_id}` : null)
+      const beforeCount = summary.sets_count_before ?? auditLog?.old?.sets?.length
+      const afterCount = summary.sets_count_after ?? auditLog?.new?.sets?.length
+
+      if (summary.winner_changed && oldWinner && newWinner) {
+        const replacement =
+          beforeCount !== undefined && afterCount !== undefined
+            ? `${beforeCount} sets reemplazados por ${afterCount}`
+            : null
+
+        return [`Ganador corregido: ${oldWinner} → ${newWinner}`, replacement].filter(Boolean).join(' · ')
+      }
+
+      const updatedCount =
+        afterCount !== undefined ? `${afterCount} sets actualizados` : null
+
+      return ['Resultado corregido', 'ganador sin cambios', updatedCount].filter(Boolean).join(' · ')
+    }
+
     case 'groups.player_status_changed': {
       const playerName = summary.player_name ?? 'Jugador'
       const oldStatus = summary.old_status ?? auditLog?.old?.status

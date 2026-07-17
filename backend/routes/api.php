@@ -137,6 +137,10 @@ Route::prefix(config('api.version_prefix', 'v1'))
             ->middleware('auth.matches.record_result')
             ->name('games.sets.store');
 
+        Route::middleware(['auth.keycloak', 'permission:matches.correct_result'])
+            ->post('games/{game}/corrections', [GameController::class, 'correctResult'])
+            ->name('games.corrections.store');
+
         Route::middleware(['auth.keycloak', 'permission:audit.view'])
             ->get('audit-logs', [AuditLogController::class, 'index'])
             ->name('audit-logs.index');

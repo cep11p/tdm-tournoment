@@ -8,6 +8,7 @@ use App\Enums\GameStatus;
 use App\Models\Game;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
+use App\Support\Game\GameSetScoreValidator;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -16,6 +17,7 @@ final class RecordGameSetAction
 {
     public function __construct(
         private readonly AuditLogger $auditLogger,
+        private readonly GameSetScoreValidator $scoreValidator,
     ) {}
 
     public function __invoke(Game $game, array $payload): Game
@@ -66,33 +68,11 @@ final class RecordGameSetAction
             $player1Score = (int) $payload['player1_score'];
             $player2Score = (int) $payload['player2_score'];
 
-            if ($player1Score === $player2Score) {
-                throw ValidationException::withMessages([
-                    'player1_score' => ['Un set no puede finalizar empatado.'],
-                ]);
-            }
-
-            $winnerScore = max($player1Score, $player2Score);
-            $loserScore = min($player1Score, $player2Score);
-            $targetScore = (int) $competition->points_per_set;
-
-            if ($winnerScore < $targetScore) {
-                throw ValidationException::withMessages([
-                    'player1_score' => [
-                        "El ganador del set debe alcanzar al menos {$targetScore} puntos.",
-                    ],
-                ]);
-            }
-
-            $isValidFinalScore = $winnerScore === $targetScore
-                ? $loserScore <= $targetScore - 2
-                : ($winnerScore - $loserScore) === 2;
-
-            if (! $isValidFinalScore) {
-                throw ValidationException::withMessages([
-                    'player1_score' => ['El marcador no representa un resultado final válido de set.'],
-                ]);
-            }
+            $this->scoreValidator->validate(
+                player1Score: $player1Score,
+                player2Score: $player2Score,
+                pointsPerSet: (int) $competition->points_per_set,
+            );
 
             try {
                 $game->sets()->create([

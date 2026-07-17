@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Game\CorrectFinishedGameResultAction;
 use App\Actions\Game\CreateGameAction;
 use App\Actions\Game\DeleteGameAction;
 use App\Actions\Game\RecordGameSetAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Game\CorrectFinishedGameResultRequest;
 use App\Http\Requests\Game\StoreGameRequest;
 use App\Http\Requests\Game\StoreGameSetRequest;
 use App\Http\Resources\Game\GameResource;
@@ -70,6 +72,16 @@ class GameController extends Controller
         RecordGameSetAction $recordGameSet
     ): GameResource {
         $game = $recordGameSet($game, $request->validated());
+
+        return new GameResource($game);
+    }
+
+    public function correctResult(
+        CorrectFinishedGameResultRequest $request,
+        Game $game,
+        CorrectFinishedGameResultAction $correctFinishedGameResult,
+    ): GameResource {
+        $game = $correctFinishedGameResult($game, $request->validated());
 
         return new GameResource($game);
     }

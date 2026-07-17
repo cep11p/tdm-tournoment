@@ -18,6 +18,11 @@ const GameService = {
     return unwrap(response) ?? null
   },
 
+  async correctResult(gameId, payload) {
+    const response = await httpClient.post(`/games/${gameId}/corrections`, payload)
+    return unwrap(response) ?? null
+  },
+
   async recordSets(gameId, sets) {
     let lastGame = null
 

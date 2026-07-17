@@ -85,6 +85,19 @@ class AuditLogIndexTest extends TestCase
         $this->assertSame([$match->id], collect($response->json('data'))->pluck('id')->all());
     }
 
+    public function test_filters_by_game_result_corrected_action(): void
+    {
+        $match = $this->createAuditActivity(AuditAction::GAME_RESULT_CORRECTED, 'games');
+        $this->createAuditActivity(AuditAction::GAME_SET_RECORDED, 'games');
+
+        $response = $this->getJson(
+            '/api/v1/audit-logs?action='.AuditAction::GAME_RESULT_CORRECTED->value,
+            $this->adminHeaders(),
+        )->assertOk();
+
+        $this->assertSame([$match->id], collect($response->json('data'))->pluck('id')->all());
+    }
+
     public function test_filters_by_log_name(): void
     {
         $match = $this->createAuditActivity(AuditAction::BRACKET_CREATED, 'bracket');

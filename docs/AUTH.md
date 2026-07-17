@@ -89,7 +89,7 @@ users.manage
 
 | Rol Keycloak | Permisos |
 |--------------|----------|
-| `admin` | Todos |
+| `admin` | Todos (incluye `matches.correct_result` y `audit.view`) |
 | `organizer` | Gestión deportiva completa excepto `audit.view`, `users.manage`, `catalog.manage`, `matches.correct_result` |
 | `scorekeeper` | Todos los `*.view` + `matches.record_result` |
 | `player` | Solo permisos `*.view` |
@@ -355,7 +355,7 @@ Las vistas de lectura permanecen accesibles; solo se ocultan controles de escrit
 ## Postergado a slices futuros
 
 - Permisos por torneo/club
-- `matches.correct_result` en endpoints dedicados
+- Propagación automática de ganador corregido a rondas posteriores de la llave (Slice 2.7)
 - CRUD visual de catálogo (categorías/clubes)
 - Pantallas públicas de consulta sin login
 - Administración de usuarios

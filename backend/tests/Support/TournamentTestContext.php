@@ -190,6 +190,22 @@ final class TournamentTestContext
     }
 
     /**
+     * @param  array<int, array{player1_score: int, player2_score: int}>  $sets
+     * @param  list<string>  $roles
+     */
+    public function correctResult(
+        Game $game,
+        string $reason,
+        array $sets,
+        array $roles = ['admin'],
+    ): TestResponse {
+        return $this->test->postJson($this->apiUrl("games/{$game->id}/corrections"), [
+            'reason' => $reason,
+            'sets' => $sets,
+        ], $this->authHeaders($roles));
+    }
+
+    /**
      * @return array{
      *     competition: Competition,
      *     playerOne: Player,

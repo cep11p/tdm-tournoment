@@ -9,15 +9,19 @@ import GameService from '../services/GameService'
 import { getGameStatusLabel } from '../../shared/constants/gameStatus'
 import { extractApiErrorMessage } from '../../shared/utils/extractApiErrorMessage'
 import { FORBIDDEN_MESSAGE } from '../../services/httpInterceptors'
+import GameResultCorrectionModal from '../components/GameResultCorrectionModal.vue'
 
 const route = useRoute()
 const { can } = usePermissions()
 const canRecordResults = computed(() => can('matches.record_result'))
+const canCorrectResults = computed(() => can('matches.correct_result'))
 const gameId = computed(() => route.params.id)
 
 const game = ref(null)
 const isLoading = ref(false)
 const errorMessage = ref('')
+const showCorrectionModal = ref(false)
+const correctionSuccessMessage = ref('')
 
 const isSavingSet = ref(false)
 const setError = ref('')
@@ -39,6 +43,10 @@ const player1Name = computed(() => playerName(game.value?.player1))
 const player2Name = computed(() => playerName(game.value?.player2))
 
 const isFinished = computed(() => game.value?.status === 'finished')
+
+const canShowCorrectionAction = computed(
+  () => isFinished.value && !game.value?.is_bye && canCorrectResults.value,
+)
 
 const winnerName = computed(() => {
   if (!game.value?.winner_id) {
@@ -133,6 +141,17 @@ const handleRecordSet = async () => {
   }
 }
 
+const openCorrectionModal = () => {
+  correctionSuccessMessage.value = ''
+  showCorrectionModal.value = true
+}
+
+const handleCorrectionSaved = async () => {
+  showCorrectionModal.value = false
+  correctionSuccessMessage.value = 'Resultado corregido correctamente.'
+  await loadGame()
+}
+
 onMounted(loadGame)
 </script>
 
@@ -184,7 +203,22 @@ onMounted(loadGame)
           🏆 Ganador: {{ winnerName }}
         </p>
         <p v-else class="text-slate-600 dark:text-slate-300">Ganador: {{ winnerName }}</p>
+        <button
+          v-if="canShowCorrectionAction"
+          type="button"
+          class="mt-2 rounded-md bg-amber-700 px-3 py-2 text-xs font-medium text-white hover:bg-amber-600"
+          @click="openCorrectionModal"
+        >
+          Corregir resultado
+        </button>
       </div>
+
+      <p
+        v-if="correctionSuccessMessage"
+        class="text-sm text-emerald-700 dark:text-emerald-300"
+      >
+        {{ correctionSuccessMessage }}
+      </p>
 
       <div class="space-y-2 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900">
         <p class="font-medium text-slate-700 dark:text-slate-200">Resultado actual</p>
@@ -276,6 +310,13 @@ onMounted(loadGame)
           {{ isSavingSet ? 'Guardando...' : 'Guardar set' }}
         </button>
       </form>
+
+      <GameResultCorrectionModal
+        :show="showCorrectionModal"
+        :game="game"
+        @close="showCorrectionModal = false"
+        @saved="handleCorrectionSaved"
+      />
     </template>
   </section>
 </template>

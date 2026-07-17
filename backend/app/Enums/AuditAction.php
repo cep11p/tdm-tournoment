@@ -8,6 +8,7 @@ enum AuditAction: string
     case BRACKET_CREATED = 'bracket.created';
     case BRACKET_ROUND_ADVANCED = 'bracket.round_advanced';
     case GAME_SET_RECORDED = 'game.set_recorded';
+    case GAME_RESULT_CORRECTED = 'game.result_corrected';
     case GROUP_PLAYER_STATUS_CHANGED = 'groups.player_status_changed';
     case GROUP_MANUAL_TIEBREAK_APPLIED = 'groups.manual_tiebreak_applied';
 
@@ -18,6 +19,7 @@ enum AuditAction: string
             self::BRACKET_CREATED => 'Generación de llave',
             self::BRACKET_ROUND_ADVANCED => 'Avance de ronda',
             self::GAME_SET_RECORDED => 'Registro de set',
+            self::GAME_RESULT_CORRECTED => 'Corrección de resultado',
             self::GROUP_PLAYER_STATUS_CHANGED => 'Cambio de estado de jugador',
             self::GROUP_MANUAL_TIEBREAK_APPLIED => 'Desempate manual',
         };
@@ -31,7 +33,8 @@ enum AuditAction: string
             self::GROUP_MANUAL_TIEBREAK_APPLIED => 'Grupos',
             self::BRACKET_CREATED,
             self::BRACKET_ROUND_ADVANCED => 'Llave',
-            self::GAME_SET_RECORDED => 'Partidos',
+            self::GAME_SET_RECORDED,
+            self::GAME_RESULT_CORRECTED => 'Partidos',
         };
     }
 

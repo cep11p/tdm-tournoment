@@ -79,6 +79,7 @@ El campo `description` de Spatie almacena el **código estable** (`AuditAction`)
 | `bracket.created` | Generación de llave |
 | `bracket.round_advanced` | Avance de ronda |
 | `game.set_recorded` | Registro de set |
+| `game.result_corrected` | Corrección de resultado |
 | `groups.player_status_changed` | Cambio de estado de jugador |
 | `groups.manual_tiebreak_applied` | Desempate manual |
 
@@ -90,6 +91,7 @@ El campo `description` de Spatie almacena el **código estable** (`AuditAction`)
 | `CreateBracketKnockoutAction` | `bracket` | `Competition` |
 | `GenerateBracketNextRoundAction` | `bracket` | `Bracket` |
 | `RecordGameSetAction` | `games` | `Game` |
+| `CorrectFinishedGameResultAction` | `games` | `Game` |
 | `SetGroupPlayerStatusAction` | `groups` | `Group` |
 | `ApplyGroupManualTiebreakAction` | `groups` | `Group` |
 
@@ -231,6 +233,47 @@ Incluye todo lo anterior más:
     "current_page": 1,
     "per_page": 25,
     "total": 0
+  }
+}
+```
+
+Los intentos fallidos no deben auditarse.
+
+### Ejemplo: `game.result_corrected`
+
+```json
+{
+  "reason": "El árbitro informó que el segundo set fue cargado incorrectamente.",
+  "old": {
+    "status": "finished",
+    "winner_id": 12,
+    "winner_name": "Juan Pérez",
+    "finished_at": "2026-07-17T15:00:00-03:00",
+    "sets": [
+      { "set_number": 1, "player1_score": 11, "player2_score": 9 },
+      { "set_number": 2, "player1_score": 11, "player2_score": 7 }
+    ],
+    "sets_won": { "player1": 2, "player2": 0 }
+  },
+  "new": {
+    "status": "finished",
+    "winner_id": 15,
+    "winner_name": "Pedro Gómez",
+    "finished_at": "2026-07-17T16:00:00-03:00",
+    "sets": [
+      { "set_number": 1, "player1_score": 11, "player2_score": 8 },
+      { "set_number": 2, "player1_score": 9, "player2_score": 11 },
+      { "set_number": 3, "player1_score": 11, "player2_score": 7 }
+    ],
+    "sets_won": { "player1": 2, "player2": 1 }
+  },
+  "summary": {
+    "winner_changed": true,
+    "old_winner_id": 12,
+    "new_winner_id": 15,
+    "sets_count_before": 2,
+    "sets_count_after": 3,
+    "dependent_games_detected": []
   }
 }
 ```
