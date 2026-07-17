@@ -33,6 +33,8 @@ import {
 
 const route = useRoute()
 const { can } = usePermissions()
+const canManageBrackets = computed(() => can('brackets.manage'))
+const canAdvanceBracketRound = computed(() => can('brackets.advance_round'))
 const canRecordResults = computed(() => can('matches.record_result'))
 
 const competitionId = computed(() => route.params.id)
@@ -130,7 +132,7 @@ const bracketCreationBlockMessage = computed(() => {
 })
 
 const canCreateBracket = computed(() => {
-  if (hasBracket.value || !competition.value) {
+  if (!canManageBrackets.value || hasBracket.value || !competition.value) {
     return false
   }
 
@@ -559,7 +561,7 @@ const finalResult = computed(() => {
 })
 
 const canGenerateNextRound = computed(() => {
-  if (!hasBracket.value || finalResult.value) {
+  if (!canAdvanceBracketRound.value || !hasBracket.value || finalResult.value) {
     return false
   }
 

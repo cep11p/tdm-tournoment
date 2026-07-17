@@ -92,11 +92,14 @@ final class TournamentTestContext
         ]);
     }
 
-    public function registerPlayerViaApi(Competition $competition, Player $player): TestResponse
-    {
+    public function registerPlayerViaApi(
+        Competition $competition,
+        Player $player,
+        array $roles = ['organizer'],
+    ): TestResponse {
         return $this->test->postJson($this->apiUrl("competitions/{$competition->id}/registrations"), [
             'player_id' => $player->id,
-        ]);
+        ], $this->authHeaders($roles));
     }
 
     /**
@@ -165,7 +168,7 @@ final class TournamentTestContext
         $response = $this->test->postJson($this->apiUrl("competitions/{$competition->id}/games"), [
             'player1_id' => $playerOne->id,
             'player2_id' => $playerTwo->id,
-        ]);
+        ], $this->authHeaders(['organizer']));
 
         $response->assertCreated();
 
@@ -238,35 +241,54 @@ final class TournamentTestContext
         ], $this->authHeaders(['organizer']));
     }
 
-    public function generateRoundRobin(Group $group): TestResponse
+    public function generateRoundRobin(Group $group, array $roles = ['organizer']): TestResponse
     {
-        return $this->test->postJson($this->apiUrl("groups/{$group->id}/round-robin-games"));
+        return $this->test->postJson(
+            $this->apiUrl("groups/{$group->id}/round-robin-games"),
+            [],
+            $this->authHeaders($roles),
+        );
     }
 
-    public function generateRandomGroups(Competition $competition, int $groupsCount): TestResponse
-    {
+    public function generateRandomGroups(
+        Competition $competition,
+        int $groupsCount,
+        array $roles = ['organizer'],
+    ): TestResponse {
         return $this->test->postJson(
             $this->apiUrl("competitions/{$competition->id}/groups/random-generate"),
             ['groups_count' => $groupsCount],
+            $this->authHeaders($roles),
         );
     }
 
-    public function regenerateRandomGroups(Competition $competition, int $groupsCount): TestResponse
-    {
+    public function regenerateRandomGroups(
+        Competition $competition,
+        int $groupsCount,
+        array $roles = ['organizer'],
+    ): TestResponse {
         return $this->test->postJson(
             $this->apiUrl("competitions/{$competition->id}/groups/regenerate-random"),
             ['groups_count' => $groupsCount],
+            $this->authHeaders($roles),
         );
     }
 
-    public function createBracket(Competition $competition, ?int $qualifiedPerGroup = null): TestResponse
-    {
+    public function createBracket(
+        Competition $competition,
+        ?int $qualifiedPerGroup = null,
+        array $roles = ['organizer'],
+    ): TestResponse {
         if ($qualifiedPerGroup !== null) {
             $competition->update(['qualified_per_group' => $qualifiedPerGroup]);
             $competition->refresh();
         }
 
-        return $this->test->postJson($this->apiUrl("competitions/{$competition->id}/bracket"), []);
+        return $this->test->postJson(
+            $this->apiUrl("competitions/{$competition->id}/bracket"),
+            [],
+            $this->authHeaders($roles),
+        );
     }
 
     public function showBracket(Competition $competition): TestResponse
@@ -293,9 +315,46 @@ final class TournamentTestContext
         return $this->test->putJson($this->apiUrl("competitions/{$competition->id}"), $payload, $this->authHeaders(['organizer']));
     }
 
-    public function generateBracketNextRound(Bracket $bracket): TestResponse
+    public function generateBracketNextRound(Bracket $bracket, array $roles = ['organizer']): TestResponse
     {
-        return $this->test->postJson($this->apiUrl("brackets/{$bracket->id}/next-round"));
+        return $this->test->postJson(
+            $this->apiUrl("brackets/{$bracket->id}/next-round"),
+            [],
+            $this->authHeaders($roles),
+        );
+    }
+
+    public function deleteGame(Game $game, array $roles = ['organizer']): TestResponse
+    {
+        return $this->test->deleteJson(
+            $this->apiUrl("games/{$game->id}"),
+            [],
+            $this->authHeaders($roles),
+        );
+    }
+
+    public function createGroupViaApi(
+        Competition $competition,
+        string $name = 'Grupo A',
+        array $roles = ['organizer'],
+    ): TestResponse {
+        return $this->test->postJson(
+            $this->apiUrl("competitions/{$competition->id}/groups"),
+            ['name' => $name],
+            $this->authHeaders($roles),
+        );
+    }
+
+    public function assignPlayerToGroupViaApi(
+        Group $group,
+        Player $player,
+        array $roles = ['organizer'],
+    ): TestResponse {
+        return $this->test->postJson(
+            $this->apiUrl("groups/{$group->id}/players"),
+            ['player_id' => $player->id],
+            $this->authHeaders($roles),
+        );
     }
 
     /**

@@ -110,11 +110,13 @@ const routes = [
     path: '/players/create',
     name: 'players-create',
     component: PlayerCreateView,
+    meta: { permission: 'players.manage' },
   },
   {
     path: '/players/:id/edit',
     name: 'players-edit',
     component: PlayerEditView,
+    meta: { permission: 'players.manage' },
   },
 ]
 

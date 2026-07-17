@@ -7,6 +7,13 @@ use Tests\TestCase;
 
 class RegistrationBulkTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withHeaders($this->authHeaders(['organizer']));
+    }
+
     public function test_registers_multiple_new_players(): void
     {
         $context = $this->tournamentContext();

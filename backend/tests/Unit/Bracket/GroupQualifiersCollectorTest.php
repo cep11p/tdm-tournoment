@@ -12,6 +12,13 @@ use Tests\TestCase;
 
 class GroupQualifiersCollectorTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withHeaders($this->authHeaders(['organizer']));
+    }
+
     public function test_collects_qualifiers_with_group_metadata_for_two_groups(): void
     {
         $context = $this->tournamentContext();

@@ -9,6 +9,13 @@ use Tests\TestCase;
 
 class GroupStandingsTiebreakTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withHeaders($this->authHeaders(['organizer']));
+    }
+
     public function test_resolves_double_tie_with_mini_table(): void
     {
         $context = $this->tournamentContext();

@@ -9,6 +9,13 @@ use Tests\TestCase;
 
 class RegistrationConstraintsTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withHeaders($this->authHeaders(['organizer']));
+    }
+
     public function test_rejects_duplicate_registration_in_same_competition(): void
     {
         $context = $this->tournamentContext();

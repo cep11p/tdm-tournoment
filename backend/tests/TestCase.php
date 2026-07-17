@@ -16,4 +16,13 @@ abstract class TestCase extends BaseTestCase
     {
         return new TournamentTestContext($this);
     }
+
+    /**
+     * @param  list<string>  $roles
+     * @return array<string, string>
+     */
+    protected function authHeaders(array $roles = ['organizer']): array
+    {
+        return $this->keycloakAuthHeaders($roles);
+    }
 }

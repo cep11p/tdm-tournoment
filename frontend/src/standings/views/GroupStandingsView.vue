@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import BracketService from '../../brackets/services/BracketService'
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
+import { usePermissions } from '../../composables/usePermissions'
 import CompetitionService from '../../competitions/services/CompetitionService'
 import { getGroupPlayerStatusLabel } from '../../groups/constants/groupPlayerStatus'
 import GroupManualTiebreakPanel from '../components/GroupManualTiebreakPanel.vue'
@@ -18,6 +19,8 @@ import {
 } from '../utils/resolveGroupQualification'
 
 const route = useRoute()
+const { can } = usePermissions()
+const canManageGroups = computed(() => can('groups.manage'))
 
 const groupId = computed(() => route.params.id)
 const competitionId = computed(() => route.query.competitionId || '')
@@ -245,14 +248,16 @@ onMounted(async () => {
         <p class="mt-1">Definí el orden manual para continuar con la clasificación.</p>
       </div>
 
-      <GroupManualTiebreakPanel
-        v-for="tiebreakGroup in pendingManualTiebreakGroups"
-        :key="tiebreakGroupKey(tiebreakGroup)"
-        :group-id="groupId"
-        :tiebreak-group="tiebreakGroup"
-        :disabled="hasBracket"
-        @saved="handleManualTiebreakSaved"
-      />
+      <template v-if="canManageGroups">
+        <GroupManualTiebreakPanel
+          v-for="tiebreakGroup in pendingManualTiebreakGroups"
+          :key="tiebreakGroupKey(tiebreakGroup)"
+          :group-id="groupId"
+          :tiebreak-group="tiebreakGroup"
+          :disabled="hasBracket"
+          @saved="handleManualTiebreakSaved"
+        />
+      </template>
 
       <div
         v-if="!standingsAreProvisional && staleManualTiebreaks.length > 0"

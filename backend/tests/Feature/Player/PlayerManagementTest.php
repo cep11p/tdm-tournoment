@@ -8,6 +8,13 @@ use Tests\TestCase;
 
 class PlayerManagementTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withHeaders($this->authHeaders(['organizer']));
+    }
+
     public function test_lists_players_with_search_by_name_last_name_and_nickname(): void
     {
         Player::query()->create([

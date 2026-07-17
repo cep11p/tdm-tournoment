@@ -10,6 +10,13 @@ use Tests\TestCase;
 
 class BracketFlowTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withHeaders($this->authHeaders(['organizer']));
+    }
+
     public function test_creates_bracket_with_automatic_name_when_name_is_omitted(): void
     {
         $context = $this->tournamentContext();

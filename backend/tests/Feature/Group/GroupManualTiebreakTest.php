@@ -11,6 +11,13 @@ use Tests\TestCase;
 
 class GroupManualTiebreakTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withHeaders($this->authHeaders(['organizer']));
+    }
+
     public function test_applies_manual_tiebreak_for_pending_group(): void
     {
         $context = $this->tournamentContext();

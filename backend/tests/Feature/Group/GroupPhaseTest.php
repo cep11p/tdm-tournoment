@@ -8,6 +8,13 @@ use Tests\TestCase;
 
 class GroupPhaseTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withHeaders($this->authHeaders(['organizer']));
+    }
+
     public function test_round_robin_generates_all_pairings_for_group(): void
     {
         $context = $this->tournamentContext();

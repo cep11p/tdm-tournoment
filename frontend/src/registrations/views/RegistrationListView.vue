@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
+import { usePermissions } from '../../composables/usePermissions'
 import CompetitionService from '../../competitions/services/CompetitionService'
 import {
   isRegistrationsEditable,
@@ -14,6 +15,8 @@ import RegistrationService from '../services/RegistrationService'
 import { resolveCompetitionCategorySlug } from '../../players/utils/playerRegistrationRowStatus'
 
 const route = useRoute()
+const { can } = usePermissions()
+const canManageRegistrations = computed(() => can('registrations.manage'))
 const competitionId = computed(() => route.params.id)
 const competition = ref(null)
 
@@ -97,7 +100,7 @@ onMounted(async () => {
       <AppBackButton :fallback-to="`/competitions/${competitionId}`" />
     </div>
 
-    <div v-if="registrationsEditable" class="flex flex-wrap gap-2">
+    <div v-if="registrationsEditable && canManageRegistrations" class="flex flex-wrap gap-2">
       <button
         type="button"
         class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"

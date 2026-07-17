@@ -2,8 +2,12 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 
+import { usePermissions } from '../../composables/usePermissions'
 import PlayerFilters from '../components/PlayerFilters.vue'
 import PlayerService from '../services/PlayerService'
+
+const { can } = usePermissions()
+const canManagePlayers = computed(() => can('players.manage'))
 
 const players = ref([])
 const meta = ref({})
@@ -147,6 +151,7 @@ onMounted(loadPlayers)
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">Jugadores</h1>
       <RouterLink
+        v-if="canManagePlayers"
         to="/players/create"
         class="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
       >
@@ -211,6 +216,7 @@ onMounted(loadPlayers)
               Estado
             </th>
             <th
+              v-if="canManagePlayers"
               class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
             >
               Acciones
@@ -249,7 +255,7 @@ onMounted(loadPlayers)
                 Inactivo
               </span>
             </td>
-            <td class="px-4 py-3 text-sm">
+            <td v-if="canManagePlayers" class="px-4 py-3 text-sm">
               <div class="flex flex-wrap gap-2">
                 <RouterLink
                   :to="`/players/${player.id}/edit`"

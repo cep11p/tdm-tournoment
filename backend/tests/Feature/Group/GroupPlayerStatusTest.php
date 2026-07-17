@@ -13,6 +13,12 @@ use Tests\TestCase;
 
 class GroupPlayerStatusTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withHeaders($this->authHeaders(['organizer']));
+    }
     public function test_marks_player_as_withdrawn_and_persists_metadata(): void
     {
         $context = $this->tournamentContext();

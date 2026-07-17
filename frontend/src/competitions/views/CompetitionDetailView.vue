@@ -41,6 +41,9 @@ import { getCompetitionTypeLabel } from '../../shared/constants/competitionType'
 const route = useRoute()
 const { can } = usePermissions()
 const canManageCompetitions = computed(() => can('competitions.manage'))
+const canManageGroups = computed(() => can('groups.manage'))
+const canRegenerateGroups = computed(() => can('groups.regenerate'))
+const canManageRegistrations = computed(() => can('registrations.manage'))
 
 const competition = ref(null)
 const bracket = ref(null)
@@ -103,6 +106,7 @@ const registrationsLockMessage = computed(() => registrationsLockReason(competit
 
 const canGenerateRandomGroups = computed(
   () =>
+    canManageGroups.value &&
     competitionStructureEditable.value &&
     hasGroupStage.value &&
     registeredCount.value >= 2 &&
@@ -113,6 +117,7 @@ const canGenerateRandomGroups = computed(
 
 const canRegenerateRandomGroups = computed(
   () =>
+    canRegenerateGroups.value &&
     competitionStructureEditable.value &&
     hasGroupStage.value &&
     hasExistingGroups.value &&
@@ -1156,7 +1161,7 @@ const handleEditCompetitionSaved = async () => {
         v-if="registrations !== null"
         :show="showParticipantsModal"
         :registrations="registrations"
-        :registrations-editable="registrationsEditable"
+        :registrations-editable="registrationsEditable && canManageRegistrations"
         :registrations-route="registrationsRoute"
         @close="showParticipantsModal = false"
       />

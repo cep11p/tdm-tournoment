@@ -29,6 +29,7 @@ import GroupService from '../services/GroupService'
 
 const route = useRoute()
 const { can } = usePermissions()
+const canManageGroups = computed(() => can('groups.manage'))
 const canRecordResults = computed(() => can('matches.record_result'))
 
 const groupId = computed(() => route.params.id)
@@ -755,7 +756,7 @@ onMounted(async () => {
               </span>
 
               <button
-                v-if="canChangePlayerStatus(entry.groupPlayer)"
+                v-if="canChangePlayerStatus(entry.groupPlayer) && canManageGroups"
                 type="button"
                 class="ml-auto rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
                 @click="openPlayerStatusModal(entry.groupPlayer)"
@@ -788,7 +789,7 @@ onMounted(async () => {
         <p class="font-medium text-slate-700 dark:text-slate-200">Partidos del grupo</p>
 
         <button
-          v-if="!hasGroupGames"
+          v-if="!hasGroupGames && canManageGroups"
           type="button"
           class="shrink-0 rounded-md bg-emerald-700 px-3 py-2 font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-emerald-600 dark:hover:bg-emerald-500"
           :disabled="isGeneratingRoundRobin"

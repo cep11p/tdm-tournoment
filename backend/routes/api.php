@@ -53,14 +53,25 @@ Route::prefix(config('api.version_prefix', 'v1'))
 
         Route::get('competitions/{competition}/bracket', [CompetitionBracketController::class, 'show'])
             ->name('competitions.bracket.show');
-
-        Route::post('competitions/{competition}/bracket', [CompetitionBracketController::class, 'store'])
+        Route::middleware(['auth.keycloak', 'permission:brackets.manage'])
+            ->post('competitions/{competition}/bracket', [CompetitionBracketController::class, 'store'])
             ->name('competitions.bracket.store');
 
-        Route::post('brackets/{bracket}/next-round', [BracketNextRoundController::class, 'store'])
+        Route::middleware(['auth.keycloak', 'permission:brackets.advance_round'])
+            ->post('brackets/{bracket}/next-round', [BracketNextRoundController::class, 'store'])
             ->name('brackets.next-round.store');
 
-        Route::apiResource('players', PlayerController::class);
+        Route::get('players', [PlayerController::class, 'index'])->name('players.index');
+        Route::get('players/{player}', [PlayerController::class, 'show'])->name('players.show');
+        Route::middleware(['auth.keycloak', 'permission:players.manage'])
+            ->post('players', [PlayerController::class, 'store'])
+            ->name('players.store');
+        Route::middleware(['auth.keycloak', 'permission:players.manage'])
+            ->match(['put', 'patch'], 'players/{player}', [PlayerController::class, 'update'])
+            ->name('players.update');
+        Route::middleware(['auth.keycloak', 'permission:players.manage'])
+            ->delete('players/{player}', [PlayerController::class, 'destroy'])
+            ->name('players.destroy');
 
         Route::get('categories', [CategoryController::class, 'index'])
             ->name('categories.index');
@@ -68,45 +79,58 @@ Route::prefix(config('api.version_prefix', 'v1'))
         Route::get('clubs', [ClubController::class, 'index'])
             ->name('clubs.index');
 
-        Route::post('competitions/{competition}/registrations/bulk', [RegistrationController::class, 'bulkStore'])
+        Route::get('competitions/{competition}/registrations', [RegistrationController::class, 'index'])
+            ->name('competitions.registrations.index');
+        Route::middleware(['auth.keycloak', 'permission:registrations.manage'])
+            ->post('competitions/{competition}/registrations', [RegistrationController::class, 'store'])
+            ->name('competitions.registrations.store');
+        Route::middleware(['auth.keycloak', 'permission:registrations.manage'])
+            ->post('competitions/{competition}/registrations/bulk', [RegistrationController::class, 'bulkStore'])
             ->name('competitions.registrations.bulk');
 
-        Route::apiResource('competitions.registrations', RegistrationController::class)
-            ->only(['store', 'index']);
+        Route::get('competitions/{competition}/groups', [GroupController::class, 'index'])
+            ->name('competitions.groups.index');
+        Route::middleware(['auth.keycloak', 'permission:groups.manage'])
+            ->post('competitions/{competition}/groups', [GroupController::class, 'store'])
+            ->name('competitions.groups.store');
+        Route::middleware(['auth.keycloak', 'permission:groups.manage'])
+            ->post('competitions/{competition}/groups/random-generate', GroupRandomGenerateController::class)
+            ->name('competitions.groups.random-generate');
+        Route::middleware(['auth.keycloak', 'permission:groups.regenerate'])
+            ->post('competitions/{competition}/groups/regenerate-random', GroupRandomRegenerateController::class)
+            ->name('competitions.groups.regenerate-random');
 
-        Route::post(
-            'competitions/{competition}/groups/random-generate',
-            GroupRandomGenerateController::class,
-        )->name('competitions.groups.random-generate');
+        Route::get('groups/{group}/players', [GroupPlayerController::class, 'index'])
+            ->name('groups.players.index');
+        Route::middleware(['auth.keycloak', 'permission:groups.manage'])
+            ->post('groups/{group}/players', [GroupPlayerController::class, 'store'])
+            ->name('groups.players.store');
 
-        Route::post(
-            'competitions/{competition}/groups/regenerate-random',
-            GroupRandomRegenerateController::class,
-        )->name('competitions.groups.regenerate-random');
-
-        Route::apiResource('competitions.groups', GroupController::class)
-            ->only(['store', 'index']);
-
-        Route::apiResource('groups.players', GroupPlayerController::class)
-            ->only(['store', 'index']);
-
-        Route::post('groups/{group}/round-robin-games', [GroupRoundRobinGameController::class, 'store'])
+        Route::middleware(['auth.keycloak', 'permission:groups.manage'])
+            ->post('groups/{group}/round-robin-games', [GroupRoundRobinGameController::class, 'store'])
             ->name('groups.round-robin-games.store');
 
         Route::get('groups/{group}/standings', [GroupStandingsController::class, 'index'])
             ->name('groups.standings.index');
 
-        Route::post('groups/{group}/manual-tiebreaks', [GroupManualTiebreakController::class, 'store'])
+        Route::middleware(['auth.keycloak', 'permission:groups.manage'])
+            ->post('groups/{group}/manual-tiebreaks', [GroupManualTiebreakController::class, 'store'])
             ->name('groups.manual-tiebreaks.store');
 
-        Route::post('groups/{group}/player-status', [GroupPlayerStatusController::class, 'store'])
+        Route::middleware(['auth.keycloak', 'permission:groups.manage'])
+            ->post('groups/{group}/player-status', [GroupPlayerStatusController::class, 'store'])
             ->name('groups.player-status.store');
 
-        Route::apiResource('competitions.games', GameController::class)
-            ->only(['store', 'index']);
+        Route::get('competitions/{competition}/games', [GameController::class, 'index'])
+            ->name('competitions.games.index');
+        Route::middleware(['auth.keycloak', 'permission:matches.create'])
+            ->post('competitions/{competition}/games', [GameController::class, 'store'])
+            ->name('competitions.games.store');
 
-        Route::apiResource('games', GameController::class)
-            ->only(['show', 'destroy']);
+        Route::get('games/{game}', [GameController::class, 'show'])->name('games.show');
+        Route::middleware(['auth.keycloak', 'permission:matches.delete'])
+            ->delete('games/{game}', [GameController::class, 'destroy'])
+            ->name('games.destroy');
 
         Route::post('games/{game}/sets', [GameController::class, 'storeSet'])
             ->middleware('auth.matches.record_result')

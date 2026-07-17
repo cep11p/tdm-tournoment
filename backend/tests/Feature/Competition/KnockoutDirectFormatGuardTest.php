@@ -7,6 +7,13 @@ use Tests\TestCase;
 
 class KnockoutDirectFormatGuardTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withHeaders($this->authHeaders(['organizer']));
+    }
+
     public function test_does_not_allow_random_group_generation(): void
     {
         $context = $this->tournamentContext();

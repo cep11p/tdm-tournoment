@@ -9,6 +9,13 @@ use Tests\TestCase;
 
 class PlayerCategoryClubTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->withHeaders($this->authHeaders(['organizer']));
+    }
+
     public function test_creates_player_with_category_and_club(): void
     {
         $category = Category::query()->where('slug', 'primera')->firstOrFail();

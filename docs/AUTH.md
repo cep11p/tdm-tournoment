@@ -1,6 +1,6 @@
 # Autenticación y autorización Keycloak
 
-Este documento describe la integración backend con Keycloak: **autenticación** (Slice 2.1) y **autorización por permisos** (Slice 2.2). La auditoría y la protección del resto de rutas se implementan en slices posteriores.
+Este documento describe la integración backend con Keycloak: **autenticación** (Slice 2.1), **autorización por permisos** (Slice 2.2) y **protección completa de mutaciones deportivas** (Slice 2.4).
 
 ## Política de acceso
 
@@ -14,9 +14,9 @@ Decisión adoptada para la evolución de la API:
 En la práctica:
 
 - Un visitante anónimo puede **consultar** el estado del torneo (listados, detalle, posiciones, llaves, resultados).
-- Solo un usuario con token válido y el **permiso correspondiente** puede **mutar** datos administrativos (p. ej. crear torneos, editar competencias, cargar sets).
+- Solo un usuario con token válido y el **permiso correspondiente** puede **mutar** datos (gestión de jugadores, inscripciones, grupos, llaves, partidos, torneos y competencias).
 
-Esta separación se aplica de forma **progresiva por slice**: en el Slice 2.2 solo un subconjunto de mutaciones está protegido; el resto sigue público hasta slices posteriores. La regla de fondo no cambia: lectura abierta, escritura controlada.
+Desde el Slice 2.4, **ninguna mutación bajo `/api/v1` queda anónima**.
 
 ## Variables de entorno requeridas
 
@@ -182,50 +182,38 @@ Respuesta exitosa:
 
 Los permisos **no reemplazan** los Domain Guards ni viceversa.
 
-## Rutas protegidas (Slice 2.2)
+## Matriz de acceso API (Slice 2.4)
 
-Aplicación inicial de la política **mutaciones administrativas autenticadas y autorizadas**. Solo estas operaciones de escritura exigen token y permiso:
+**La API ya no posee operaciones de escritura anónimas** bajo `/api/v1`. Todas las mutaciones exigen `auth.keycloak` y el permiso correspondiente (o grupo compuesto equivalente).
 
-| Método | Ruta | Permiso |
-|--------|------|---------|
-| `POST` | `/api/v1/tournaments` | `tournaments.manage` |
-| `PUT/PATCH` | `/api/v1/tournaments/{tournament}` | `tournaments.manage` |
-| `POST` | `/api/v1/tournaments/{tournament}/competitions` | `competitions.manage` |
-| `PUT/PATCH` | `/api/v1/competitions/{competition}` | `competitions.manage` |
-| `POST` | `/api/v1/games/{game}/sets` | `matches.record_result` |
+Excepciones deliberadas fuera de `/api/v1`: ninguna mutación deportiva. El endpoint de health `/up` no forma parte de la API versionada.
 
-Además, `GET /api/v1/me` exige `auth.keycloak`.
+| Área | Lecturas públicas | Mutaciones protegidas | Permiso |
+| ---- | ----------------- | --------------------- | ------- |
+| **Autenticación** | — | `GET /api/v1/me` | Solo autenticación (`auth.keycloak`) |
+| **Torneos** | `GET /tournaments`, `GET /tournaments/{tournament}` | `POST /tournaments`, `PUT/PATCH /tournaments/{tournament}` | `tournaments.manage` |
+| **Competencias** | `GET /tournaments/{t}/competitions`, `GET /competitions/{c}`, `GET /competitions/{c}/standings` | `POST /tournaments/{t}/competitions`, `PUT/PATCH /competitions/{c}` | `competitions.manage` |
+| **Jugadores** | `GET /players`, `GET /players/{player}` | `POST /players`, `PUT/PATCH /players/{player}`, `DELETE /players/{player}` | `players.manage` |
+| **Inscripciones** | `GET /competitions/{c}/registrations` | `POST /competitions/{c}/registrations`, `POST .../registrations/bulk` | `registrations.manage` |
+| **Grupos** | `GET /competitions/{c}/groups`, `GET /groups/{g}/players`, `GET /groups/{g}/standings` | Crear grupo, asignar jugador, round-robin, desempate, estado | `groups.manage` |
+| **Grupos (regeneración)** | — | `POST /competitions/{c}/groups/regenerate-random` | `groups.regenerate` |
+| **Grupos (generación inicial)** | — | `POST /competitions/{c}/groups/random-generate` | `groups.manage` |
+| **Llaves** | `GET /competitions/{c}/bracket` | `POST /competitions/{c}/bracket` | `brackets.manage` |
+| **Llaves (rondas)** | — | `POST /brackets/{b}/next-round` | `brackets.advance_round` |
+| **Partidos** | `GET /competitions/{c}/games`, `GET /games/{game}` | `POST /competitions/{c}/games` | `matches.create` |
+| **Partidos (eliminación)** | — | `DELETE /games/{game}` | `matches.delete` |
+| **Partidos (resultados)** | — | `POST /games/{game}/sets` | `matches.record_result` |
+| **Catálogo** | `GET /categories`, `GET /clubs` | — (sin CRUD en este slice) | — |
 
-## Rutas públicas (transitorio)
+Grupos compuestos en `bootstrap/app.php` (Slice 2.2, conservados): `auth.tournaments.manage`, `auth.competitions.manage`, `auth.matches.record_result`. El resto de mutaciones usan `auth.keycloak` + `permission:*` inline en rutas explícitas.
 
-Aplicación de la política **lecturas deportivas públicas**, más mutaciones aún no incluidas en el slice actual.
+### Diferencia 401 / 403 / 422
 
-Todas las operaciones `GET` del MVP siguen accesibles sin token. Además, varias **escrituras administrativas** permanecen públicas por decisión de rollout progresivo: funcionan como antes del Slice 2.2, pero representan un **riesgo temporal de seguridad** hasta protegerlas en slices posteriores.
-
-### Riesgo temporal: escrituras aún públicas
-
-Cualquier cliente anónimo puede invocar hoy estos endpoints. Deben tratarse como deuda conocida, no como diseño final.
-
-| Área | Operación | Rutas actuales (sin auth) | Permiso previsto |
-|------|-----------|---------------------------|------------------|
-| **Inscripciones** | Alta individual | `POST /api/v1/competitions/{competition}/registrations` | `registrations.manage` |
-| | Alta masiva | `POST /api/v1/competitions/{competition}/registrations/bulk` | `registrations.manage` |
-| **Grupos** | Generación aleatoria | `POST /api/v1/competitions/{competition}/groups/random-generate` | `groups.regenerate` |
-| | Regeneración aleatoria | `POST /api/v1/competitions/{competition}/groups/regenerate-random` | `groups.regenerate` |
-| | Creación manual / asignación | `POST /api/v1/competitions/{competition}/groups`, `POST /api/v1/groups/{group}/players` | `groups.manage` |
-| | Round robin | `POST /api/v1/groups/{group}/round-robin-games` | `groups.manage` |
-| **Desempates** | Desempate manual | `POST /api/v1/groups/{group}/manual-tiebreaks` | `groups.manage` |
-| **Estado en grupo** | Retiro / descalificación | `POST /api/v1/groups/{group}/player-status` | `groups.manage` |
-| **Llaves** | Generación de bracket | `POST /api/v1/competitions/{competition}/bracket` | `brackets.manage` |
-| | Avance de ronda | `POST /api/v1/brackets/{bracket}/next-round` | `brackets.advance_round` |
-| **Partidos** | Creación manual | `POST /api/v1/competitions/{competition}/games` | `matches.create` |
-| | Eliminación | `DELETE /api/v1/games/{game}` | `matches.delete` |
-
-> **Nota:** la carga de sets (`POST /api/v1/games/{game}/sets`) **ya está protegida** desde el Slice 2.2 con `matches.record_result`.
-
-Otras escrituras públicas fuera de la lista anterior (p. ej. CRUD de jugadores) también quedan pendientes de protección; la tabla anterior concentra las operaciones estructurales de mayor impacto sobre el torneo.
-
-**Mitigación actual:** ninguna en perimetro API — la seguridad depende de no exponer la API a redes no confiables. **Resolución prevista:** aplicar `auth.keycloak` + `permission:*` en Slice 2.5+ según la matriz de permisos.
+| Código | Cuándo | Ejemplo |
+|--------|--------|---------|
+| **401** | Sin token o token inválido | `POST /players` sin `Authorization` |
+| **403** | Autenticado pero sin permiso | `scorekeeper` intenta crear jugador |
+| **422** | Permiso OK, regla de dominio falla | `organizer` inscribe con competencia bloqueada |
 
 ## Validación JWT (resumen)
 
@@ -328,12 +316,17 @@ Estados visuales: “Iniciando sesión…”, “Cargando perfil…”, error de
 - **Interceptor Axios**: Bearer token tras `updateToken(30)`; refresh concurrente deduplicado; `401` → limpiar sesión y login Keycloak (sin loops); `403` → conservar sesión, mensaje “No tenés permiso para realizar esta acción.”
 - **Guards de router**: rutas de escritura con `meta.permission`; acceso denegado → `/forbidden`.
 - **Navegación**: ítems filtrados por permiso (`tournaments.view`, `players.view`).
-- **Botones protegidos** (solo operaciones ya protegidas en backend):
+- **Botones protegidos** según permisos de `/me`:
   - Torneos: `tournaments.manage`
   - Competencias: `competitions.manage`
+  - Jugadores: `players.manage` (crear, editar, activar/desactivar, eliminar)
+  - Inscripciones: `registrations.manage`
+  - Grupos: `groups.manage` (estructura, round-robin, desempates, estados)
+  - Regeneración de grupos: `groups.regenerate`
+  - Llave: `brackets.manage`, avance de ronda: `brackets.advance_round`
   - Carga de resultados: `matches.record_result`
 
-**No se ocultan** acciones de inscripciones, grupos ni llaves: esas escrituras backend siguen públicas (deuda conocida). Los datos deportivos permanecen visibles aunque el usuario no pueda editarlos.
+Las vistas de lectura permanecen accesibles; solo se ocultan controles de escritura. Los datos deportivos siguen visibles aunque el usuario no pueda editarlos.
 
 ### Logout
 
@@ -348,18 +341,18 @@ Estados visuales: “Iniciando sesión…”, “Cargando perfil…”, error de
 | `/me` no responde (red) | Error recuperable; sesión Keycloak conservada; botón reintentar. |
 | `/me` responde `401` | Limpiar sesión local; redirect a login Keycloak. |
 | Mutación responde `403` | Mensaje de permiso; **no** logout. |
-| Rol `organizer` | Ve crear/editar torneos y competencias; puede cargar resultados. |
-| Rol `scorekeeper` | No ve crear/editar torneos ni competencias; sí carga resultados. |
+| Rol `organizer` | Gestión deportiva completa (jugadores, inscripciones, grupos, llaves, partidos, resultados). |
+| Rol `scorekeeper` | Consulta todo; carga resultados; no modifica estructuras ni jugadores. |
 | Rol `player` | Consulta datos; no ve acciones de edición ni carga de resultados. |
 | Ruta sin permiso (URL directa) | `ForbiddenView`. |
 | Logout | Sesión Keycloak terminada; store limpio. |
 
 ## Postergado a slices futuros
 
-- Protección de las escrituras listadas en **Riesgo temporal** (Slice 2.5+)
-- Auditoría (Slice 2.4)
+- Auditoría
 - Permisos por torneo/club
 - `matches.correct_result` en endpoints dedicados
-- CRUD de jugadores y demás mutaciones administrativas restantes
+- CRUD visual de catálogo (categorías/clubes)
 - Pantallas públicas de consulta sin login
-- Ocultar acciones de inscripciones/grupos/llave en UI (cuando backend las proteja)
+- Administración de usuarios
+- Vínculo usuario-jugador
