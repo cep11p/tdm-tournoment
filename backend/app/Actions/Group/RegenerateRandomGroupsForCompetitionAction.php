@@ -2,10 +2,14 @@
 
 namespace App\Actions\Group;
 
+use App\Data\Audit\AuditEntry;
+use App\Enums\AuditAction;
 use App\Enums\GameStatus;
 use App\Models\Bracket;
 use App\Models\Competition;
 use App\Models\Game;
+use App\Support\Audit\AuditContextBuilder;
+use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Competition\CompetitionStructureGuard;
 use App\Support\Group\RandomGroupDistributionGuard;
@@ -16,6 +20,7 @@ final class RegenerateRandomGroupsForCompetitionAction
 {
     public function __construct(
         private readonly BuildRandomGroupsForCompetitionAction $buildRandomGroups,
+        private readonly AuditLogger $auditLogger,
     ) {}
 
     /**
@@ -51,7 +56,13 @@ final class RegenerateRandomGroupsForCompetitionAction
         RandomGroupDistributionGuard::ensureValid($playerCount, $groupsCount);
 
         return DB::transaction(function () use ($competition, $groupsCount): array {
-            $groupsRemoved = $competition->groups()->count();
+            $oldGroupsCount = $competition->groups()->count();
+            $oldGamesCount = Game::query()
+                ->where('competition_id', $competition->id)
+                ->count();
+            $bracketExists = $competition->brackets()->exists();
+
+            $groupsRemoved = $oldGroupsCount;
             $gamesRemoved = 0;
             $bracketRemoved = false;
 
@@ -73,12 +84,38 @@ final class RegenerateRandomGroupsForCompetitionAction
 
             $buildResult = ($this->buildRandomGroups)($competition, $groupsCount);
 
-            return [
+            $result = [
                 'groups_removed' => $groupsRemoved,
                 'games_removed' => $gamesRemoved,
                 'bracket_removed' => $bracketRemoved,
                 ...$buildResult,
             ];
+
+            $this->auditLogger->log(new AuditEntry(
+                action: AuditAction::GROUPS_REGENERATED,
+                logName: 'groups',
+                subject: $competition,
+                context: AuditContextBuilder::fromCompetition($competition),
+                old: [
+                    'groups_count' => $oldGroupsCount,
+                    'games_count' => $oldGamesCount,
+                    'bracket_exists' => $bracketExists,
+                ],
+                new: [
+                    'groups_count' => $buildResult['groups_created'],
+                    'games_count' => $buildResult['games_created'],
+                ],
+                summary: [
+                    'groups_removed' => $groupsRemoved,
+                    'games_removed' => $gamesRemoved,
+                    'bracket_removed' => $bracketRemoved,
+                    'groups_created' => $buildResult['groups_created'],
+                    'players_assigned' => $buildResult['players_assigned'],
+                    'games_created' => $buildResult['games_created'],
+                ],
+            ));
+
+            return $result;
         });
     }
 

@@ -3,8 +3,12 @@
 namespace App\Actions\Bracket;
 
 use App\Actions\Game\CreateGameAction;
+use App\Data\Audit\AuditEntry;
+use App\Enums\AuditAction;
 use App\Enums\GameStatus;
 use App\Models\Bracket;
+use App\Support\Audit\AuditContextBuilder;
+use App\Support\Audit\AuditLogger;
 use App\Support\Bracket\BracketSupport;
 use App\Support\Game\GameFormatResolver;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +18,7 @@ final class GenerateBracketNextRoundAction
 {
     public function __construct(
         private readonly CreateGameAction $createGame,
+        private readonly AuditLogger $auditLogger,
     ) {}
 
     public function __invoke(Bracket $bracket): Bracket
@@ -88,7 +93,8 @@ final class GenerateBracketNextRoundAction
             $roundLabel,
             $matchCount,
             $competitionId,
-            $matchFormat
+            $matchFormat,
+            $currentRound,
         ): Bracket {
             for ($matchIndex = 0; $matchIndex < $matchCount; $matchIndex++) {
                 ($this->createGame)([
@@ -104,6 +110,25 @@ final class GenerateBracketNextRoundAction
                     'sets_to_win' => $matchFormat['sets_to_win'],
                 ]);
             }
+
+            $this->auditLogger->log(new AuditEntry(
+                action: AuditAction::BRACKET_ROUND_ADVANCED,
+                logName: 'bracket',
+                subject: $bracket,
+                context: AuditContextBuilder::fromBracket($bracket),
+                old: [
+                    'current_round' => $currentRound,
+                ],
+                new: [
+                    'generated_round' => $nextRound,
+                ],
+                summary: [
+                    'source_round' => $currentRound,
+                    'generated_round' => $nextRound,
+                    'games_created' => $matchCount,
+                    'players_advanced' => count($winners),
+                ],
+            ));
 
             return $bracket->load([
                 'games.player1:id,first_name,last_name,nickname',

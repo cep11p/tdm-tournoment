@@ -2,14 +2,22 @@
 
 namespace App\Actions\Game;
 
+use App\Data\Audit\AuditEntry;
+use App\Enums\AuditAction;
 use App\Enums\GameStatus;
 use App\Models\Game;
+use App\Support\Audit\AuditContextBuilder;
+use App\Support\Audit\AuditLogger;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class RecordGameSetAction
 {
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+    ) {}
+
     public function __invoke(Game $game, array $payload): Game
     {
         return DB::transaction(function () use ($game, $payload): Game {
@@ -29,6 +37,9 @@ final class RecordGameSetAction
                     'game' => ['El partido ya finalizó.'],
                 ]);
             }
+
+            $oldSetsWon = $game->setsWonCount($game->sets);
+            $oldStatus = $game->status;
 
             $competition = $game->competition;
             // Fallback legacy: partidos sin snapshot (pre-PR3 o migración incompleta).
@@ -118,13 +129,42 @@ final class RecordGameSetAction
 
             $game->save();
 
-            return $game->load([
+            $newSetsWon = $game->setsWonCount($game->sets);
+            $matchFinished = $game->status === GameStatus::Finished;
+
+            $game->load([
                 'competition',
                 'player1:id,first_name,last_name,nickname',
                 'player2:id,first_name,last_name,nickname',
                 'winner:id,first_name,last_name,nickname',
                 'sets',
             ]);
+
+            $this->auditLogger->log(new AuditEntry(
+                action: AuditAction::GAME_SET_RECORDED,
+                logName: 'games',
+                subject: $game,
+                context: AuditContextBuilder::fromGame($game),
+                old: [
+                    'player1_sets_won' => $oldSetsWon['player1'],
+                    'player2_sets_won' => $oldSetsWon['player2'],
+                    'status' => $oldStatus->value,
+                ],
+                new: [
+                    'player1_sets_won' => $newSetsWon['player1'],
+                    'player2_sets_won' => $newSetsWon['player2'],
+                    'status' => $game->status->value,
+                ],
+                summary: [
+                    'set_number' => $setNumber,
+                    'player1_score' => $player1Score,
+                    'player2_score' => $player2Score,
+                    'match_finished' => $matchFinished,
+                    'winner_id' => $game->winner_id,
+                ],
+            ));
+
+            return $game;
         });
     }
 }

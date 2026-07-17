@@ -96,6 +96,10 @@ users.manage
 
 Roles desconocidos del token (p. ej. `offline_access`) se ignoran.
 
+### Auditoría (Slice 2.5A)
+
+Las operaciones deportivas críticas auditadas se registran explícitamente desde Actions (ver [AUDIT.md](./AUDIT.md)). El permiso `audit.view` está previsto para una futura pantalla de consulta de actividades; **no está implementado** en este slice (sin endpoint ni UI).
+
 ## Usuario local
 
 - Identidad estable: claim `sub` → columna `users.keycloak_id`.
@@ -349,7 +353,7 @@ Las vistas de lectura permanecen accesibles; solo se ocultan controles de escrit
 
 ## Postergado a slices futuros
 
-- Auditoría
+- Pantalla y endpoint de auditoría (`audit.view`; registro ya implementado — ver [AUDIT.md](./AUDIT.md))
 - Permisos por torneo/club
 - `matches.correct_result` en endpoints dedicados
 - CRUD visual de catálogo (categorías/clubes)

@@ -3,12 +3,16 @@
 namespace App\Actions\Bracket;
 
 use App\Actions\Game\CreateGameAction;
+use App\Data\Audit\AuditEntry;
 use App\Data\Bracket\GroupKnockoutDrawResult;
 use App\Data\Competition\GroupQualifierData;
+use App\Enums\AuditAction;
 use App\Enums\GameStatus;
 use App\Models\Bracket;
 use App\Models\Competition;
 use App\Models\Game;
+use App\Support\Audit\AuditContextBuilder;
+use App\Support\Audit\AuditLogger;
 use App\Support\Bracket\BracketSupport;
 use App\Support\Bracket\GroupKnockoutDrawBuilder;
 use App\Support\Bracket\GroupQualifiersCollector;
@@ -22,6 +26,7 @@ final class CreateBracketKnockoutAction
         private readonly CreateGameAction $createGame,
         private readonly GroupQualifiersCollector $groupQualifiersCollector,
         private readonly GroupKnockoutDrawBuilder $groupKnockoutDrawBuilder,
+        private readonly AuditLogger $auditLogger,
     ) {}
 
     public function __invoke(Competition $competition, array $payload): Bracket
@@ -262,6 +267,15 @@ final class CreateBracketKnockoutAction
                 ]);
             }
 
+            $this->auditBracketCreated(
+                competition: $competition,
+                bracket: $bracket,
+                qualifiedPlayers: $qualifierCount,
+                bracketSize: $bracketSize,
+                byesCount: $byesCount,
+                gamesCreated: $matchCount,
+            );
+
             return $bracket->load([
                 'games.player1:id,first_name,last_name,nickname',
                 'games.player2:id,first_name,last_name,nickname',
@@ -344,6 +358,15 @@ final class CreateBracketKnockoutAction
                 ]);
             }
 
+            $this->auditBracketCreated(
+                competition: $competition,
+                bracket: $bracket,
+                qualifiedPlayers: $draw->bracketSize - $draw->byesCount,
+                bracketSize: $draw->bracketSize,
+                byesCount: $draw->byesCount,
+                gamesCreated: count($draw->matches),
+            );
+
             return $bracket->load([
                 'games.player1:id,first_name,last_name,nickname',
                 'games.player2:id,first_name,last_name,nickname',
@@ -351,5 +374,32 @@ final class CreateBracketKnockoutAction
                 'games.sets',
             ]);
         });
+    }
+
+    private function auditBracketCreated(
+        Competition $competition,
+        Bracket $bracket,
+        int $qualifiedPlayers,
+        int $bracketSize,
+        int $byesCount,
+        int $gamesCreated,
+    ): void {
+        $this->auditLogger->log(new AuditEntry(
+            action: AuditAction::BRACKET_CREATED,
+            logName: 'bracket',
+            subject: $competition,
+            context: AuditContextBuilder::fromCompetition($competition, $bracket->id),
+            new: [
+                'bracket_id' => $bracket->id,
+                'bracket_size' => $bracketSize,
+                'round' => 1,
+            ],
+            summary: [
+                'qualified_players' => $qualifiedPlayers,
+                'bracket_size' => $bracketSize,
+                'byes_count' => $byesCount,
+                'games_created' => $gamesCreated,
+            ],
+        ));
     }
 }

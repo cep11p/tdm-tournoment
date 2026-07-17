@@ -3,9 +3,14 @@
 namespace App\Actions\Group;
 
 use App\Enums\ManualTiebreakReason;
+use App\Data\Audit\AuditEntry;
+use App\Enums\AuditAction;
 use App\Models\Group;
 use App\Models\GroupManualTiebreak;
 use App\Models\GroupManualTiebreakPlayer;
+use App\Models\Player;
+use App\Support\Audit\AuditContextBuilder;
+use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Group\GroupStandingsCalculator;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +20,7 @@ final class ApplyGroupManualTiebreakAction
 {
     public function __construct(
         private readonly GroupStandingsCalculator $groupStandingsCalculator,
+        private readonly AuditLogger $auditLogger,
     ) {}
 
     /**
@@ -74,7 +80,10 @@ final class ApplyGroupManualTiebreakAction
             ]);
         }
 
-        return DB::transaction(function () use ($group, $playerIds, $payload): GroupManualTiebreak {
+        $existingTiebreak = $this->findExistingTiebreak($group, $playerIds);
+        $oldOrderedPlayerIds = $existingTiebreak?->orderedPlayerIds() ?? [];
+
+        return DB::transaction(function () use ($group, $playerIds, $payload, $oldOrderedPlayerIds): GroupManualTiebreak {
             $existingTiebreak = $this->findExistingTiebreak($group, $playerIds);
 
             if ($existingTiebreak instanceof GroupManualTiebreak) {
@@ -103,7 +112,42 @@ final class ApplyGroupManualTiebreakAction
                 ]);
             }
 
-            return $tiebreak->load(['players.player:id,first_name,last_name']);
+            $tiebreak->load(['players.player:id,first_name,last_name']);
+
+            $oldPayload = $oldOrderedPlayerIds !== []
+                ? ['ordered_player_ids' => $oldOrderedPlayerIds]
+                : [];
+
+            $this->auditLogger->log(new AuditEntry(
+                action: AuditAction::GROUP_MANUAL_TIEBREAK_APPLIED,
+                logName: 'groups',
+                subject: $group,
+                context: AuditContextBuilder::fromGroup($group),
+                old: $oldPayload,
+                new: [
+                    'ordered_player_ids' => $playerIds,
+                ],
+                summary: [
+                    'positions_affected' => range(1, count($playerIds)),
+                    'players' => collect($playerIds)
+                        ->map(function (int $playerId) use ($tiebreak): array {
+                            $entry = $tiebreak->players->firstWhere('player_id', $playerId);
+                            $player = $entry?->player;
+
+                            return [
+                                'id' => $playerId,
+                                'name' => $player instanceof Player
+                                    ? trim(sprintf('%s %s', $player->first_name, $player->last_name))
+                                    : '',
+                            ];
+                        })
+                        ->values()
+                        ->all(),
+                ],
+                reason: $payload['notes'] ?? null,
+            ));
+
+            return $tiebreak;
         });
     }
 

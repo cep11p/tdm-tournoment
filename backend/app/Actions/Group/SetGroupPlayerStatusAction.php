@@ -5,14 +5,22 @@ namespace App\Actions\Group;
 use App\Enums\GameStatus;
 use App\Enums\GroupPlayerStatus;
 use App\Enums\GroupPlayerStatusReason;
+use App\Data\Audit\AuditEntry;
+use App\Enums\AuditAction;
 use App\Models\Group;
 use App\Models\GroupPlayer;
+use App\Support\Audit\AuditContextBuilder;
+use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 final class SetGroupPlayerStatusAction
 {
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+    ) {}
+
     /**
      * @param  array{
      *     player_id: int,
@@ -61,6 +69,8 @@ final class SetGroupPlayerStatusAction
         }
 
         return DB::transaction(function () use ($group, $groupPlayer, $payload, $newStatus, $playerId): GroupPlayer {
+            $oldStatus = $groupPlayer->status;
+
             $groupPlayer->update([
                 'status' => $newStatus,
                 'status_reason' => $payload['reason'] ?? null,
@@ -68,15 +78,45 @@ final class SetGroupPlayerStatusAction
                 'status_changed_at' => now(),
             ]);
 
-            $this->closePendingGroupGamesForPlayer($group, $playerId);
+            $gamesClosed = $this->closePendingGroupGamesForPlayer($group, $playerId);
 
-            return $groupPlayer->fresh([
+            $groupPlayer = $groupPlayer->fresh([
                 'player:id,first_name,last_name,nickname',
             ]);
+
+            $player = $groupPlayer->player;
+            $playerName = $player !== null
+                ? trim(sprintf('%s %s', $player->first_name, $player->last_name))
+                : '';
+
+            $this->auditLogger->log(new AuditEntry(
+                action: AuditAction::GROUP_PLAYER_STATUS_CHANGED,
+                logName: 'groups',
+                subject: $group,
+                context: AuditContextBuilder::fromGroup($group),
+                old: [
+                    'status' => $oldStatus->value,
+                ],
+                new: [
+                    'status' => $newStatus->value,
+                    'reason_code' => ($payload['reason'] ?? null) instanceof GroupPlayerStatusReason
+                        ? $payload['reason']->value
+                        : null,
+                ],
+                summary: [
+                    'player_id' => $playerId,
+                    'player_name' => $playerName,
+                    'games_closed' => $gamesClosed,
+                    'games_affected' => $gamesClosed,
+                ],
+                reason: $payload['notes'] ?? null,
+            ));
+
+            return $groupPlayer;
         });
     }
 
-    private function closePendingGroupGamesForPlayer(Group $group, int $playerId): void
+    private function closePendingGroupGamesForPlayer(Group $group, int $playerId): int
     {
         $openGames = $group->games()
             ->whereIn('status', [GameStatus::Pending, GameStatus::InProgress])
@@ -101,5 +141,7 @@ final class SetGroupPlayerStatusAction
                 'finished_at' => now(),
             ]);
         }
+
+        return $openGames->count();
     }
 }
