@@ -118,6 +118,15 @@ const routes = [
     component: PlayerEditView,
     meta: { permission: 'players.manage' },
   },
+  {
+    path: '/audit-logs',
+    name: 'audit-logs',
+    component: () => import('../audit/views/AuditLogListView.vue'),
+    meta: {
+      requiresAuth: true,
+      permission: 'audit.view',
+    },
+  },
 ]
 
 const router = createRouter({

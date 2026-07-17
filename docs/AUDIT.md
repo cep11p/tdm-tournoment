@@ -1,6 +1,6 @@
 # Auditoría de operaciones deportivas críticas
 
-Este documento describe la estrategia de auditoría explícita implementada en el Slice 2.5A.
+Este documento describe la estrategia de auditoría explícita (Slice 2.5A) y la consulta protegida de actividades (Slice 2.5B).
 
 ## Objetivo
 
@@ -20,11 +20,13 @@ Componentes:
 
 | Componente | Responsabilidad |
 |------------|-----------------|
-| `AuditAction` | Códigos estables de operación |
+| `AuditAction` | Códigos estables de operación y labels |
 | `AuditEntry` | DTO con action, logName, subject, context, old, new, summary, reason |
 | `AuditContext` | Resuelve usuario, Keycloak ID, IP y user agent |
 | `AuditContextBuilder` | Construye contexto deportivo (torneo, competencia, grupo, etc.) |
 | `AuditLogger` | Wrapper sobre Spatie; persiste `properties` con contrato uniforme |
+| `ListAuditLogsAction` | Consulta paginada con filtros |
+| `AuditLogSubjectPresenter` | Resuelve subject público con fallback histórico |
 
 ## Por qué no hay traits automáticos (`LogsActivity`)
 
@@ -67,18 +69,18 @@ Todas las actividades guardan:
 
 **No se guardan:** tokens, headers completos, claims JWT completos, modelos Eloquent serializados ni payloads gigantes.
 
-El campo `description` de Spatie almacena el **código estable** (`AuditAction`), no texto descriptivo en español. La UI futura traducirá esos códigos.
+El campo `description` de Spatie almacena el **código estable** (`AuditAction`). La API devuelve `action_label` traducido desde backend.
 
 ## Códigos de acción
 
-| Código | Operación |
-|--------|-----------|
-| `groups.regenerated` | Regeneración aleatoria de grupos |
-| `bracket.created` | Generación de llave eliminatoria |
-| `bracket.round_advanced` | Avance de ronda en llave |
-| `game.set_recorded` | Registro de un set |
-| `groups.player_status_changed` | Cambio de estado de jugador en grupo |
-| `groups.manual_tiebreak_applied` | Desempate manual en grupo |
+| Código | Label |
+|--------|-------|
+| `groups.regenerated` | Regeneración de grupos |
+| `bracket.created` | Generación de llave |
+| `bracket.round_advanced` | Avance de ronda |
+| `game.set_recorded` | Registro de set |
+| `groups.player_status_changed` | Cambio de estado de jugador |
+| `groups.manual_tiebreak_applied` | Desempate manual |
 
 ## Operaciones incluidas
 
@@ -91,6 +93,148 @@ El campo `description` de Spatie almacena el **código estable** (`AuditAction`)
 | `SetGroupPlayerStatusAction` | `groups` | `Group` |
 | `ApplyGroupManualTiebreakAction` | `groups` | `Group` |
 
+## Consulta de auditoría (Slice 2.5B)
+
+### Permiso requerido
+
+- **`audit.view`** — asignado únicamente al rol `admin` (ver [AUTH.md](./AUTH.md)).
+- No se usa el rol directamente en backend ni frontend; solo el permiso.
+
+### Endpoints
+
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| `GET` | `/api/v1/audit-logs` | Listado paginado |
+| `GET` | `/api/v1/audit-logs/{activity}` | Detalle de una actividad |
+
+Middleware efectivo:
+
+```text
+auth.keycloak
+permission:audit.view
+```
+
+### Filtros del listado
+
+| Parámetro | Tipo | Descripción |
+|-----------|------|-------------|
+| `page` | integer ≥ 1 | Página (default: 1) |
+| `per_page` | integer 1–100 | Tamaño (default: 25) |
+| `action` | `AuditAction` | Filtra por `description` |
+| `log_name` | `groups`, `bracket`, `games` | Módulo |
+| `actor_id` | integer | Usuario local (`causer`) |
+| `tournament_id` | integer | `properties.context.tournament_id` |
+| `competition_id` | integer | `properties.context.competition_id` |
+| `group_id` | integer | `properties.context.group_id` |
+| `game_id` | integer | `properties.context.game_id` |
+| `subject_type` | alias público | Ver tabla de aliases |
+| `subject_id` | integer | ID del subject |
+| `from` | date | Inicio del día (`APP_TIMEZONE`) |
+| `to` | date | Fin del día (`APP_TIMEZONE`) |
+| `search` | string ≤ 150 | Búsqueda limitada |
+
+Orden estable: `created_at desc`, `id desc`.
+
+### Aliases públicos de subject
+
+| Alias | Modelo interno |
+|-------|----------------|
+| `competition` | `App\Models\Competition` |
+| `group` | `App\Models\Group` |
+| `bracket` | `App\Models\Bracket` |
+| `game` | `App\Models\Game` |
+| `unknown` | Tipo no reconocido |
+
+No se exponen nombres PHP como contrato de API.
+
+### Búsqueda limitada
+
+La búsqueda (`search`) opera sobre:
+
+- `description` (código de acción)
+- `causer.name`
+- `causer.email`
+- `properties.context.tournament_name`
+- `properties.context.competition_name`
+- `properties.context.group_name`
+
+**No** busca en `old`, `new`, `summary` completo ni JSON arbitrario.
+
+### Subject eliminado
+
+Si la entidad fue eliminada después del registro:
+
+1. El listado/detalle tolera `subject = null`.
+2. El label prioriza: modelo vivo → nombres en `properties.context`/`summary` → `"Tipo #ID"` → `"Entidad eliminada"`.
+3. El campo `subject.exists` indica si el modelo sigue disponible.
+
+### Contrato de listado
+
+Campos expuestos:
+
+```json
+{
+  "id": 25,
+  "action": "groups.regenerated",
+  "action_label": "Regeneración de grupos",
+  "category_label": "Grupos",
+  "log_name": "groups",
+  "occurred_at": "2026-07-16T23:45:00-03:00",
+  "actor": {
+    "id": 8,
+    "name": "Carlos Pérez",
+    "email": "carlos@example.com",
+    "keycloak_id": "..."
+  },
+  "subject": {
+    "type": "competition",
+    "id": 3,
+    "label": "Primera Caballeros",
+    "exists": true
+  },
+  "context": { "...": "..." },
+  "summary": {}
+}
+```
+
+**No incluye:** `old`, `new`, `reason`, IP, user agent ni `properties` completo.
+
+### Contrato de detalle
+
+Incluye todo lo anterior más:
+
+```json
+{
+  "old": {},
+  "new": {},
+  "reason": null,
+  "request": {
+    "ip_address": "127.0.0.1",
+    "user_agent": "..."
+  },
+  "schema_version": 1
+}
+```
+
+### Ejemplo de respuesta paginada
+
+```json
+{
+  "data": [],
+  "links": {
+    "first": "...",
+    "last": "...",
+    "prev": null,
+    "next": null
+  },
+  "meta": {
+    "current_page": 1,
+    "per_page": 25,
+    "total": 0
+  }
+}
+```
+
 ## Operaciones excluidas (por ahora)
 
 - CRUD de torneos, competencias y jugadores
@@ -98,10 +242,10 @@ El campo `description` de Spatie almacena el **código estable** (`AuditAction`)
 - Lecturas (GET)
 - Intentos fallidos (422, 401, etc.)
 - Observers genéricos y auditoría automática por modelos
-- Endpoint `/audit-logs` y pantalla de auditoría
-- Permiso `audit.view` (definido a futuro; ver [AUTH.md](./AUTH.md))
+- Exportación, borrado y edición de auditorías
 - Retención automática programada
-- Exportación y correlación por batch
+- Correlación por `batch_uuid`
+- Estadísticas y dashboard
 
 ## Actor Keycloak
 
@@ -124,36 +268,6 @@ La actividad se escribe:
 
 Si la transacción hace rollback, **no** queda fila en `activity_log`. No se auditan intentos fallidos.
 
-## Consultas futuras
-
-Ejemplos previstos para la UI de auditoría (sin endpoint implementado aún):
-
-```php
-use Spatie\Activitylog\Models\Activity;
-use App\Enums\AuditAction;
-
-// Listado general
-Activity::query()
-    ->with(['causer', 'subject'])
-    ->latest()
-    ->paginate(50);
-
-// Por competencia
-Activity::query()
-    ->where('properties->context->competition_id', $competitionId)
-    ->latest()
-    ->paginate();
-
-// Por actor
-Activity::causedBy($user)->latest()->paginate();
-
-// Por acción
-Activity::query()
-    ->where('description', AuditAction::GROUPS_REGENERATED->value)
-    ->latest()
-    ->paginate();
-```
-
 ## Retención
 
 - **Config:** `config/activitylog.php` → `delete_records_older_than_days` (default conservador: 3650 días vía `ACTIVITY_LOGGER_DELETE_OLDER_THAN_DAYS`).
@@ -170,6 +284,13 @@ Activity::query()
 | `database_connection` | conexión por defecto del proyecto |
 | `table_name` | `activity_log` |
 
+## Frontend
+
+- Ruta: `/audit-logs`
+- Permiso UI: `audit.view`
+- Navegación: ítem **Auditoría** visible solo para admin
+- Detalle: modal con valores old/new, motivo, IP y user agent
+
 ## Documentación relacionada
 
-- [AUTH.md](./AUTH.md) — autenticación Keycloak y permiso futuro `audit.view`
+- [AUTH.md](./AUTH.md) — autenticación Keycloak y permiso `audit.view`

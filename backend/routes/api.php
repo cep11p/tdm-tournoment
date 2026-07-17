@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\AuthenticatedUserController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\ClubController;
@@ -135,4 +136,12 @@ Route::prefix(config('api.version_prefix', 'v1'))
         Route::post('games/{game}/sets', [GameController::class, 'storeSet'])
             ->middleware('auth.matches.record_result')
             ->name('games.sets.store');
+
+        Route::middleware(['auth.keycloak', 'permission:audit.view'])
+            ->get('audit-logs', [AuditLogController::class, 'index'])
+            ->name('audit-logs.index');
+
+        Route::middleware(['auth.keycloak', 'permission:audit.view'])
+            ->get('audit-logs/{activity}', [AuditLogController::class, 'show'])
+            ->name('audit-logs.show');
     });

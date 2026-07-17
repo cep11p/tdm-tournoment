@@ -96,9 +96,9 @@ users.manage
 
 Roles desconocidos del token (p. ej. `offline_access`) se ignoran.
 
-### Auditoría (Slice 2.5A)
+### Auditoría (Slice 2.5A / 2.5B)
 
-Las operaciones deportivas críticas auditadas se registran explícitamente desde Actions (ver [AUDIT.md](./AUDIT.md)). El permiso `audit.view` está previsto para una futura pantalla de consulta de actividades; **no está implementado** en este slice (sin endpoint ni UI).
+Las operaciones deportivas críticas auditadas se registran explícitamente desde Actions (ver [AUDIT.md](./AUDIT.md)). El permiso `audit.view` protege la consulta de auditoría y está asignado únicamente a `admin`.
 
 ## Usuario local
 
@@ -207,6 +207,7 @@ Excepciones deliberadas fuera de `/api/v1`: ninguna mutación deportiva. El endp
 | **Partidos** | `GET /competitions/{c}/games`, `GET /games/{game}` | `POST /competitions/{c}/games` | `matches.create` |
 | **Partidos (eliminación)** | — | `DELETE /games/{game}` | `matches.delete` |
 | **Partidos (resultados)** | — | `POST /games/{game}/sets` | `matches.record_result` |
+| **Auditoría** | — | `GET /audit-logs`, `GET /audit-logs/{activity}` | `audit.view` |
 | **Catálogo** | `GET /categories`, `GET /clubs` | — (sin CRUD en este slice) | — |
 
 Grupos compuestos en `bootstrap/app.php` (Slice 2.2, conservados): `auth.tournaments.manage`, `auth.competitions.manage`, `auth.matches.record_result`. El resto de mutaciones usan `auth.keycloak` + `permission:*` inline en rutas explícitas.
@@ -353,7 +354,6 @@ Las vistas de lectura permanecen accesibles; solo se ocultan controles de escrit
 
 ## Postergado a slices futuros
 
-- Pantalla y endpoint de auditoría (`audit.view`; registro ya implementado — ver [AUDIT.md](./AUDIT.md))
 - Permisos por torneo/club
 - `matches.correct_result` en endpoints dedicados
 - CRUD visual de catálogo (categorías/clubes)
