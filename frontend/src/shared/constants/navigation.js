@@ -13,6 +13,6 @@ export const BREADCRUMB_BRACKET = 'Llave eliminatoria'
 
 export const NAVIGATION_LINKS = [
   { name: NAV_LABEL_DASHBOARD, to: '/' },
-  { name: NAV_LABEL_TOURNAMENTS, to: '/tournaments' },
-  { name: NAV_LABEL_PLAYERS, to: '/players' },
+  { name: NAV_LABEL_TOURNAMENTS, to: '/tournaments', permission: 'tournaments.view' },
+  { name: NAV_LABEL_PLAYERS, to: '/players', permission: 'players.view' },
 ]

@@ -4,10 +4,15 @@ import { useRoute } from 'vue-router'
 
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
+import { usePermissions } from '../../composables/usePermissions'
 import GameService from '../services/GameService'
 import { getGameStatusLabel } from '../../shared/constants/gameStatus'
+import { extractApiErrorMessage } from '../../shared/utils/extractApiErrorMessage'
+import { FORBIDDEN_MESSAGE } from '../../services/httpInterceptors'
 
 const route = useRoute()
+const { can } = usePermissions()
+const canRecordResults = computed(() => can('matches.record_result'))
 const gameId = computed(() => route.params.id)
 
 const game = ref(null)
@@ -122,13 +127,7 @@ const handleRecordSet = async () => {
     form.player2_score = ''
     await loadGame()
   } catch (error) {
-    setError.value =
-      error?.response?.data?.errors?.set_number?.[0] ||
-      error?.response?.data?.errors?.player1_score?.[0] ||
-      error?.response?.data?.errors?.player2_score?.[0] ||
-      error?.response?.data?.errors?.game?.[0] ||
-      error?.response?.data?.message ||
-      'No se pudo registrar el set.'
+    setError.value = extractApiErrorMessage(error, FORBIDDEN_MESSAGE)
   } finally {
     isSavingSet.value = false
   }
@@ -227,7 +226,7 @@ onMounted(loadGame)
       </div>
 
       <form
-        v-if="!isFinished"
+        v-if="!isFinished && canRecordResults"
         class="max-w-xl space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
         @submit.prevent="handleRecordSet"
       >

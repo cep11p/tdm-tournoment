@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
+import { usePermissions } from '../../composables/usePermissions'
 import CompetitionService from '../services/CompetitionService'
 import {
   getStatusBadgeClasses,
@@ -13,6 +14,8 @@ import { getCompetitionTypeLabel } from '../../shared/constants/competitionType'
 
 const route = useRoute()
 const tournamentId = route.params.id
+const { can } = usePermissions()
+const canManageCompetitions = can('competitions.manage')
 
 const competitions = ref([])
 const isLoading = ref(false)
@@ -40,6 +43,7 @@ onMounted(loadCompetitions)
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">Competencias del torneo</h1>
       <RouterLink
+        v-if="canManageCompetitions"
         :to="`/tournaments/${tournamentId}/competitions/create`"
         class="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
       >

@@ -6,11 +6,12 @@ import {
   PlusIcon,
   TrashIcon,
 } from '@heroicons/vue/24/outline'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import AppTooltip from '../../components/AppTooltip.vue'
+import { usePermissions } from '../../composables/usePermissions'
 import CompetitionFormModal from '../../competitions/components/CompetitionFormModal.vue'
 import CompetitionService from '../../competitions/services/CompetitionService'
 import {
@@ -28,6 +29,10 @@ import {
 } from '../utils/tournamentListDisplay'
 
 const route = useRoute()
+const { can } = usePermissions()
+
+const canManageTournaments = computed(() => can('tournaments.manage'))
+const canManageCompetitions = computed(() => can('competitions.manage'))
 
 const tournament = ref(null)
 const isLoading = ref(false)
@@ -143,7 +148,7 @@ const handleCompetitionSaved = async () => {
       </h1>
       <div class="flex items-center gap-3">
         <button
-          v-if="tournament"
+          v-if="tournament && canManageTournaments"
           type="button"
           class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
           @click="openEditModal"
@@ -228,7 +233,7 @@ const handleCompetitionSaved = async () => {
               Gestioná las categorías, formatos y fases de este torneo.
             </p>
           </div>
-          <AppTooltip v-if="tournament" label="Nueva competencia">
+          <AppTooltip v-if="tournament && canManageCompetitions" label="Nueva competencia">
             <button
               type="button"
               :class="addButtonClasses"
@@ -254,7 +259,7 @@ const handleCompetitionSaved = async () => {
           <p class="text-slate-600 dark:text-slate-300">
             Este torneo todavía no tiene competencias cargadas.
           </p>
-          <AppTooltip v-if="tournament" label="Nueva competencia">
+          <AppTooltip v-if="tournament && canManageCompetitions" label="Nueva competencia">
             <button
               type="button"
               :class="['mt-3', addButtonClasses]"
@@ -341,7 +346,7 @@ const handleCompetitionSaved = async () => {
                       </RouterLink>
                     </AppTooltip>
 
-                    <AppTooltip label="Editar">
+                    <AppTooltip v-if="canManageCompetitions" label="Editar">
                       <button
                         type="button"
                         :class="editButtonClasses"

@@ -11,6 +11,7 @@ import { RouterLink, useRoute } from 'vue-router'
 
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
+import { usePermissions } from '../../composables/usePermissions'
 import BracketService from '../../brackets/services/BracketService'
 import GameService from '../../games/services/GameService'
 import GroupService from '../../groups/services/GroupService'
@@ -38,6 +39,8 @@ import {
 import { getCompetitionTypeLabel } from '../../shared/constants/competitionType'
 
 const route = useRoute()
+const { can } = usePermissions()
+const canManageCompetitions = computed(() => can('competitions.manage'))
 
 const competition = ref(null)
 const bracket = ref(null)
@@ -599,6 +602,7 @@ const handleEditCompetitionSaved = async () => {
       </h1>
       <div class="flex items-center gap-3">
         <button
+          v-if="canManageCompetitions"
           type="button"
           class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
           @click="openEditCompetitionModal"

@@ -25,6 +25,10 @@ export function extractApiErrorMessage(
   error,
   fallback = 'Ocurrió un error inesperado.',
 ) {
+  if (error?.isForbidden) {
+    return error.message || fallback
+  }
+
   const data = error?.response?.data
 
   const validationMessage = firstValidationError(data?.errors)

@@ -9,7 +9,9 @@ import {
   XMarkIcon,
 } from '@heroicons/vue/24/outline'
 
+import { usePermissions } from '../composables/usePermissions'
 import { useTheme } from '../composables/useTheme'
+import { useAuthStore } from '../stores/auth'
 import {
   APP_BRAND_TITLE,
   APP_HEADER_TITLE,
@@ -19,6 +21,8 @@ import {
 } from '../shared/constants/navigation'
 
 const route = useRoute()
+const authStore = useAuthStore()
+const { can } = usePermissions()
 
 const NAV_ICON_BY_TO = {
   '/': HomeIcon,
@@ -26,10 +30,12 @@ const NAV_ICON_BY_TO = {
   '/players': UsersIcon,
 }
 
-const navigationLinks = NAVIGATION_LINKS.map((item) => ({
-  ...item,
-  icon: NAV_ICON_BY_TO[item.to],
-}))
+const navigationLinks = computed(() =>
+  NAVIGATION_LINKS.filter((item) => !item.permission || can(item.permission)).map((item) => ({
+    ...item,
+    icon: NAV_ICON_BY_TO[item.to],
+  })),
+)
 
 const navLinkBaseClasses =
   'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100'
@@ -69,6 +75,10 @@ const closeSidebar = () => {
 }
 
 watch(() => route.path, closeSidebar)
+
+const handleLogout = async () => {
+  await authStore.logout()
+}
 </script>
 
 <template>
@@ -128,13 +138,35 @@ watch(() => route.path, closeSidebar)
             </h2>
           </div>
 
-          <button
-            type="button"
-            class="shrink-0 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-            @click="toggle"
-          >
-            {{ isDarkMode ? `🌙 ${THEME_LABEL_DARK}` : `🌞 ${THEME_LABEL_LIGHT}` }}
-          </button>
+          <div class="flex shrink-0 items-center gap-3">
+            <div class="hidden text-right sm:block">
+              <p class="text-sm font-medium text-slate-900 dark:text-slate-100">
+                {{ authStore.displayName }}
+              </p>
+              <p
+                v-if="authStore.rolesLabel"
+                class="text-xs text-slate-500 dark:text-slate-400"
+              >
+                {{ authStore.rolesLabel }}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              @click="handleLogout"
+            >
+              Cerrar sesión
+            </button>
+
+            <button
+              type="button"
+              class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              @click="toggle"
+            >
+              {{ isDarkMode ? `🌙 ${THEME_LABEL_DARK}` : `🌞 ${THEME_LABEL_LIGHT}` }}
+            </button>
+          </div>
         </header>
 
         <main class="min-w-0 flex-1 bg-slate-100 p-4 dark:bg-slate-950 md:p-6">

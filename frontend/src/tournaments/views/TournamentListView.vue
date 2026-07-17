@@ -1,15 +1,19 @@
 <script setup>
 import { Cog6ToothIcon, EyeIcon, PencilSquareIcon, PlusIcon } from '@heroicons/vue/24/outline'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import AppTooltip from '../../components/AppTooltip.vue'
+import { usePermissions } from '../../composables/usePermissions'
 import TournamentFormModal from '../components/TournamentFormModal.vue'
 import TournamentService from '../services/TournamentService'
 import {
   getTournamentStatusBadgeClasses,
   getTournamentStatusLabel,
 } from '../utils/tournamentListDisplay'
+
+const { can } = usePermissions()
+const canManageTournaments = computed(() => can('tournaments.manage'))
 
 const tournaments = ref([])
 const isLoading = ref(false)
@@ -90,7 +94,7 @@ onMounted(loadTournaments)
           Gestioná los torneos y sus competencias.
         </p>
       </div>
-      <AppTooltip label="Nuevo torneo">
+      <AppTooltip v-if="canManageTournaments" label="Nuevo torneo">
         <button
           type="button"
           :class="addButtonClasses"
@@ -198,7 +202,7 @@ onMounted(loadTournaments)
                   </RouterLink>
                 </AppTooltip>
 
-                <AppTooltip label="Editar torneo">
+                <AppTooltip v-if="canManageTournaments" label="Editar torneo">
                   <button
                     type="button"
                     :class="editButtonClasses"

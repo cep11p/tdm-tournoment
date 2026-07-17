@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import DashboardView from '../views/DashboardView.vue'
+import ForbiddenView from '../views/ForbiddenView.vue'
 import TournamentListView from '../tournaments/views/TournamentListView.vue'
 import TournamentCreateView from '../tournaments/views/TournamentCreateView.vue'
 import TournamentDetailView from '../tournaments/views/TournamentDetailView.vue'
@@ -24,6 +25,12 @@ const routes = [
     component: DashboardView,
   },
   {
+    path: '/forbidden',
+    name: 'forbidden',
+    component: ForbiddenView,
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/tournaments',
     name: 'tournaments',
     component: TournamentListView,
@@ -32,6 +39,7 @@ const routes = [
     path: '/tournaments/create',
     name: 'tournaments-create',
     component: TournamentCreateView,
+    meta: { permission: 'tournaments.manage' },
   },
   {
     path: '/tournaments/:id',
@@ -46,6 +54,7 @@ const routes = [
     path: '/tournaments/:id/competitions/create',
     name: 'competitions-create',
     component: CompetitionCreateView,
+    meta: { permission: 'competitions.manage' },
   },
   {
     path: '/competitions/:id',
@@ -56,6 +65,7 @@ const routes = [
     path: '/competitions/:id/edit',
     name: 'competitions-edit',
     component: CompetitionEditView,
+    meta: { permission: 'competitions.manage' },
   },
   {
     path: '/competitions/:id/registrations',

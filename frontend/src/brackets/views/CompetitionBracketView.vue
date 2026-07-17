@@ -4,6 +4,7 @@ import { RouterLink, useRoute } from 'vue-router'
 
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
+import { usePermissions } from '../../composables/usePermissions'
 import CompetitionService from '../../competitions/services/CompetitionService'
 import { competitionHasGroupStage } from '../../competitions/constants/competitionFormats'
 import {
@@ -31,6 +32,9 @@ import {
 } from '../constants/bracketLabels'
 
 const route = useRoute()
+const { can } = usePermissions()
+const canRecordResults = computed(() => can('matches.record_result'))
+
 const competitionId = computed(() => route.params.id)
 const competition = ref(null)
 const groups = ref(null)
@@ -265,7 +269,9 @@ const matchFormatLabel = (game) => {
 }
 
 const canLoadResult = (game) =>
-  !isByeGame(game) && (game?.status === 'pending' || game?.status === 'in_progress')
+  canRecordResults.value &&
+  !isByeGame(game) &&
+  (game?.status === 'pending' || game?.status === 'in_progress')
 
 const isFinishedGame = (game) => !isByeGame(game) && game?.status === 'finished'
 

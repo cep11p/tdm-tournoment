@@ -5,6 +5,7 @@ import { RouterLink, useRoute } from 'vue-router'
 
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
+import { usePermissions } from '../../composables/usePermissions'
 import BracketService from '../../brackets/services/BracketService'
 import CompetitionService from '../../competitions/services/CompetitionService'
 import { structureLockReason } from '../../competitions/utils/competitionStructure'
@@ -27,6 +28,8 @@ import { getGroupPlayerStatusLabel } from '../constants/groupPlayerStatus'
 import GroupService from '../services/GroupService'
 
 const route = useRoute()
+const { can } = usePermissions()
+const canRecordResults = computed(() => can('matches.record_result'))
 
 const groupId = computed(() => route.params.id)
 const competitionId = computed(() => route.query.competitionId || '')
@@ -856,6 +859,7 @@ onMounted(async () => {
                     </span>
 
                     <button
+                      v-if="canRecordResults"
                       type="button"
                       class="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-600"
                       @click="openResultModal(game)"

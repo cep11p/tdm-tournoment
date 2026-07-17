@@ -250,15 +250,116 @@ Los tests usan JWT firmados localmente y HTTP fake para OIDC/JWKS; no dependen d
 - Instancia Keycloak accesible en `KEYCLOAK_ISSUER`
 - Realm `tdm` con roles realm (`admin`, `organizer`, `scorekeeper`, `player`)
 - Client API con audiencia `tdm-api`
-- Client frontend público con PKCE (Slice 2.3)
+- Client frontend público con PKCE (ver sección Frontend abajo)
 
 No se incluye aún Docker ni export de realm en este repositorio.
+
+---
+
+## Frontend (Slice 2.3)
+
+Integración Vue con **Authorization Code Flow + PKCE (S256)** mediante `keycloak-js` (v26.2.4). Los tokens permanecen en memoria administrados por el adaptador; **no** se guardan en `localStorage`, `sessionStorage` ni cookies propias.
+
+### Diferencia backend vs frontend administrativo
+
+| Capa | Comportamiento |
+|------|----------------|
+| **Backend** | Muchas lecturas deportivas siguen **públicas** (sin token). |
+| **Frontend administrativo** | Con `VITE_KEYCLOAK_ON_LOAD=login-required`, **toda la SPA exige login** aunque algunas lecturas backend no lo requieran. |
+
+La UI **no calcula permisos desde roles**: `GET /api/v1/me` es la fuente de verdad para roles y permisos mostrados en navegación y botones.
+
+### Variables de entorno (`frontend/.env`)
+
+Copiar desde `frontend/.env.example`:
+
+```env
+VITE_KEYCLOAK_URL=http://localhost:8180
+VITE_KEYCLOAK_REALM=tdm
+VITE_KEYCLOAK_CLIENT_ID=tdm-frontend
+VITE_KEYCLOAK_ON_LOAD=login-required
+VITE_API_URL=http://localhost:8080/api/v1
+```
+
+| Variable | Requerida | Descripción |
+|----------|-----------|-------------|
+| `VITE_KEYCLOAK_URL` | Sí | URL base del servidor Keycloak. |
+| `VITE_KEYCLOAK_REALM` | Sí | Realm OIDC. |
+| `VITE_KEYCLOAK_CLIENT_ID` | Sí | Client ID público del frontend (`tdm-frontend`). |
+| `VITE_KEYCLOAK_REDIRECT_URI` | No | Default: `window.location.origin`. Permite localhost o IP LAN sin cambiar `.env`. |
+| `VITE_KEYCLOAK_SILENT_CHECK_SSO_REDIRECT_URI` | No | Solo para SSO silencioso futuro. |
+| `VITE_KEYCLOAK_ON_LOAD` | No | `login-required` (default) o `check-sso`. |
+| `VITE_API_URL` | No | Si no se define, usa `http://<mismo-host-que-la-página>:8080/api/v1`. |
+
+**Importante:** toda URL desde la que se acceda al frontend (`http://localhost:5173`, `http://192.168.x.x:5173`, etc.) debe estar registrada en Keycloak como **Valid redirect URI**, **Web origin** y **Post logout redirect URI**.
+
+### Cliente Keycloak `tdm-frontend`
+
+Configuración manual en el admin de Keycloak:
+
+| Parámetro | Valor |
+|-----------|-------|
+| Client type | `public` |
+| Standard Flow | enabled |
+| PKCE | `S256` |
+| Direct Access Grants | disabled |
+| Valid redirect URIs | `http://localhost:5173/*`, `http://<IP-LAN>:5173/*` |
+| Web origins | `http://localhost:5173`, `http://<IP-LAN>:5173` |
+| Post logout redirect URIs | `http://localhost:5173/*`, `http://<IP-LAN>:5173/*` |
+
+### Audiencia API en el token del frontend
+
+El access token emitido para `tdm-frontend` debe incluir `tdm-api` en el claim `aud`. Configurar un **Audience mapper** o client scope que agregue la audiencia del client `tdm-api` al token del SPA. Sin esto, el backend rechazará el JWT aunque Keycloak autentique correctamente.
+
+### Bootstrap de la aplicación
+
+1. Crear Pinia y montar la app con `AuthLoadingView` hasta completar auth.
+2. Inicializar Keycloak (`pkceMethod: 'S256'`, `checkLoginIframe: false`).
+3. Si hay sesión, cargar `GET /api/v1/me`.
+4. Solo entonces mostrar `AppLayout` y el router administrativo.
+
+Estados visuales: “Iniciando sesión…”, “Cargando perfil…”, error de configuración, error de conexión con botón reintentar.
+
+`checkLoginIframe: false` evita iframes silenciosos que suelen fallar en desarrollo por cookies de terceros; el SSO silencioso requeriría página dedicada y `VITE_KEYCLOAK_SILENT_CHECK_SSO_REDIRECT_URI`.
+
+### Store, interceptores y permisos en UI
+
+- **Store Pinia** (`stores/auth.js`): `isReady`, perfil, roles, permisos desde `/me`, `hasPermission`, login/logout.
+- **Interceptor Axios**: Bearer token tras `updateToken(30)`; refresh concurrente deduplicado; `401` → limpiar sesión y login Keycloak (sin loops); `403` → conservar sesión, mensaje “No tenés permiso para realizar esta acción.”
+- **Guards de router**: rutas de escritura con `meta.permission`; acceso denegado → `/forbidden`.
+- **Navegación**: ítems filtrados por permiso (`tournaments.view`, `players.view`).
+- **Botones protegidos** (solo operaciones ya protegidas en backend):
+  - Torneos: `tournaments.manage`
+  - Competencias: `competitions.manage`
+  - Carga de resultados: `matches.record_result`
+
+**No se ocultan** acciones de inscripciones, grupos ni llaves: esas escrituras backend siguen públicas (deuda conocida). Los datos deportivos permanecen visibles aunque el usuario no pueda editarlos.
+
+### Logout
+
+`keycloak.logout({ redirectUri })` tras limpiar el store local. No basta con borrar estado en Pinia ni redirigir localmente.
+
+### Comportamiento ante errores (manual)
+
+| Escenario | Comportamiento esperado |
+|-----------|-------------------------|
+| Faltan variables Keycloak | Mensaje claro en pantalla de carga; la app administrativa no se muestra. |
+| Keycloak no responde | Error de conexión recuperable con reintentar. |
+| `/me` no responde (red) | Error recuperable; sesión Keycloak conservada; botón reintentar. |
+| `/me` responde `401` | Limpiar sesión local; redirect a login Keycloak. |
+| Mutación responde `403` | Mensaje de permiso; **no** logout. |
+| Rol `organizer` | Ve crear/editar torneos y competencias; puede cargar resultados. |
+| Rol `scorekeeper` | No ve crear/editar torneos ni competencias; sí carga resultados. |
+| Rol `player` | Consulta datos; no ve acciones de edición ni carga de resultados. |
+| Ruta sin permiso (URL directa) | `ForbiddenView`. |
+| Logout | Sesión Keycloak terminada; store limpio. |
 
 ## Postergado a slices futuros
 
 - Protección de las escrituras listadas en **Riesgo temporal** (Slice 2.5+)
-- Frontend Keycloak / guards Vue (Slice 2.3)
 - Auditoría (Slice 2.4)
 - Permisos por torneo/club
 - `matches.correct_result` en endpoints dedicados
 - CRUD de jugadores y demás mutaciones administrativas restantes
+- Pantallas públicas de consulta sin login
+- Ocultar acciones de inscripciones/grupos/llave en UI (cuando backend las proteja)
