@@ -16,6 +16,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | OIDC base URL (optional, Docker/internal)
+    |--------------------------------------------------------------------------
+    |
+    | Used for OIDC discovery and JWKS HTTP requests. Falls back to issuer
+    | when unset. Token iss validation always uses issuer above.
+    |
+    */
+
+    'oidc_base_url' => env('KEYCLOAK_OIDC_BASE_URL', env('KEYCLOAK_ISSUER')),
+
+    /*
+    |--------------------------------------------------------------------------
     | API audience
     |--------------------------------------------------------------------------
     |

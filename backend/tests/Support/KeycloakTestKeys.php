@@ -119,6 +119,7 @@ final class KeycloakTestKeys
     {
         config([
             'keycloak.issuer' => self::issuer(),
+            'keycloak.oidc_base_url' => self::issuer(),
             'keycloak.api_audience' => self::apiAudience(),
             'keycloak.frontend_client_id' => 'tdm-frontend',
             'keycloak.discovery_cache_ttl' => 3600,

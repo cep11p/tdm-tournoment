@@ -24,6 +24,7 @@ Configurar en `backend/.env`:
 
 ```env
 KEYCLOAK_ISSUER=http://localhost:8180/realms/tdm
+KEYCLOAK_OIDC_BASE_URL=http://keycloak:8080/realms/tdm
 KEYCLOAK_API_AUDIENCE=tdm-api
 KEYCLOAK_FRONTEND_CLIENT_ID=tdm-frontend
 KEYCLOAK_DISCOVERY_CACHE_TTL=3600
@@ -33,12 +34,22 @@ KEYCLOAK_CLOCK_SKEW=60
 
 | Variable | Descripción |
 |----------|-------------|
-| `KEYCLOAK_ISSUER` | URL base del realm OIDC (sin barra final). |
+| `KEYCLOAK_ISSUER` | Issuer OIDC público del realm (sin barra final). Debe coincidir con el claim `iss` del token y con el `issuer` del documento discovery. |
+| `KEYCLOAK_OIDC_BASE_URL` | URL base para discovery y JWKS desde el backend en Docker. Opcional: si no se define, usa `KEYCLOAK_ISSUER`. |
 | `KEYCLOAK_API_AUDIENCE` | Valor que debe aparecer en el claim `aud` del access token. |
 | `KEYCLOAK_FRONTEND_CLIENT_ID` | Referencia al client SPA; no se usa aún para validar tokens en backend. |
 | `KEYCLOAK_DISCOVERY_CACHE_TTL` | TTL de caché del documento `.well-known/openid-configuration`. |
 | `KEYCLOAK_JWKS_CACHE_TTL` | TTL de caché del JWKS. |
 | `KEYCLOAK_CLOCK_SKEW` | Segundos de tolerancia para `exp` / `nbf`. |
+
+### Issuer público vs URL OIDC interna
+
+| Uso | Variable | Ejemplo (dev Docker) |
+|-----|----------|----------------------|
+| Validar `token.iss`, comparar `discovery.issuer` | `KEYCLOAK_ISSUER` | `http://localhost:8180/realms/tdm` |
+| HTTP discovery + JWKS desde contenedor `app` | `KEYCLOAK_OIDC_BASE_URL` | `http://keycloak:8080/realms/tdm` |
+
+El navegador y el frontend usan `http://localhost:8180`. Keycloak emite tokens con ese issuer. El backend Laravel, dentro de Docker, resuelve discovery/JWKS por hostname de servicio `keycloak:8080`, pero **no** acepta tokens cuyo `iss` sea distinto de `KEYCLOAK_ISSUER`.
 
 ## Audiencia esperada
 
@@ -238,14 +249,70 @@ $this->keycloakAuthHeaders(['scorekeeper']);
 
 Los tests usan JWT firmados localmente y HTTP fake para OIDC/JWKS; no dependen de Keycloak real.
 
-## Configuración manual pendiente
+## Keycloak en Docker (desarrollo local)
 
-- Instancia Keycloak accesible en `KEYCLOAK_ISSUER`
-- Realm `tdm` con roles realm (`admin`, `organizer`, `scorekeeper`, `player`)
-- Client API con audiencia `tdm-api`
-- Client frontend público con PKCE (ver sección Frontend abajo)
+Keycloak forma parte de `docker compose`:
 
-No se incluye aún Docker ni export de realm en este repositorio.
+| Parámetro | Valor |
+|-----------|-------|
+| Imagen | `quay.io/keycloak/keycloak:26.0.8` |
+| Servicio | `keycloak` |
+| URL navegador | `http://localhost:8180` |
+| Realm import | `docker/keycloak/import/tdm-realm.json` |
+| Persistencia | volumen `keycloak_data` |
+
+Arranque:
+
+```bash
+docker compose up -d
+```
+
+Verificar discovery:
+
+```bash
+curl -s http://localhost:8180/realms/tdm/.well-known/openid-configuration | jq .issuer
+# "http://localhost:8180/realms/tdm"
+```
+
+### Realm `tdm`
+
+Importado automáticamente con `--import-realm` en el primer arranque (si el realm no existe aún).
+
+**Realm roles:** `admin`, `organizer`, `scorekeeper`, `player` (compatibles con `KeycloakRoleExtractor` → `realm_access.roles`).
+
+**Clients:**
+
+| Client | Uso |
+|--------|-----|
+| `tdm-frontend` | SPA pública, Standard Flow + PKCE S256 |
+| `tdm-api` | Audiencia del access token (no login) |
+
+**Audience mapper:** client scope `tdm-api-audience` agrega `tdm-api` al claim `aud` del access token emitido para `tdm-frontend`.
+
+**Usuarios demo (solo desarrollo):** `admin`, `organizer`, `scorekeeper`, `player` — password = username. Emails: `*@tdm.local`.
+
+**Consola admin:** `http://localhost:8180/admin` — bootstrap `admin` / `admin`.
+
+### Reset del realm importado
+
+`--import-realm` **no sobrescribe** un realm existente. Para aplicar cambios en `tdm-realm.json` desde cero:
+
+```bash
+docker compose down
+docker volume rm tdm-tournoment_keycloak_data
+docker compose up -d
+```
+
+Tras cambios de configuración Keycloak en Laravel:
+
+```bash
+docker compose exec app php artisan config:clear
+docker compose exec app php artisan cache:clear
+```
+
+### Acceso desde LAN
+
+El realm import incluye `localhost` y `127.0.0.1`. Para abrir el frontend desde otra máquina (`http://192.168.x.x:5173`), agregar manualmente en Keycloak Admin las URIs/orígenes correspondientes al client `tdm-frontend`.
 
 ---
 
@@ -271,7 +338,6 @@ VITE_KEYCLOAK_URL=http://localhost:8180
 VITE_KEYCLOAK_REALM=tdm
 VITE_KEYCLOAK_CLIENT_ID=tdm-frontend
 VITE_KEYCLOAK_ON_LOAD=login-required
-VITE_API_URL=http://localhost:8080/api/v1
 ```
 
 | Variable | Requerida | Descripción |
@@ -288,7 +354,7 @@ VITE_API_URL=http://localhost:8080/api/v1
 
 ### Cliente Keycloak `tdm-frontend`
 
-Configuración manual en el admin de Keycloak:
+Configurado en el realm import (`docker/keycloak/import/tdm-realm.json`):
 
 | Parámetro | Valor |
 |-----------|-------|
@@ -296,13 +362,15 @@ Configuración manual en el admin de Keycloak:
 | Standard Flow | enabled |
 | PKCE | `S256` |
 | Direct Access Grants | disabled |
-| Valid redirect URIs | `http://localhost:5173/*`, `http://<IP-LAN>:5173/*` |
-| Web origins | `http://localhost:5173`, `http://<IP-LAN>:5173` |
-| Post logout redirect URIs | `http://localhost:5173/*`, `http://<IP-LAN>:5173/*` |
+| Valid redirect URIs | `http://localhost:5173/*`, `http://127.0.0.1:5173/*` |
+| Web origins | `http://localhost:5173`, `http://127.0.0.1:5173` |
+| Post logout redirect URIs | `http://localhost:5173/*`, `http://127.0.0.1:5173/*` |
+
+Para acceso LAN, agregar manualmente `http://<IP-LAN>:5173/*` y el web origin correspondiente.
 
 ### Audiencia API en el token del frontend
 
-El access token emitido para `tdm-frontend` debe incluir `tdm-api` en el claim `aud`. Configurar un **Audience mapper** o client scope que agregue la audiencia del client `tdm-api` al token del SPA. Sin esto, el backend rechazará el JWT aunque Keycloak autentique correctamente.
+El access token emitido para `tdm-frontend` debe incluir `tdm-api` en el claim `aud`. El realm import incluye el client scope `tdm-api-audience` con mapper `oidc-audience-mapper`. Sin esto, el backend rechazará el JWT aunque Keycloak autentique correctamente.
 
 ### Bootstrap de la aplicación
 

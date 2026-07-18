@@ -16,7 +16,8 @@ final class OidcConfigurationRepository
     public function getConfiguration(): array
     {
         $issuer = KeycloakConfiguration::normalizedIssuer();
-        $cacheKey = self::CACHE_PREFIX.hash('sha256', $issuer);
+        $oidcBaseUrl = KeycloakConfiguration::oidcBaseUrl();
+        $cacheKey = self::cacheKeyForIssuer($issuer, $oidcBaseUrl);
         $ttl = (int) config('keycloak.discovery_cache_ttl', 3600);
 
         /** @var array{issuer: string, jwks_uri: string}|null $cached */
@@ -26,7 +27,7 @@ final class OidcConfigurationRepository
             return $cached;
         }
 
-        $discoveryUrl = $issuer.'/.well-known/openid-configuration';
+        $discoveryUrl = $oidcBaseUrl.'/.well-known/openid-configuration';
 
         $response = Http::timeout(5)
             ->acceptJson()
@@ -58,7 +59,7 @@ final class OidcConfigurationRepository
 
         $configuration = [
             'issuer' => $documentIssuer,
-            'jwks_uri' => $jwksUri,
+            'jwks_uri' => KeycloakConfiguration::resolveInternalJwksUri($jwksUri),
         ];
 
         Cache::put($cacheKey, $configuration, $ttl);
@@ -74,11 +75,14 @@ final class OidcConfigurationRepository
     public function forgetCache(): void
     {
         $issuer = KeycloakConfiguration::normalizedIssuer();
-        Cache::forget(self::CACHE_PREFIX.hash('sha256', $issuer));
+        $oidcBaseUrl = KeycloakConfiguration::oidcBaseUrl();
+        Cache::forget(self::cacheKeyForIssuer($issuer, $oidcBaseUrl));
     }
 
-    public static function cacheKeyForIssuer(string $issuer): string
+    public static function cacheKeyForIssuer(string $issuer, ?string $oidcBaseUrl = null): string
     {
-        return self::CACHE_PREFIX.hash('sha256', rtrim($issuer, '/'));
+        $baseUrl = $oidcBaseUrl ?? KeycloakConfiguration::oidcBaseUrl();
+
+        return self::CACHE_PREFIX.hash('sha256', rtrim($issuer, '/').'|'.rtrim($baseUrl, '/'));
     }
 }
