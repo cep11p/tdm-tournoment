@@ -1219,13 +1219,13 @@ El cliente **no** envía `set_number`; el servidor asigna numeración correlativ
 | Contexto | Restricción |
 |----------|-------------|
 | Partido de grupo | Bloqueado si la competencia ya tiene bracket generado |
-| Partido de llave | Bloqueado si existe **cualquier** partido del mismo bracket en una ronda posterior |
+| Partido de llave | Si existe una ronda posterior, solo se permite propagar a la **ronda inmediata** cuando el partido destino está `pending`, sin sets, sin ganador y contiene al ganador anterior en el slot esperado. Bloqueado si la llave avanzó más de una ronda o el destino ya comenzó. |
 | Competencia | Bloqueada si ya existe una final terminada con ganador |
 
 ### Impacto
 
 - **Grupos:** standings se recalculan automáticamente; desempates manuales previos pueden quedar **stale**; no se eliminan automáticamente.
-- **Llave:** no hay propagación automática del ganador corregido a rondas posteriores (postergado).
+- **Llave:** si la ronda inmediata está generada y pendiente, el ganador corregido puede propagarse automáticamente al slot correspondiente (`player1_id` o `player2_id`). No hay cascada multi-ronda.
 - **Auditoría:** una actividad `game.result_corrected` por operación exitosa.
 
 ### BYEs

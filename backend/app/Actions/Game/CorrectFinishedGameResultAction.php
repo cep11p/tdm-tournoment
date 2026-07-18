@@ -9,6 +9,7 @@ use App\Models\Game;
 use App\Models\Player;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
+use App\Support\Game\GameDependencyResolver;
 use App\Support\Game\GameResultCorrectionGuard;
 use App\Support\Game\GameSetScoreValidator;
 use App\Support\Tournament\TournamentLifecycleGuard;
@@ -19,6 +20,7 @@ final class CorrectFinishedGameResultAction
 {
     public function __construct(
         private readonly GameResultCorrectionGuard $correctionGuard,
+        private readonly GameDependencyResolver $dependencyResolver,
         private readonly GameSetScoreValidator $scoreValidator,
         private readonly AuditLogger $auditLogger,
     ) {}
@@ -42,18 +44,46 @@ final class CorrectFinishedGameResultAction
 
             TournamentLifecycleGuard::ensureMutableForGame($game);
 
-            $this->correctionGuard->assertCanCorrect($game);
+            $this->correctionGuard->assertSourceCorrectable($game);
 
             $oldSnapshot = $this->snapshot($game);
             $setsCountBefore = $game->sets->count();
-            $oldWinnerId = $game->winner_id;
+            $oldWinnerId = (int) $game->winner_id;
 
             $competition = $game->competition;
             $setsToWin = (int) ($game->sets_to_win ?? $competition->sets_to_win);
             $pointsPerSet = (int) $competition->points_per_set;
             $newSets = $payload['sets'];
 
-            $this->validateFullResult($game, $newSets, $setsToWin, $pointsPerSet);
+            $validatedResult = $this->validateFullResult($game, $newSets, $setsToWin, $pointsPerSet);
+            $newWinnerId = $validatedResult['winner_id'];
+
+            $this->correctionGuard->assertNoRoundBeyondImmediate($game);
+
+            $dependency = $this->dependencyResolver->resolveNextRoundDependency($game);
+            $destinationBefore = null;
+            $destinationGame = null;
+            $destinationSlot = null;
+
+            if ($dependency !== null) {
+                $destinationGame = Game::query()
+                    ->lockForUpdate()
+                    ->findOrFail($dependency['game']->id);
+
+                $destinationSlot = $dependency['slot'];
+
+                $this->correctionGuard->assertPropagationSafe(
+                    source: $game,
+                    destination: $destinationGame,
+                    slot: $destinationSlot,
+                    oldWinnerId: $oldWinnerId,
+                    newWinnerId: $newWinnerId,
+                );
+
+                if ($newWinnerId !== $oldWinnerId) {
+                    $destinationBefore = $this->destinationSnapshot($destinationGame);
+                }
+            }
 
             $game->sets()->delete();
 
@@ -65,22 +95,22 @@ final class CorrectFinishedGameResultAction
                 ]);
             }
 
-            $game->load('sets');
-            $setsWon = $game->setsWonCount($game->sets);
-
-            if ($setsWon['player1'] >= $setsToWin) {
-                $game->winner_id = $game->player1_id;
-            } elseif ($setsWon['player2'] >= $setsToWin) {
-                $game->winner_id = $game->player2_id;
-            } else {
-                throw ValidationException::withMessages([
-                    'sets' => ['El resultado corregido no define un ganador válido.'],
-                ]);
-            }
-
+            $game->winner_id = $newWinnerId;
             $game->status = GameStatus::Finished;
             $game->finished_at = now();
             $game->save();
+
+            $destinationAfter = null;
+
+            if (
+                $destinationGame !== null
+                && $destinationSlot !== null
+                && $newWinnerId !== $oldWinnerId
+            ) {
+                $destinationGame->{$destinationSlot} = $newWinnerId;
+                $destinationGame->save();
+                $destinationAfter = $this->destinationSnapshot($destinationGame->fresh());
+            }
 
             $game->load([
                 'competition',
@@ -100,12 +130,18 @@ final class CorrectFinishedGameResultAction
                 old: $oldSnapshot,
                 new: $newSnapshot,
                 summary: [
-                    'winner_changed' => (int) $oldWinnerId !== (int) $game->winner_id,
+                    'winner_changed' => $oldWinnerId !== $newWinnerId,
                     'old_winner_id' => $oldWinnerId,
-                    'new_winner_id' => $game->winner_id,
+                    'new_winner_id' => $newWinnerId,
                     'sets_count_before' => $setsCountBefore,
                     'sets_count_after' => count($newSets),
-                    'dependent_games_detected' => [],
+                    'propagation' => $this->buildPropagationSummary(
+                        dependency: $dependency,
+                        oldWinnerId: $oldWinnerId,
+                        newWinnerId: $newWinnerId,
+                        destinationBefore: $destinationBefore,
+                        destinationAfter: $destinationAfter,
+                    ),
                 ],
                 reason: $payload['reason'],
             ));
@@ -116,13 +152,17 @@ final class CorrectFinishedGameResultAction
 
     /**
      * @param  array<int, array{player1_score: int, player2_score: int}>  $setsPayload
+     * @return array{
+     *     winner_id: int,
+     *     sets_won: array{player1: int, player2: int},
+     * }
      */
     private function validateFullResult(
         Game $game,
         array $setsPayload,
         int $setsToWin,
         int $pointsPerSet,
-    ): void {
+    ): array {
         if ($setsPayload === []) {
             throw ValidationException::withMessages([
                 'sets' => ['Se requiere al menos un set.'],
@@ -182,6 +222,62 @@ final class CorrectFinishedGameResultAction
                 'sets' => ['El resultado corregido no puede definir dos ganadores.'],
             ]);
         }
+
+        if ($player1Wins >= $setsToWin) {
+            return [
+                'winner_id' => (int) $game->player1_id,
+                'sets_won' => ['player1' => $player1Wins, 'player2' => $player2Wins],
+            ];
+        }
+
+        return [
+            'winner_id' => (int) $game->player2_id,
+            'sets_won' => ['player1' => $player1Wins, 'player2' => $player2Wins],
+        ];
+    }
+
+    /**
+     * @param  array{
+     *     game: Game,
+     *     slot: 'player1_id'|'player2_id',
+     *     destination_round: int,
+     *     destination_match: int,
+     *     expected_player_id: int,
+     * }|null  $dependency
+     * @param  array{player1_id: int|null, player2_id: int|null, status: string}|null  $destinationBefore
+     * @param  array{player1_id: int|null, player2_id: int|null, status: string}|null  $destinationAfter
+     * @return array<string, mixed>
+     */
+    private function buildPropagationSummary(
+        ?array $dependency,
+        int $oldWinnerId,
+        int $newWinnerId,
+        ?array $destinationBefore,
+        ?array $destinationAfter,
+    ): array {
+        if ($dependency === null) {
+            return ['applied' => false];
+        }
+
+        if ($oldWinnerId === $newWinnerId) {
+            return [
+                'applied' => false,
+                'reason' => 'winner_unchanged',
+            ];
+        }
+
+        return [
+            'applied' => true,
+            'destination_game_id' => $dependency['game']->id,
+            'destination_round' => $dependency['game']->round,
+            'destination_bracket_round' => $dependency['destination_round'],
+            'destination_bracket_match' => $dependency['destination_match'],
+            'slot' => $dependency['slot'],
+            'old_player_id' => $oldWinnerId,
+            'new_player_id' => $newWinnerId,
+            'before' => $destinationBefore,
+            'after' => $destinationAfter,
+        ];
     }
 
     /**
@@ -218,6 +314,20 @@ final class CorrectFinishedGameResultAction
                 ->values()
                 ->all(),
             'sets_won' => $setsWon,
+        ];
+    }
+
+    /**
+     * @return array{player1_id: int|null, player2_id: int|null, status: string}
+     */
+    private function destinationSnapshot(Game $game): array
+    {
+        return [
+            'player1_id' => $game->player1_id !== null ? (int) $game->player1_id : null,
+            'player2_id' => $game->player2_id !== null ? (int) $game->player2_id : null,
+            'status' => $game->status instanceof GameStatus
+                ? $game->status->value
+                : (string) $game->status,
         ];
     }
 

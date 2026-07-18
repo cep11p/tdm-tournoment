@@ -48,7 +48,7 @@ const contextWarning = computed(() => {
   }
 
   if (activeGame.value?.bracket_id) {
-    return 'La corrección solo es posible si la llave todavía no avanzó a otra ronda.'
+    return 'Si la siguiente ronda ya fue generada pero el partido todavía no comenzó, el sistema actualizará automáticamente al jugador clasificado. La corrección será bloqueada si el partido siguiente ya tiene actividad o si la llave avanzó más de una ronda.'
   }
 
   return null
@@ -182,6 +182,7 @@ const applyApiErrors = (error) => {
       reason: errors.reason?.[0] ?? null,
       sets: errors.sets?.[0] ?? null,
       game: errors.game?.[0] ?? null,
+      dependent_game: errors.dependent_game?.[0] ?? null,
       competition: errors.competition?.[0] ?? null,
     }
 
@@ -350,6 +351,7 @@ const handleSubmit = async () => {
             </p>
 
             <p v-if="fieldErrors.game" class="text-red-600 dark:text-red-400">{{ fieldErrors.game }}</p>
+            <p v-if="fieldErrors.dependent_game" class="text-red-600 dark:text-red-400">{{ fieldErrors.dependent_game }}</p>
             <p v-if="fieldErrors.competition" class="text-red-600 dark:text-red-400">{{ fieldErrors.competition }}</p>
             <p v-if="generalError" class="text-red-600 dark:text-red-400">{{ generalError }}</p>
 

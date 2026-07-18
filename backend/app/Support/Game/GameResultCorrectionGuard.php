@@ -9,7 +9,11 @@ use Illuminate\Validation\ValidationException;
 
 final class GameResultCorrectionGuard
 {
-    public function assertCanCorrect(Game $game): void
+    public function __construct(
+        private readonly GameDependencyResolver $dependencyResolver,
+    ) {}
+
+    public function assertSourceCorrectable(Game $game): void
     {
         if ($game->is_bye) {
             throw ValidationException::withMessages([
@@ -55,18 +59,60 @@ final class GameResultCorrectionGuard
                 'game' => ['No se puede corregir el resultado porque la llave ya fue generada.'],
             ]);
         }
+    }
 
-        if ($game->bracket_id !== null && $game->bracket_round !== null) {
-            $hasLaterRound = Game::query()
-                ->where('bracket_id', $game->bracket_id)
-                ->where('bracket_round', '>', $game->bracket_round)
-                ->exists();
+    public function assertNoRoundBeyondImmediate(Game $game): void
+    {
+        if (! $this->dependencyResolver->hasRoundBeyondImmediate($game)) {
+            return;
+        }
 
-            if ($hasLaterRound) {
-                throw ValidationException::withMessages([
-                    'game' => ['No se puede corregir el resultado porque la llave ya avanzó a una ronda posterior.'],
-                ]);
-            }
+        throw ValidationException::withMessages([
+            'game' => ['No se puede corregir el resultado porque la llave ya avanzó más de una ronda.'],
+        ]);
+    }
+
+    public function assertPropagationSafe(
+        Game $source,
+        Game $destination,
+        string $slot,
+        int $oldWinnerId,
+        int $newWinnerId,
+    ): void {
+        if ($destination->status !== GameStatus::Pending) {
+            throw ValidationException::withMessages([
+                'dependent_game' => ['No se puede corregir el resultado porque el partido de la ronda siguiente ya comenzó.'],
+            ]);
+        }
+
+        if ($destination->sets()->exists()) {
+            throw ValidationException::withMessages([
+                'dependent_game' => ['No se puede corregir el resultado porque el partido de la ronda siguiente ya comenzó.'],
+            ]);
+        }
+
+        if ($destination->winner_id !== null) {
+            throw ValidationException::withMessages([
+                'dependent_game' => ['No se puede corregir el resultado porque el partido de la ronda siguiente ya comenzó.'],
+            ]);
+        }
+
+        if ((int) $destination->{$slot} !== $oldWinnerId) {
+            throw ValidationException::withMessages([
+                'game' => ['No se puede corregir el resultado porque la llave presenta una inconsistencia en la ronda siguiente.'],
+            ]);
+        }
+
+        if ((int) $oldWinnerId === (int) $newWinnerId) {
+            return;
+        }
+
+        $otherSlot = $slot === 'player1_id' ? 'player2_id' : 'player1_id';
+
+        if ((int) $destination->{$otherSlot} === (int) $newWinnerId) {
+            throw ValidationException::withMessages([
+                'dependent_game' => ['No se puede corregir el resultado porque el nuevo ganador ya está asignado en la ronda siguiente.'],
+            ]);
         }
     }
 }

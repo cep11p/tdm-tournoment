@@ -4,7 +4,9 @@ namespace Tests\Feature\Audit;
 
 use App\Enums\AuditAction;
 use App\Enums\GameStatus;
+use App\Models\Bracket;
 use App\Models\Game;
+use App\Models\Player;
 use App\Models\User;
 use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
@@ -114,7 +116,108 @@ class GameResultCorrectionAuditTest extends TestCase
         $this->assertFalse(data_get($activity->properties, 'summary.winner_changed'));
         $this->assertSame(2, data_get($activity->properties, 'summary.sets_count_before'));
         $this->assertSame(3, data_get($activity->properties, 'summary.sets_count_after'));
-        $this->assertSame([], data_get($activity->properties, 'summary.dependent_games_detected'));
+        $this->assertFalse(data_get($activity->properties, 'summary.propagation.applied'));
+    }
+
+    public function test_correction_without_next_round_records_propagation_not_applied(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $this->createFinishedGame($context);
+
+        $context->correctResult(
+            $setup['game']->fresh(),
+            self::REASON,
+            [
+                ['player1_score' => 11, 'player2_score' => 9],
+                ['player1_score' => 11, 'player2_score' => 7],
+            ],
+        )->assertOk();
+
+        $activity = Activity::query()
+            ->where('description', AuditAction::GAME_RESULT_CORRECTED->value)
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertFalse(data_get($activity->properties, 'summary.propagation.applied'));
+        $this->assertNull(data_get($activity->properties, 'summary.propagation.reason'));
+    }
+
+    public function test_correction_with_propagation_records_destination_details(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $this->createQuarterfinalWithSemifinalPropagation($context);
+
+        $quarterfinalOne = $setup['quarterfinal'];
+        $semifinalOne = $setup['semifinal'];
+        $oldWinnerId = $quarterfinalOne->fresh()->winner_id;
+        $newWinner = $quarterfinalOne->player2;
+
+        $context->correctResult(
+            $quarterfinalOne->fresh(),
+            self::REASON,
+            $this->correctedSetsForGame($quarterfinalOne->fresh(), $newWinner),
+        )->assertOk();
+
+        $activity = Activity::query()
+            ->where('description', AuditAction::GAME_RESULT_CORRECTED->value)
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertTrue(data_get($activity->properties, 'summary.winner_changed'));
+        $this->assertTrue(data_get($activity->properties, 'summary.propagation.applied'));
+        $this->assertSame($semifinalOne->id, data_get($activity->properties, 'summary.propagation.destination_game_id'));
+        $this->assertSame('player1_id', data_get($activity->properties, 'summary.propagation.slot'));
+        $this->assertSame($oldWinnerId, data_get($activity->properties, 'summary.propagation.old_player_id'));
+        $this->assertSame($newWinner->id, data_get($activity->properties, 'summary.propagation.new_player_id'));
+        $this->assertSame($oldWinnerId, data_get($activity->properties, 'summary.propagation.before.player1_id'));
+        $this->assertSame($newWinner->id, data_get($activity->properties, 'summary.propagation.after.player1_id'));
+    }
+
+    public function test_correction_with_unchanged_winner_records_propagation_reason(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $this->createQuarterfinalWithSemifinalPropagation($context);
+
+        $context->correctResult(
+            $setup['quarterfinal']->fresh(),
+            self::REASON,
+            [
+                ['player1_score' => 11, 'player2_score' => 9],
+                ['player1_score' => 11, 'player2_score' => 8],
+            ],
+        )->assertOk();
+
+        $activity = Activity::query()
+            ->where('description', AuditAction::GAME_RESULT_CORRECTED->value)
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertFalse(data_get($activity->properties, 'summary.propagation.applied'));
+        $this->assertSame('winner_unchanged', data_get($activity->properties, 'summary.propagation.reason'));
+    }
+
+    public function test_failed_propagation_does_not_create_activity(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $this->createQuarterfinalWithSemifinalPropagation($context);
+
+        $context->recordSet($setup['semifinal'], setNumber: 1, player1Score: 11, player2Score: 9)->assertOk();
+        $setup['semifinal']->update(['status' => GameStatus::Pending, 'winner_id' => null, 'finished_at' => null]);
+
+        $correctionCountBefore = Activity::query()
+            ->where('description', AuditAction::GAME_RESULT_CORRECTED->value)
+            ->count();
+
+        $context->correctResult(
+            $setup['quarterfinal']->fresh(),
+            self::REASON,
+            $this->correctedSetsForGame($setup['quarterfinal']->fresh(), $setup['quarterfinal']->player2),
+        )->assertUnprocessable();
+
+        $this->assertSame(
+            $correctionCountBefore,
+            Activity::query()->where('description', AuditAction::GAME_RESULT_CORRECTED->value)->count(),
+        );
     }
 
     public function test_correction_summary_reflects_winner_change(): void
@@ -204,5 +307,59 @@ class GameResultCorrectionAuditTest extends TestCase
         $context->recordSet($setup['game'], setNumber: 2, player1Score: 11, player2Score: 6)->assertOk();
 
         return $setup;
+    }
+
+    /**
+     * @return array{
+     *     quarterfinal: Game,
+     *     semifinal: Game,
+     * }
+     */
+    private function createQuarterfinalWithSemifinalPropagation(\Tests\Support\TournamentTestContext $context): array
+    {
+        $competition = $context->createKnockoutDirectCompetition(setsToWin: 2);
+        $players = $context->createPlayers(8);
+        $context->registerPlayers($competition, $players);
+        $context->createBracket($competition)->assertCreated();
+
+        $bracket = Bracket::query()->where('competition_id', $competition->id)->sole();
+        $quarterfinals = $context->bracketGamesForRound($bracket, 1)->sortBy('bracket_match')->values();
+
+        foreach ($quarterfinals as $quarterfinal) {
+            $context->finishGame(
+                $quarterfinal,
+                Player::query()->findOrFail($quarterfinal->player1_id),
+            )->assertOk();
+        }
+
+        $context->generateBracketNextRound($bracket)->assertCreated();
+
+        return [
+            'quarterfinal' => $quarterfinals[0]->fresh(),
+            'semifinal' => $context->bracketGamesForRound($bracket->fresh(), 2)->sortBy('bracket_match')->first(),
+        ];
+    }
+
+    /**
+     * @return array<int, array{player1_score: int, player2_score: int}>
+     */
+    private function correctedSetsForGame(Game $game, Player $winner): array
+    {
+        $game->loadMissing('competition');
+        $pointsPerSet = (int) $game->competition->points_per_set;
+        $setsToWin = (int) ($game->sets_to_win ?? $game->competition->sets_to_win);
+        $sets = [];
+
+        for ($setNumber = 1; $setNumber <= $setsToWin; $setNumber++) {
+            $player1Score = (int) $game->player1_id === $winner->id ? $pointsPerSet : 0;
+            $player2Score = (int) $game->player2_id === $winner->id ? $pointsPerSet : 0;
+
+            $sets[] = [
+                'player1_score' => $player1Score,
+                'player2_score' => $player2Score,
+            ];
+        }
+
+        return $sets;
     }
 }

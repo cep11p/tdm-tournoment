@@ -382,9 +382,40 @@ Los intentos fallidos no deben auditarse.
     "new_winner_id": 15,
     "sets_count_before": 2,
     "sets_count_after": 3,
-    "dependent_games_detected": []
+    "propagation": {
+      "applied": true,
+      "destination_game_id": 88,
+      "destination_round": "Semifinal",
+      "destination_bracket_round": 2,
+      "destination_bracket_match": 1,
+      "slot": "player1_id",
+      "old_player_id": 12,
+      "new_player_id": 15,
+      "before": {
+        "player1_id": 12,
+        "player2_id": 20,
+        "status": "pending"
+      },
+      "after": {
+        "player1_id": 15,
+        "player2_id": 20,
+        "status": "pending"
+      }
+    }
   }
 }
+```
+
+Si no hubo ronda siguiente generada:
+
+```json
+"propagation": { "applied": false }
+```
+
+Si el ganador no cambió pero existía destino:
+
+```json
+"propagation": { "applied": false, "reason": "winner_unchanged" }
 ```
 
 ## Políticas de auditoría administrativa (Slice 2.5C-1)

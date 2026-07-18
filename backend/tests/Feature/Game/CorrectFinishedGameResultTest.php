@@ -3,6 +3,7 @@
 namespace Tests\Feature\Game;
 
 use App\Enums\GameStatus;
+use App\Enums\TournamentStatus;
 use App\Models\Bracket;
 use App\Models\Game;
 use App\Models\GameSet;
@@ -409,7 +410,80 @@ class CorrectFinishedGameResultTest extends TestCase
             ->assertJsonPath('data.winner_id', $setup['playerOne']->id);
     }
 
-    public function test_rejects_bracket_game_when_later_round_exists(): void
+    public function test_propagates_winner_to_immediate_round_when_destination_is_safe(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $this->createQuarterfinalWithSemifinalPending($context);
+
+        $quarterfinalOne = $setup['quarterfinals'][0]->fresh(['player1', 'player2']);
+        $semifinalOne = $setup['semifinals'][0];
+        $newWinner = (int) $quarterfinalOne->winner_id === (int) $quarterfinalOne->player1_id
+            ? $quarterfinalOne->player2
+            : $quarterfinalOne->player1;
+
+        $context->correctResult(
+            $quarterfinalOne->fresh(),
+            self::REASON,
+            $this->correctedSetsForGame($quarterfinalOne->fresh(), $newWinner),
+        )->assertOk()
+            ->assertJsonPath('data.winner_id', $newWinner->id);
+
+        $semifinalOne->refresh();
+        $this->assertSame($newWinner->id, $semifinalOne->player1_id);
+        $this->assertSame($setup['quarterfinals'][1]->fresh()->winner_id, $semifinalOne->player2_id);
+    }
+
+    public function test_propagates_to_player2_slot_for_even_quarterfinal_match(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $this->createQuarterfinalWithSemifinalPending($context);
+
+        $quarterfinalTwo = $setup['quarterfinals'][1]->fresh(['player1', 'player2']);
+        $semifinalOne = $setup['semifinals'][0];
+        $newWinner = (int) $quarterfinalTwo->winner_id === (int) $quarterfinalTwo->player1_id
+            ? $quarterfinalTwo->player2
+            : $quarterfinalTwo->player1;
+
+        $context->correctResult(
+            $quarterfinalTwo->fresh(),
+            self::REASON,
+            $this->correctedSetsForGame($quarterfinalTwo->fresh(), $newWinner),
+        )->assertOk()
+            ->assertJsonPath('data.winner_id', $newWinner->id);
+
+        $semifinalOne->refresh();
+        $this->assertSame($setup['quarterfinals'][0]->fresh()->winner_id, $semifinalOne->player1_id);
+        $this->assertSame($newWinner->id, $semifinalOne->player2_id);
+    }
+
+    public function test_does_not_modify_destination_when_winner_is_unchanged(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $this->createQuarterfinalWithSemifinalPending($context);
+
+        $quarterfinalOne = $setup['quarterfinals'][0]->fresh();
+        $semifinalOne = $setup['semifinals'][0]->fresh();
+        $before = [
+            'player1_id' => $semifinalOne->player1_id,
+            'player2_id' => $semifinalOne->player2_id,
+        ];
+
+        $context->correctResult(
+            $quarterfinalOne,
+            self::REASON,
+            [
+                ['player1_score' => 11, 'player2_score' => 9],
+                ['player1_score' => 11, 'player2_score' => 8],
+            ],
+        )->assertOk()
+            ->assertJsonPath('data.winner_id', $quarterfinalOne->winner_id);
+
+        $semifinalOne->refresh();
+        $this->assertSame($before['player1_id'], $semifinalOne->player1_id);
+        $this->assertSame($before['player2_id'], $semifinalOne->player2_id);
+    }
+
+    public function test_propagates_from_semifinal_to_pending_final(): void
     {
         $context = $this->tournamentContext();
         $setup = $context->createFourQualifierGroupPhase();
@@ -417,24 +491,249 @@ class CorrectFinishedGameResultTest extends TestCase
 
         $bracket = Bracket::query()->where('competition_id', $setup['competition']->id)->sole();
         $semifinals = $context->bracketGamesForRound($bracket, 1);
-
         $context->finishGame($semifinals[0], $setup['playerOne'])->assertOk();
         $context->finishGame($semifinals[1], $setup['playerThree'])->assertOk();
         $context->generateBracketNextRound($bracket)->assertCreated();
 
-        $originalSetIds = GameSet::query()->where('game_id', $semifinals[0]->id)->pluck('id')->all();
+        $semifinalTwo = $semifinals[1]->fresh(['player1', 'player2']);
+        $newWinner = (int) $semifinalTwo->winner_id === (int) $semifinalTwo->player1_id
+            ? $semifinalTwo->player2
+            : $semifinalTwo->player1;
 
         $context->correctResult(
-            $semifinals[0]->fresh(),
+            $semifinalTwo,
             self::REASON,
-            [
-                ['player1_score' => 11, 'player2_score' => 9],
-                ['player1_score' => 11, 'player2_score' => 7],
-            ],
+            $this->correctedSetsForGame($semifinalTwo, $newWinner),
+        )->assertOk()
+            ->assertJsonPath('data.winner_id', $newWinner->id);
+
+        $final = $context->bracketGamesForRound($bracket->fresh(), 2)->sole();
+        $final->refresh();
+        $this->assertSame($semifinals[0]->fresh()->winner_id, $final->player1_id);
+        $this->assertSame($newWinner->id, $final->player2_id);
+    }
+
+    public function test_allows_propagation_when_destination_opponent_came_from_bye(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createKnockoutDirectCompetition(setsToWin: 2);
+        $players = $context->createPlayers(5);
+        $context->registerPlayers($competition, $players);
+        $context->createBracket($competition)->assertCreated();
+
+        $bracket = Bracket::query()->where('competition_id', $competition->id)->sole();
+        $firstRound = $context->bracketGamesForRound($bracket, 1)->sortBy('bracket_match')->values();
+        $realGame = $firstRound->first(fn (Game $game): bool => ! $game->is_bye);
+        $byeGames = $firstRound->filter(fn (Game $game): bool => $game->is_bye);
+
+        $this->assertNotNull($realGame);
+        $this->assertNotEmpty($byeGames);
+
+        $context->finishGame($realGame, Player::query()->findOrFail($realGame->player1_id))->assertOk();
+        $context->generateBracketNextRound($bracket)->assertCreated();
+
+        $realGame->refresh();
+        $secondRound = $context->bracketGamesForRound($bracket->fresh(), 2);
+        $destination = $secondRound->first(
+            fn (Game $game): bool => (int) $game->player1_id === (int) $realGame->winner_id
+                || (int) $game->player2_id === (int) $realGame->winner_id,
+        );
+
+        $this->assertNotNull($destination);
+
+        $newWinner = (int) $realGame->player1_id === (int) $realGame->winner_id
+            ? Player::query()->findOrFail($realGame->player2_id)
+            : Player::query()->findOrFail($realGame->player1_id);
+
+        $context->correctResult(
+            $realGame->fresh(['player1', 'player2']),
+            self::REASON,
+            $this->correctedSetsForGame($realGame->fresh(['player1', 'player2']), $newWinner),
+        )->assertOk()
+            ->assertJsonPath('data.winner_id', $newWinner->id);
+
+        $destination->refresh();
+        $this->assertTrue(
+            (int) $destination->player1_id === $newWinner->id
+            || (int) $destination->player2_id === $newWinner->id,
+        );
+    }
+
+    public function test_rejects_when_destination_has_sets(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $this->createQuarterfinalWithSemifinalPending($context);
+
+        $quarterfinalOne = $setup['quarterfinals'][0];
+        $semifinalOne = $setup['semifinals'][0];
+        $originalWinnerId = $quarterfinalOne->fresh()->winner_id;
+        $originalSetIds = GameSet::query()->where('game_id', $quarterfinalOne->id)->pluck('id')->all();
+        $originalDestination = $semifinalOne->only(['player1_id', 'player2_id', 'winner_id', 'status']);
+
+        $context->recordSet($semifinalOne, setNumber: 1, player1Score: 11, player2Score: 9)->assertOk();
+        $semifinalOne->update(['status' => GameStatus::Pending, 'winner_id' => null, 'finished_at' => null]);
+
+        $context->correctResult(
+            $quarterfinalOne->fresh(),
+            self::REASON,
+            $this->correctedSetsForGame(
+                $quarterfinalOne->fresh(),
+                $quarterfinalOne->player1_id === $originalWinnerId
+                    ? $quarterfinalOne->player2
+                    : $quarterfinalOne->player1,
+            ),
+        )->assertUnprocessable()
+            ->assertJsonValidationErrors(['dependent_game']);
+
+        $this->assertSame($originalSetIds, GameSet::query()->where('game_id', $quarterfinalOne->id)->pluck('id')->all());
+        $this->assertSame($originalWinnerId, $quarterfinalOne->fresh()->winner_id);
+        $semifinalOne->refresh();
+        $this->assertSame($originalDestination['player1_id'], $semifinalOne->player1_id);
+        $this->assertSame($originalDestination['player2_id'], $semifinalOne->player2_id);
+    }
+
+    public function test_rejects_when_destination_is_in_progress(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $this->createQuarterfinalWithSemifinalPending($context);
+
+        $quarterfinalOne = $setup['quarterfinals'][0];
+        $semifinalOne = $setup['semifinals'][0];
+        $semifinalOne->update(['status' => GameStatus::InProgress]);
+
+        $this->assertCorrectionBlockedWithDestinationIntact($context, $quarterfinalOne, $semifinalOne);
+    }
+
+    public function test_rejects_when_destination_is_finished(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $this->createQuarterfinalWithSemifinalPending($context);
+
+        $quarterfinalOne = $setup['quarterfinals'][0];
+        $semifinalOne = $setup['semifinals'][0];
+        $context->finishGame($semifinalOne, $semifinalOne->player1)->assertOk();
+
+        $this->assertCorrectionBlockedWithDestinationIntact($context, $quarterfinalOne, $semifinalOne->fresh());
+    }
+
+    public function test_rejects_when_destination_has_winner_id(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $this->createQuarterfinalWithSemifinalPending($context);
+
+        $quarterfinalOne = $setup['quarterfinals'][0];
+        $semifinalOne = $setup['semifinals'][0];
+        $semifinalOne->update(['winner_id' => $semifinalOne->player1_id]);
+
+        $this->assertCorrectionBlockedWithDestinationIntact($context, $quarterfinalOne, $semifinalOne);
+    }
+
+    public function test_rejects_when_expected_slot_does_not_contain_old_winner(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $this->createQuarterfinalWithSemifinalPending($context);
+
+        $quarterfinalOne = $setup['quarterfinals'][0];
+        $semifinalOne = $setup['semifinals'][0];
+        $semifinalOne->update(['player1_id' => $setup['players'][7]->id]);
+
+        $this->assertCorrectionBlockedWithDestinationIntact($context, $quarterfinalOne, $semifinalOne);
+    }
+
+    public function test_rejects_when_new_winner_already_occupies_other_destination_slot(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $this->createQuarterfinalWithSemifinalPending($context);
+
+        $quarterfinalOne = $setup['quarterfinals'][0]->fresh(['player1', 'player2']);
+        $semifinalOne = $setup['semifinals'][0];
+        $originalWinnerId = $quarterfinalOne->winner_id;
+
+        $semifinalOne->update([
+            'player1_id' => $quarterfinalOne->player1_id,
+            'player2_id' => $quarterfinalOne->player2_id,
+        ]);
+
+        $duplicateWinner = Player::query()->findOrFail($quarterfinalOne->player2_id);
+
+        $context->correctResult(
+            $quarterfinalOne,
+            self::REASON,
+            $this->correctedSetsForGame($quarterfinalOne, $duplicateWinner),
+        )->assertUnprocessable()
+            ->assertJsonValidationErrors(['dependent_game']);
+
+        $this->assertSame($originalWinnerId, $quarterfinalOne->fresh()->winner_id);
+        $semifinalOne->refresh();
+        $this->assertSame($quarterfinalOne->player1_id, $semifinalOne->player1_id);
+        $this->assertSame($quarterfinalOne->player2_id, $semifinalOne->player2_id);
+    }
+
+    public function test_rejects_when_round_beyond_immediate_exists(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $this->createQuarterfinalWithSemifinalPending($context);
+
+        Game::query()->create([
+            'competition_id' => $setup['competition']->id,
+            'bracket_id' => $setup['bracket']->id,
+            'player1_id' => $setup['players'][0]->id,
+            'player2_id' => $setup['players'][1]->id,
+            'status' => GameStatus::Pending,
+            'round' => 'Final',
+            'bracket_round' => 3,
+            'bracket_match' => 1,
+            'is_bye' => false,
+            'best_of' => 1,
+            'sets_to_win' => 1,
+        ]);
+
+        $quarterfinalOne = $setup['quarterfinals'][0];
+
+        $context->correctResult(
+            $quarterfinalOne->fresh(),
+            self::REASON,
+            $this->correctedSetsForGame(
+                $quarterfinalOne->fresh(),
+                $quarterfinalOne->player1_id === $quarterfinalOne->winner_id
+                    ? $quarterfinalOne->player2
+                    : $quarterfinalOne->player1,
+            ),
         )->assertUnprocessable()
             ->assertJsonValidationErrors(['game']);
+    }
 
-        $this->assertSame($originalSetIds, GameSet::query()->where('game_id', $semifinals[0]->id)->pluck('id')->all());
+    public function test_rejects_correction_when_tournament_is_closed(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $this->createQuarterfinalWithSemifinalPending($context);
+
+        $tournament = $setup['competition']->tournament;
+        $tournament->update([
+            'status' => TournamentStatus::Finished,
+            'closed_at' => now(),
+        ]);
+
+        $quarterfinalOne = $setup['quarterfinals'][0]->fresh(['player1', 'player2']);
+        $semifinalOne = $setup['semifinals'][0];
+        $auditCount = Activity::query()->count();
+        $expectedSemifinalPlayer1 = $semifinalOne->player1_id;
+        $originalWinnerId = $quarterfinalOne->winner_id;
+        $newWinner = (int) $quarterfinalOne->player1_id === (int) $originalWinnerId
+            ? $quarterfinalOne->player2
+            : $quarterfinalOne->player1;
+
+        $context->correctResult(
+            $quarterfinalOne,
+            self::REASON,
+            $this->correctedSetsForGame($quarterfinalOne, $newWinner),
+        )->assertUnprocessable()
+            ->assertJsonValidationErrors(['tournament']);
+
+        $this->assertSame($originalWinnerId, $quarterfinalOne->fresh()->winner_id);
+        $semifinalOne->refresh();
+        $this->assertSame($expectedSemifinalPlayer1, $semifinalOne->player1_id);
+        $this->assertSame($auditCount, Activity::query()->count());
     }
 
     public function test_rejects_when_competition_final_is_finished(): void
@@ -486,6 +785,77 @@ class CorrectFinishedGameResultTest extends TestCase
         );
         $this->assertSame($auditCount, Activity::query()->count());
         $this->assertSame($setup['playerOne']->id, $setup['game']->fresh()->winner_id);
+    }
+
+    /**
+     * @return array{
+     *     competition: \App\Models\Competition,
+     *     bracket: Bracket,
+     *     players: array<int, Player>,
+     *     quarterfinals: \Illuminate\Support\Collection<int, Game>,
+     *     semifinals: \Illuminate\Support\Collection<int, Game>,
+     * }
+     */
+    private function createQuarterfinalWithSemifinalPending(TournamentTestContext $context): array
+    {
+        $competition = $context->createKnockoutDirectCompetition(setsToWin: 2);
+        $players = $context->createPlayers(8);
+        $context->registerPlayers($competition, $players);
+        $context->createBracket($competition)->assertCreated();
+
+        $bracket = Bracket::query()->where('competition_id', $competition->id)->sole();
+        $quarterfinals = $context->bracketGamesForRound($bracket, 1)->sortBy('bracket_match')->values();
+
+        foreach ($quarterfinals as $quarterfinal) {
+            $context->finishGame(
+                $quarterfinal,
+                Player::query()->findOrFail($quarterfinal->player1_id),
+            )->assertOk();
+        }
+
+        $context->generateBracketNextRound($bracket)->assertCreated();
+
+        return [
+            'competition' => $competition,
+            'bracket' => $bracket->fresh(),
+            'players' => $players,
+            'quarterfinals' => $quarterfinals,
+            'semifinals' => $context->bracketGamesForRound($bracket->fresh(), 2)->sortBy('bracket_match')->values(),
+        ];
+    }
+
+    private function assertCorrectionBlockedWithDestinationIntact(
+        TournamentTestContext $context,
+        Game $sourceGame,
+        Game $destinationGame,
+    ): void {
+        $originalWinnerId = $sourceGame->fresh()->winner_id;
+        $originalDestination = $destinationGame->fresh()->only(['player1_id', 'player2_id', 'winner_id', 'status']);
+        $auditCount = Activity::query()->count();
+
+        $newWinner = (int) $sourceGame->player1_id === (int) $originalWinnerId
+            ? Player::query()->findOrFail($sourceGame->player2_id)
+            : Player::query()->findOrFail($sourceGame->player1_id);
+
+        $context->correctResult(
+            $sourceGame->fresh(),
+            self::REASON,
+            $this->correctedSetsForGame($sourceGame->fresh(), $newWinner),
+        )->assertUnprocessable();
+
+        $this->assertSame($originalWinnerId, $sourceGame->fresh()->winner_id);
+
+        $destinationGame->refresh();
+        $this->assertSame($originalDestination['player1_id'], $destinationGame->player1_id);
+        $this->assertSame($originalDestination['player2_id'], $destinationGame->player2_id);
+        $this->assertSame($originalDestination['winner_id'], $destinationGame->winner_id);
+        $this->assertSame(
+            $originalDestination['status'] instanceof GameStatus
+                ? $originalDestination['status']->value
+                : $originalDestination['status'],
+            $destinationGame->status->value,
+        );
+        $this->assertSame($auditCount, Activity::query()->count());
     }
 
     /**
