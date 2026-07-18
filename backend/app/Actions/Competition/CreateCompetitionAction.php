@@ -5,6 +5,8 @@ namespace App\Actions\Competition;
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
 use App\Models\Competition;
+use App\Models\Tournament;
+use App\Support\Tournament\TournamentLifecycleGuard;
 use App\Support\Audit\AuditCompetitionAttributes;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
@@ -27,6 +29,9 @@ final class CreateCompetitionAction
         $payload['sets_to_win'] = intdiv($groupStageBestOf, 2) + 1;
 
         return DB::transaction(function () use ($payload): Competition {
+            $tournament = Tournament::query()->findOrFail($payload['tournament_id']);
+            TournamentLifecycleGuard::ensureMutable($tournament);
+
             $competition = Competition::query()->create($payload);
             $competition->loadMissing(['tournament', 'categoryModel:id,name']);
 

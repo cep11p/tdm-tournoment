@@ -9,6 +9,7 @@ use App\Enums\GameStatus;
 use App\Models\Bracket;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
+use App\Support\Tournament\TournamentLifecycleGuard;
 use App\Support\Bracket\BracketSupport;
 use App\Support\Game\GameFormatResolver;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +24,9 @@ final class GenerateBracketNextRoundAction
 
     public function __invoke(Bracket $bracket): Bracket
     {
+        $bracket->loadMissing('competition.tournament');
+        TournamentLifecycleGuard::ensureMutableForBracket($bracket);
+
         $currentRound = (int) $bracket->games()->max('bracket_round');
 
         if ($currentRound === 0) {

@@ -69,6 +69,44 @@ class TournamentAuditTest extends TestCase
         $this->assertSame(['location', 'start_date'], data_get($activity->properties, 'summary.changed_fields'));
     }
 
+    public function test_close_generates_one_activity_with_summary(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $context->createFourQualifierGroupPhase();
+        $result = $context->completeCompetitionThroughFinal($setup['competition']);
+
+        Activity::query()->delete();
+
+        $tournament = $setup['competition']->tournament;
+
+        $this->postJson("/api/v1/tournaments/{$tournament->id}/close", [], $this->authHeaders(['organizer']))
+            ->assertOk();
+
+        $activity = Activity::query()->sole();
+
+        $this->assertSame(AuditAction::TOURNAMENT_CLOSED->value, $activity->description);
+        $this->assertSame('tournaments', $activity->log_name);
+        $this->assertContains(data_get($activity->properties, 'old.status'), ['draft', 'in_progress']);
+        $this->assertNull(data_get($activity->properties, 'old.closed_at'));
+        $this->assertSame('finished', data_get($activity->properties, 'new.status'));
+        $this->assertNotNull(data_get($activity->properties, 'new.closed_at'));
+        $this->assertSame(1, data_get($activity->properties, 'summary.completed_competitions'));
+        $this->assertSame($result['champion']->id, data_get($activity->properties, 'summary.results.0.champion_id'));
+    }
+
+    public function test_failed_close_does_not_generate_activity(): void
+    {
+        $context = $this->tournamentContext();
+        $tournament = $context->createTournament();
+
+        Activity::query()->delete();
+
+        $this->postJson("/api/v1/tournaments/{$tournament->id}/close", [], $this->authHeaders(['organizer']))
+            ->assertUnprocessable();
+
+        $this->assertDatabaseCount('activity_log', 0);
+    }
+
     public function test_update_without_changes_does_not_generate_activity(): void
     {
         $tournament = Tournament::query()->create([

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Tournament\CloseTournamentAction;
 use App\Actions\Tournament\CreateTournamentAction;
 use App\Actions\Tournament\UpdateTournamentAction;
 use App\Http\Controllers\Controller;
@@ -47,6 +48,15 @@ class TournamentController extends Controller
     ): TournamentResource {
         return new TournamentResource(
             $updateTournament($tournament, $request->validated())
+        );
+    }
+
+    public function close(
+        Tournament $tournament,
+        CloseTournamentAction $closeTournament,
+    ): TournamentResource {
+        return new TournamentResource(
+            $closeTournament($tournament)
         );
     }
 }

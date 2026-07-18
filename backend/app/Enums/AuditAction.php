@@ -6,6 +6,7 @@ enum AuditAction: string
 {
     case TOURNAMENT_CREATED = 'tournament.created';
     case TOURNAMENT_UPDATED = 'tournament.updated';
+    case TOURNAMENT_CLOSED = 'tournament.closed';
     case COMPETITION_CREATED = 'competition.created';
     case COMPETITION_UPDATED = 'competition.updated';
     case PLAYER_CREATED = 'player.created';
@@ -33,6 +34,7 @@ enum AuditAction: string
         return match ($this) {
             self::TOURNAMENT_CREATED => 'Creación de torneo',
             self::TOURNAMENT_UPDATED => 'Actualización de torneo',
+            self::TOURNAMENT_CLOSED => 'Cierre de torneo',
             self::COMPETITION_CREATED => 'Creación de competencia',
             self::COMPETITION_UPDATED => 'Actualización de competencia',
             self::PLAYER_CREATED => 'Creación de jugador',
@@ -61,7 +63,8 @@ enum AuditAction: string
     {
         return match ($this) {
             self::TOURNAMENT_CREATED,
-            self::TOURNAMENT_UPDATED => 'Torneos',
+            self::TOURNAMENT_UPDATED,
+            self::TOURNAMENT_CLOSED => 'Torneos',
             self::COMPETITION_CREATED,
             self::COMPETITION_UPDATED => 'Competencias',
             self::PLAYER_CREATED,

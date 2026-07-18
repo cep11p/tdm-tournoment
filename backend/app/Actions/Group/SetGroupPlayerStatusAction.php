@@ -12,6 +12,7 @@ use App\Models\GroupPlayer;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
+use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -31,7 +32,8 @@ final class SetGroupPlayerStatusAction
      */
     public function __invoke(Group $group, array $payload): GroupPlayer
     {
-        $group->loadMissing('competition');
+        $group->loadMissing('competition.tournament');
+        TournamentLifecycleGuard::ensureMutableForGroup($group);
 
         CompetitionFormatGuard::ensureGroupStage($group->competition);
 

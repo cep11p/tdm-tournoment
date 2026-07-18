@@ -5,6 +5,7 @@ namespace App\Actions\Registration;
 use App\Models\Competition;
 use App\Models\Registration;
 use App\Support\Competition\RegistrationGuard;
+use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Database\QueryException;
 use Illuminate\Validation\ValidationException;
 
@@ -13,6 +14,8 @@ final class PersistRegistrationAction
     public function __invoke(array $payload): Registration
     {
         $competition = Competition::query()->findOrFail($payload['competition_id']);
+        $competition->loadMissing('tournament');
+        TournamentLifecycleGuard::ensureMutableForCompetition($competition);
         RegistrationGuard::ensureEditable($competition);
 
         try {

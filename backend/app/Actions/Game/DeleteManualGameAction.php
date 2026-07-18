@@ -9,6 +9,7 @@ use App\Models\Game;
 use App\Models\Player;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
+use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
 
 final class DeleteManualGameAction
@@ -33,6 +34,8 @@ final class DeleteManualGameAction
                 ])
                 ->lockForUpdate()
                 ->findOrFail($game->id);
+
+            TournamentLifecycleGuard::ensureMutableForGame($game);
 
             $context = AuditContextBuilder::fromGame($game);
             $snapshot = $this->snapshot($game);

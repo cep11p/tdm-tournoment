@@ -20,7 +20,13 @@ class UpdateTournamentRequest extends FormRequest
             'location' => ['sometimes', 'required', 'string', 'max:255'],
             'start_date' => ['sometimes', 'required', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
-            'status' => ['sometimes', Rule::enum(TournamentStatus::class)],
+            'status' => [
+                'sometimes',
+                Rule::in([
+                    TournamentStatus::Draft->value,
+                    TournamentStatus::InProgress->value,
+                ]),
+            ],
         ];
     }
 }

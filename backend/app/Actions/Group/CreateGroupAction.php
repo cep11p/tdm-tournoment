@@ -10,6 +10,7 @@ use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Competition\CompetitionStructureGuard;
+use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -23,6 +24,7 @@ final class CreateGroupAction
     public function __invoke(array $payload): Group
     {
         $competition = Competition::query()->findOrFail($payload['competition_id']);
+        TournamentLifecycleGuard::ensureMutableForCompetition($competition);
         CompetitionFormatGuard::ensureGroupStage($competition);
         CompetitionStructureGuard::ensureEditable($competition);
 

@@ -448,4 +448,69 @@ final class TournamentTestContext
             'playerFour' => $playerFour,
         ];
     }
+
+    public function closeTournament(Tournament $tournament, array $roles = ['organizer']): TestResponse
+    {
+        return $this->test->postJson(
+            $this->apiUrl("tournaments/{$tournament->id}/close"),
+            [],
+            $this->authHeaders($roles),
+        );
+    }
+
+    /**
+     * @return array{champion: Player, runner_up: Player, final: Game}
+     */
+    public function completeCompetitionThroughFinal(Competition $competition): array
+    {
+        if (! $competition->brackets()->exists()) {
+            $this->createBracket($competition)->assertCreated();
+        }
+
+        $bracket = $competition->fresh()->brackets()->firstOrFail();
+
+        while (true) {
+            $bracket->refresh();
+            $currentRound = (int) Game::query()
+                ->where('bracket_id', $bracket->id)
+                ->max('bracket_round');
+
+            $currentGames = $this->bracketGamesForRound($bracket, $currentRound);
+
+            foreach ($currentGames as $game) {
+                if ($game->is_bye || $game->status === \App\Enums\GameStatus::Finished) {
+                    continue;
+                }
+
+                $this->finishGame($game, $game->player1)->assertOk();
+            }
+
+            $final = $currentGames->first(fn (Game $game): bool => $game->round === 'Final');
+
+            if ($final !== null) {
+                $final = $final->fresh(['player1', 'player2', 'winner']);
+
+                return [
+                    'champion' => $final->winner ?? $final->player1,
+                    'runner_up' => (int) $final->winner_id === (int) $final->player1_id
+                        ? $final->player2
+                        : $final->player1,
+                    'final' => $final,
+                ];
+            }
+
+            $this->generateBracketNextRound($bracket)->assertCreated();
+        }
+    }
+
+    public function createTournament(array $overrides = []): Tournament
+    {
+        return Tournament::query()->create([
+            'name' => 'Torneo Test',
+            'location' => 'Club Test',
+            'start_date' => Carbon::today()->toDateString(),
+            'status' => TournamentStatus::InProgress,
+            ...$overrides,
+        ]);
+    }
 }

@@ -11,6 +11,7 @@ use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Game\GameResultCorrectionGuard;
 use App\Support\Game\GameSetScoreValidator;
+use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -30,7 +31,7 @@ final class CorrectFinishedGameResultAction
         return DB::transaction(function () use ($game, $payload): Game {
             $game = Game::query()
                 ->with([
-                    'competition',
+                    'competition.tournament',
                     'sets',
                     'player1:id,first_name,last_name,nickname',
                     'player2:id,first_name,last_name,nickname',
@@ -38,6 +39,8 @@ final class CorrectFinishedGameResultAction
                 ])
                 ->lockForUpdate()
                 ->findOrFail($game->id);
+
+            TournamentLifecycleGuard::ensureMutableForGame($game);
 
             $this->correctionGuard->assertCanCorrect($game);
 

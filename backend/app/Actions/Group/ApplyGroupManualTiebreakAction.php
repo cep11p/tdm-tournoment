@@ -13,6 +13,7 @@ use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Group\GroupStandingsCalculator;
+use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -28,7 +29,8 @@ final class ApplyGroupManualTiebreakAction
      */
     public function __invoke(Group $group, array $payload): GroupManualTiebreak
     {
-        $group->loadMissing('competition');
+        $group->loadMissing('competition.tournament');
+        TournamentLifecycleGuard::ensureMutableForGroup($group);
 
         CompetitionFormatGuard::ensureGroupStage($group->competition);
 

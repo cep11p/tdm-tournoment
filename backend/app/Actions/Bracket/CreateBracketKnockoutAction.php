@@ -13,6 +13,7 @@ use App\Models\Competition;
 use App\Models\Game;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
+use App\Support\Tournament\TournamentLifecycleGuard;
 use App\Support\Bracket\BracketSupport;
 use App\Support\Bracket\GroupKnockoutDrawBuilder;
 use App\Support\Bracket\GroupQualifiersCollector;
@@ -31,6 +32,9 @@ final class CreateBracketKnockoutAction
 
     public function __invoke(Competition $competition, array $payload): Bracket
     {
+        $competition->loadMissing('tournament');
+        TournamentLifecycleGuard::ensureMutableForCompetition($competition);
+
         if ($competition->brackets()->exists()) {
             throw ValidationException::withMessages([
                 'competition' => ['La competencia ya tiene un cuadro eliminatorio.'],

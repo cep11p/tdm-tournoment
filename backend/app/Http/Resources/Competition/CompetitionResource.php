@@ -60,6 +60,8 @@ class CompetitionResource extends JsonResource
             'registrations_lock_reason' => RegistrationGuard::lockReason($this->resource),
             'status_summary' => CompetitionStatusResolver::resolve($this->resource),
             'result_summary' => CompetitionResultResolver::resolve($this->resource),
+            'registrations_count' => (int) ($this->registrations_count ?? 0),
+            'games_count' => (int) ($this->games_count ?? 0),
             'created_at' => optional($this->created_at)->toISOString(),
             'updated_at' => optional($this->updated_at)->toISOString(),
         ];

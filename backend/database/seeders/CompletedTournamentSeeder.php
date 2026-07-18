@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Actions\Bracket\CreateBracketKnockoutAction;
+use App\Actions\Bracket\GenerateBracketNextRoundAction;
 use App\Actions\Competition\CreateCompetitionAction;
 use App\Actions\Game\RecordGameSetAction;
 use App\Actions\Group\CreateGroupAction;
@@ -167,6 +169,8 @@ class CompletedTournamentSeeder extends Seeder
             $playersByName,
             $recordGameSet
         );
+
+        $this->finishBracketAndCloseTournament($competition, $tournament, $recordGameSet);
 
         $this->printSummary($summary, $competition);
     }
@@ -391,6 +395,54 @@ class CompletedTournamentSeeder extends Seeder
         }
 
         return $finishedCount;
+    }
+
+    private function finishBracketAndCloseTournament(
+        Competition $competition,
+        Tournament $tournament,
+        RecordGameSetAction $recordGameSet,
+    ): void {
+        if (! $competition->brackets()->exists()) {
+            app(CreateBracketKnockoutAction::class)($competition, []);
+        }
+
+        $bracket = $competition->fresh()->brackets()->firstOrFail();
+
+        while (true) {
+            $currentRound = (int) Game::query()
+                ->where('bracket_id', $bracket->id)
+                ->max('bracket_round');
+
+            $currentGames = Game::query()
+                ->where('bracket_id', $bracket->id)
+                ->where('bracket_round', $currentRound)
+                ->orderBy('bracket_match')
+                ->get();
+
+            foreach ($currentGames as $game) {
+                if ($game->is_bye || $game->status === GameStatus::Finished) {
+                    continue;
+                }
+
+                $this->finishGame($game, $game->player1, $recordGameSet, 0);
+            }
+
+            $final = $currentGames->first(fn (Game $game): bool => $game->round === 'Final');
+
+            if ($final !== null && $final->fresh()->status === GameStatus::Finished) {
+                break;
+            }
+
+            app(GenerateBracketNextRoundAction::class)($bracket->fresh());
+            $bracket = $bracket->fresh();
+        }
+
+        if ($tournament->status !== TournamentStatus::Finished) {
+            $tournament->update([
+                'status' => TournamentStatus::Finished,
+                'closed_at' => now()->subDay(),
+            ]);
+        }
     }
 
     /**

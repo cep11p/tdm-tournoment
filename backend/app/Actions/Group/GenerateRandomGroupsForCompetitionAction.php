@@ -9,6 +9,7 @@ use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Competition\CompetitionStructureGuard;
+use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -29,6 +30,8 @@ final class GenerateRandomGroupsForCompetitionAction
      */
     public function __invoke(Competition $competition, int $groupsCount): array
     {
+        $competition->loadMissing('tournament');
+        TournamentLifecycleGuard::ensureMutableForCompetition($competition);
         CompetitionFormatGuard::ensureGroupStage($competition);
         CompetitionStructureGuard::ensureEditable($competition);
 

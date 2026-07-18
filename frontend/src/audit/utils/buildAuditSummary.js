@@ -100,6 +100,25 @@ export function buildAuditSummary(auditLog) {
     case 'tournament.updated':
       return formatChangedFields(summary.changed_fields) ?? 'Torneo actualizado'
 
+    case 'tournament.closed': {
+      const name = summary.tournament_name ?? displayName(auditLog, 'Torneo')
+      const completed = formatCount(summary.completed_competitions, 'competencia completada', 'competencias completadas')
+      const unused = formatCount(summary.unused_competitions, 'sin actividad', 'sin actividad')
+      const games = formatCount(summary.games_count, 'partido', 'partidos')
+
+      const parts = [`Torneo finalizado`, completed, games]
+
+      if (Number(summary.unused_competitions) > 0) {
+        parts.push(unused)
+      }
+
+      if (name) {
+        parts[0] = `Torneo "${name}" finalizado`
+      }
+
+      return parts.filter(Boolean).join(' · ')
+    }
+
     case 'competition.created': {
       const name = summary.competition_name ?? displayName(auditLog, 'Competencia')
       return `Competencia "${name}" creada`

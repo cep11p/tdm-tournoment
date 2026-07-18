@@ -21,6 +21,7 @@ import {
   getStructureSecondary,
 } from '../../competitions/utils/competitionListDisplay'
 import { getCompetitionTypeLabel } from '../../shared/constants/competitionType'
+import FinalizeTournamentModal from '../components/FinalizeTournamentModal.vue'
 import TournamentFormModal from '../components/TournamentFormModal.vue'
 import TournamentService from '../services/TournamentService'
 import {
@@ -43,6 +44,48 @@ const showCompetitionModal = ref(false)
 const competitionModalMode = ref('create')
 const editingCompetition = ref(null)
 const competitionSuccessMessage = ref('')
+const closeSuccessMessage = ref('')
+const showFinalizeModal = ref(false)
+
+const isTournamentClosed = computed(() => tournament.value?.status === 'finished')
+
+const canCreateCompetition = computed(
+  () => canManageCompetitions.value && !isTournamentClosed.value,
+)
+
+const canFinalizeTournament = computed(
+  () => canManageTournaments.value && tournament.value && !isTournamentClosed.value,
+)
+
+const tournamentResults = computed(() => {
+  const summary = tournament.value?.results_summary
+
+  if (summary?.results?.length) {
+    return summary.results
+  }
+
+  return competitions.value
+    .filter((competition) => competition.result_summary?.champion?.name)
+    .map((competition) => ({
+      competition_name: competition.name,
+      champion_name: competition.result_summary.champion.name,
+      runner_up_name: competition.result_summary.runner_up?.name ?? '-',
+    }))
+})
+
+const formatClosedAt = (value) => {
+  if (!value) {
+    return '-'
+  }
+
+  return new Intl.DateTimeFormat('es-AR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value))
+}
+
+const isUnusedCompetition = (competition) =>
+  Number(competition?.registrations_count ?? 0) === 0 && Number(competition?.games_count ?? 0) === 0
 
 const competitions = ref([])
 const isLoadingCompetitions = ref(false)
@@ -136,6 +179,21 @@ const handleCompetitionSaved = async () => {
       : 'Competencia actualizada correctamente.'
   await loadCompetitions()
 }
+
+const openFinalizeModal = () => {
+  closeSuccessMessage.value = ''
+  showFinalizeModal.value = true
+}
+
+const handleFinalizeClose = () => {
+  showFinalizeModal.value = false
+}
+
+const handleFinalizeSaved = async () => {
+  showFinalizeModal.value = false
+  closeSuccessMessage.value = 'Torneo finalizado correctamente.'
+  await Promise.all([loadTournament(), loadCompetitions()])
+}
 </script>
 
 <template>
@@ -147,6 +205,14 @@ const handleCompetitionSaved = async () => {
         {{ tournament?.name || `Torneo #${route.params.id}` }}
       </h1>
       <div class="flex items-center gap-3">
+        <button
+          v-if="canFinalizeTournament"
+          type="button"
+          class="rounded-md bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+          @click="openFinalizeModal"
+        >
+          Finalizar torneo
+        </button>
         <button
           v-if="tournament && canManageTournaments"
           type="button"
@@ -172,6 +238,13 @@ const handleCompetitionSaved = async () => {
     </p>
 
     <p
+      v-if="closeSuccessMessage"
+      class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
+    >
+      {{ closeSuccessMessage }}
+    </p>
+
+    <p
       v-if="competitionSuccessMessage"
       class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
     >
@@ -187,7 +260,17 @@ const handleCompetitionSaved = async () => {
       >
         <p class="font-medium text-slate-900 dark:text-slate-100">Información del torneo</p>
 
-        <dl class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div
+          v-if="isTournamentClosed"
+          class="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
+        >
+          Torneo finalizado
+          <span v-if="tournament.closed_at" class="text-emerald-800 dark:text-emerald-200">
+            · Cerrado el {{ formatClosedAt(tournament.closed_at) }}
+          </span>
+        </div>
+
+        <dl class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <div>
             <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Estado</dt>
             <dd class="mt-1">
@@ -216,6 +299,13 @@ const handleCompetitionSaved = async () => {
             </dd>
           </div>
 
+          <div v-if="tournament.closed_at">
+            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Fecha de cierre</dt>
+            <dd class="mt-1 font-medium text-slate-900 dark:text-slate-100">
+              {{ formatClosedAt(tournament.closed_at) }}
+            </dd>
+          </div>
+
           <div>
             <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Ubicación</dt>
             <dd class="mt-1 font-medium text-slate-900 dark:text-slate-100">
@@ -223,6 +313,31 @@ const handleCompetitionSaved = async () => {
             </dd>
           </div>
         </dl>
+      </div>
+
+      <div
+        v-if="isTournamentClosed || tournamentResults.length > 0"
+        class="rounded-md border border-emerald-200 bg-gradient-to-b from-emerald-50 to-white p-4 text-sm dark:border-emerald-900 dark:from-emerald-950/30 dark:to-slate-900"
+      >
+        <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+          Resultados del torneo
+        </p>
+
+        <div v-if="tournamentResults.length > 0" class="mt-4 space-y-3">
+          <article
+            v-for="result in tournamentResults"
+            :key="result.competition_name"
+            class="rounded-md border border-emerald-200 bg-white/80 p-4 dark:border-emerald-800 dark:bg-slate-900/50"
+          >
+            <p class="font-semibold text-slate-900 dark:text-slate-100">{{ result.competition_name }}</p>
+            <p class="mt-2 text-slate-700 dark:text-slate-300">Campeón: {{ result.champion_name }}</p>
+            <p class="text-slate-700 dark:text-slate-300">Subcampeón: {{ result.runner_up_name }}</p>
+          </article>
+        </div>
+
+        <p v-else class="mt-3 text-slate-600 dark:text-slate-300">
+          Todavía no hay resultados deportivos registrados para este torneo.
+        </p>
       </div>
 
       <div class="space-y-3">
@@ -233,7 +348,7 @@ const handleCompetitionSaved = async () => {
               Gestioná las categorías, formatos y fases de este torneo.
             </p>
           </div>
-          <AppTooltip v-if="tournament && canManageCompetitions" label="Nueva competencia">
+          <AppTooltip v-if="canCreateCompetition" label="Nueva competencia">
             <button
               type="button"
               :class="addButtonClasses"
@@ -259,7 +374,7 @@ const handleCompetitionSaved = async () => {
           <p class="text-slate-600 dark:text-slate-300">
             Este torneo todavía no tiene competencias cargadas.
           </p>
-          <AppTooltip v-if="tournament && canManageCompetitions" label="Nueva competencia">
+          <AppTooltip v-if="canCreateCompetition" label="Nueva competencia">
             <button
               type="button"
               :class="['mt-3', addButtonClasses]"
@@ -314,6 +429,18 @@ const handleCompetitionSaved = async () => {
                   >
                     {{ [competition.category, getCompetitionTypeLabel(competition.type)].filter(Boolean).join(' · ') }}
                   </p>
+                  <p
+                    v-if="competition.result_summary?.champion?.name"
+                    class="mt-1 text-xs font-medium text-emerald-700 dark:text-emerald-300"
+                  >
+                    Campeón: {{ competition.result_summary.champion.name }}
+                  </p>
+                  <p
+                    v-else-if="isUnusedCompetition(competition)"
+                    class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+                  >
+                    Sin actividad
+                  </p>
                 </td>
                 <td class="px-4 py-3 text-sm">
                   <p class="text-slate-900 dark:text-slate-100">{{ getStructurePrimary(competition) }}</p>
@@ -346,7 +473,7 @@ const handleCompetitionSaved = async () => {
                       </RouterLink>
                     </AppTooltip>
 
-                    <AppTooltip v-if="canManageCompetitions" label="Editar">
+                    <AppTooltip v-if="canManageCompetitions && !isTournamentClosed" label="Editar">
                       <button
                         type="button"
                         :class="editButtonClasses"
@@ -403,6 +530,14 @@ const handleCompetitionSaved = async () => {
       :competition-id="editingCompetition?.id"
       @close="handleCompetitionModalClose"
       @saved="handleCompetitionSaved"
+    />
+
+    <FinalizeTournamentModal
+      :show="showFinalizeModal"
+      :tournament="tournament"
+      :competitions="competitions"
+      @close="handleFinalizeClose"
+      @saved="handleFinalizeSaved"
     />
   </section>
 </template>

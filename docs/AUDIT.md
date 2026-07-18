@@ -81,6 +81,7 @@ El campo `description` de Spatie almacena el **código estable** (`AuditAction`)
 |--------|-------|
 | `tournament.created` | Creación de torneo |
 | `tournament.updated` | Actualización de torneo |
+| `tournament.closed` | Cierre de torneo |
 | `competition.created` | Creación de competencia |
 | `competition.updated` | Actualización de competencia |
 | `player.created` | Creación de jugador |
@@ -123,6 +124,7 @@ El campo `description` de Spatie almacena el **código estable** (`AuditAction`)
 |--------|----------|---------|
 | `CreateTournamentAction` | `tournaments` | `Tournament` |
 | `UpdateTournamentAction` | `tournaments` | `Tournament` |
+| `CloseTournamentAction` | `tournaments` | `Tournament` |
 | `CreateCompetitionAction` | `competitions` | `Competition` |
 | `UpdateCompetitionAction` | `competitions` | `Competition` |
 | `CreatePlayerAction` | `players` | `Player` |
@@ -312,6 +314,39 @@ Incluye todo lo anterior más:
 ```
 
 Los intentos fallidos no deben auditarse.
+
+### Ejemplo: `tournament.closed`
+
+```json
+{
+  "old": {
+    "status": "in_progress",
+    "closed_at": null
+  },
+  "new": {
+    "status": "finished",
+    "closed_at": "2026-07-18T21:00:00-03:00"
+  },
+  "summary": {
+    "tournament_id": 1,
+    "tournament_name": "Apertura 2026",
+    "competitions_count": 3,
+    "completed_competitions": 2,
+    "unused_competitions": 1,
+    "games_count": 48,
+    "results": [
+      {
+        "competition_id": 1,
+        "competition_name": "Primera",
+        "champion_id": 10,
+        "champion_name": "Juan Pérez",
+        "runner_up_id": 11,
+        "runner_up_name": "Pedro Gómez"
+      }
+    ]
+  }
+}
+```
 
 ### Ejemplo: `game.result_corrected`
 

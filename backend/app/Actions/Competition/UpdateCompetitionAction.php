@@ -10,6 +10,7 @@ use App\Support\Audit\AuditCompetitionAttributes;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionCategorySync;
+use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
 
 final class UpdateCompetitionAction
@@ -25,6 +26,9 @@ final class UpdateCompetitionAction
         $payload = CompetitionCategorySync::apply($payload, $competition);
 
         return DB::transaction(function () use ($competition, $payload): Competition {
+            $competition = Competition::query()->lockForUpdate()->findOrFail($competition->id);
+            TournamentLifecycleGuard::ensureMutableForCompetition($competition);
+
             $competition->fill($payload);
 
             $changes = AuditChangeResolver::resolve(

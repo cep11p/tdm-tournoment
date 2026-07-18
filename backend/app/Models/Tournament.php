@@ -19,6 +19,7 @@ class Tournament extends Model
             'start_date' => 'date',
             'end_date' => 'date',
             'status' => TournamentStatus::class,
+            'closed_at' => 'datetime',
         ];
     }
 

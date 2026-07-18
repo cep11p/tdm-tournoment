@@ -11,6 +11,7 @@ use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Competition\CompetitionStructureGuard;
+use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -24,7 +25,8 @@ final class AssignPlayerToGroupAction
     public function __invoke(array $payload): GroupPlayer
     {
         $group = Group::query()->findOrFail($payload['group_id']);
-        $group->loadMissing('competition');
+        $group->loadMissing('competition.tournament');
+        TournamentLifecycleGuard::ensureMutableForGroup($group);
         CompetitionFormatGuard::ensureGroupStage($group->competition);
         CompetitionStructureGuard::ensureEditable($group->competition);
         $playerId = (int) $payload['player_id'];

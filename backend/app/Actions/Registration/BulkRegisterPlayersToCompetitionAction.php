@@ -9,6 +9,7 @@ use App\Models\Player;
 use App\Models\Registration;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
+use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -34,6 +35,7 @@ final class BulkRegisterPlayersToCompetitionAction
         return DB::transaction(function () use ($competitionId, $uniqueIds): array {
             $competition = Competition::query()->findOrFail($competitionId);
             $competition->loadMissing('tournament');
+            TournamentLifecycleGuard::ensureMutableForCompetition($competition);
 
             $existingPlayerIds = Registration::query()
                 ->where('competition_id', $competitionId)

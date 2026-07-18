@@ -36,6 +36,9 @@ Route::prefix(config('api.version_prefix', 'v1'))
         Route::middleware('auth.tournaments.manage')
             ->match(['put', 'patch'], 'tournaments/{tournament}', [TournamentController::class, 'update'])
             ->name('tournaments.update');
+        Route::middleware('auth.tournaments.manage')
+            ->post('tournaments/{tournament}/close', [TournamentController::class, 'close'])
+            ->name('tournaments.close');
 
         Route::get('tournaments/{tournament}/competitions', [CompetitionController::class, 'index'])
             ->name('tournaments.competitions.index');

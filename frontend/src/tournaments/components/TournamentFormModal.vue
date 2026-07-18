@@ -79,6 +79,10 @@ const modalDescription = computed(() =>
 
 const submitLabel = computed(() => (props.mode === 'edit' ? 'Guardar cambios' : 'Guardar'))
 
+const showStatusField = computed(
+  () => props.mode === 'create' || (props.tournament ?? loadedTournament.value)?.status !== 'finished',
+)
+
 const resetState = () => {
   loadedTournament.value = null
   isLoading.value = false
@@ -179,6 +183,7 @@ watch(
         :is-submitting="isSubmitting"
         :errors="errors"
         :submit-label="submitLabel"
+        :show-status-field="showStatusField"
         embedded
         @submit="handleSubmit"
         @cancel="handleClose"

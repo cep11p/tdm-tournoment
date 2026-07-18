@@ -70,8 +70,27 @@ Representa un torneo general.
 | start_date   | date     | Fecha de inicio.                         |
 | end_date     | date     | Fecha de fin (nullable).                 |
 | status       | enum     | `draft`, `in_progress`, `finished`.      |
+| closed_at    | timestamp| Nullable. Momento del cierre administrativo explícito. |
 
 Un torneo puede contener una o más competencias.
+
+#### Cierre administrativo del torneo
+
+`Tournament.status = finished` representa un **cierre administrativo explícito**, no la finalización deportiva automática de las competencias.
+
+- El único camino válido para finalizar es `POST /api/v1/tournaments/{tournament}/close`.
+- El PATCH genérico **no** puede establecer `finished`.
+- Tras el cierre se bloquean mutaciones deportivas/estructurales; los datos descriptivos del torneo siguen editables.
+- No hay reapertura en el MVP.
+
+Requisitos de cierre:
+
+- al menos una competencia;
+- toda competencia **utilizada** (con inscripciones o partidos) debe estar deportivamente `completed` con campeón resoluble;
+- no deben quedar partidos `pending` o `in_progress`;
+- las competencias **sin uso** (0 inscripciones y 0 partidos) no bloquean el cierre.
+
+La finalización deportiva de cada competencia sigue siendo derivada (`status_summary.code = completed`) y **no** requiere botón manual.
 
 ---
 
@@ -600,6 +619,7 @@ También se pueden crear games manuales directamente en la competencia.
 | GET | `/api/v1/tournaments` | Listar torneos |
 | GET | `/api/v1/tournaments/{tournament}` | Ver torneo |
 | PUT/PATCH | `/api/v1/tournaments/{tournament}` | Actualizar torneo |
+| POST | `/api/v1/tournaments/{tournament}/close` | Cerrar torneo administrativamente |
 
 ### Competencias
 
@@ -732,12 +752,11 @@ Respuesta:
 
 | Entidad     | Estados posibles                       |
 |-------------|----------------------------------------|
-| Tournament  | `draft` → `in_progress` → `finished`  |
+| Tournament  | `draft` → `in_progress` → `finished` (solo vía `/close`)  |
 | Competition | Sin estado propio en el MVP            |
 | Game        | `pending` → `in_progress` → `finished`|
 
-`Tournament.status` se valida por enum.
-No hay reglas de transición de estado implementadas más allá de aceptar valores válidos del enum.
+`Tournament.status` se valida por enum. `finished` solo puede alcanzarse mediante `POST /tournaments/{tournament}/close`. No hay reglas de transición automáticas más allá de aceptar valores válidos del enum en creación/edición parcial (`draft`, `in_progress`).
 
 ---
 

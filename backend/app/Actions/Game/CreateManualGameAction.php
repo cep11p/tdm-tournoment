@@ -5,9 +5,11 @@ namespace App\Actions\Game;
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
 use App\Enums\GameStatus;
+use App\Models\Competition;
 use App\Models\Game;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
+use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
 
 final class CreateManualGameAction
@@ -27,6 +29,9 @@ final class CreateManualGameAction
 
     public function __invoke(array $payload): Game
     {
+        $competition = Competition::query()->findOrFail($payload['competition_id']);
+        TournamentLifecycleGuard::ensureMutableForCompetition($competition);
+
         return DB::transaction(function () use ($payload): Game {
             $game = ($this->createGame)($payload);
             $game->load(self::GAME_RELATIONS);

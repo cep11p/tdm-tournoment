@@ -2,7 +2,7 @@
 import { reactive, watch } from 'vue'
 
 import { buildTournamentPayload } from '../utils/buildTournamentPayload'
-import { TOURNAMENT_STATUS_OPTIONS } from '../utils/tournamentListDisplay'
+import { TOURNAMENT_STATUS_EDIT_OPTIONS } from '../utils/tournamentListDisplay'
 
 const props = defineProps({
   initialValues: {
@@ -30,6 +30,10 @@ const props = defineProps({
   embedded: {
     type: Boolean,
     default: false,
+  },
+  showStatusField: {
+    type: Boolean,
+    default: true,
   },
 })
 
@@ -150,7 +154,7 @@ const handleCancel = () => {
       </div>
     </div>
 
-    <div class="space-y-1">
+    <div v-if="showStatusField" class="space-y-1">
       <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="tournament-status">
         Estado
       </label>
@@ -161,7 +165,7 @@ const handleCancel = () => {
         :class="inputClasses"
       >
         <option
-          v-for="option in TOURNAMENT_STATUS_OPTIONS"
+          v-for="option in TOURNAMENT_STATUS_EDIT_OPTIONS"
           :key="option.value"
           :value="option.value"
         >

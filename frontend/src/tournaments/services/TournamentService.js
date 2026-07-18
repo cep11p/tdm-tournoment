@@ -22,6 +22,11 @@ const TournamentService = {
     const response = await httpClient.put(`/tournaments/${id}`, payload)
     return unwrap(response) ?? null
   },
+
+  async close(id) {
+    const response = await httpClient.post(`/tournaments/${id}/close`)
+    return unwrap(response) ?? null
+  },
 }
 
 export default TournamentService

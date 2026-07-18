@@ -9,6 +9,7 @@ use App\Models\Game;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Game\GameSetScoreValidator;
+use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -24,9 +25,11 @@ final class RecordGameSetAction
     {
         return DB::transaction(function () use ($game, $payload): Game {
             $game = Game::query()
-                ->with(['competition', 'sets'])
+                ->with(['competition.tournament', 'sets'])
                 ->lockForUpdate()
                 ->findOrFail($game->id);
+
+            TournamentLifecycleGuard::ensureMutableForGame($game);
 
             if ($game->is_bye) {
                 throw ValidationException::withMessages([

@@ -195,7 +195,7 @@ Excepciones deliberadas fuera de `/api/v1`: ninguna mutación deportiva. El endp
 | Área | Lecturas públicas | Mutaciones protegidas | Permiso |
 | ---- | ----------------- | --------------------- | ------- |
 | **Autenticación** | — | `GET /api/v1/me` | Solo autenticación (`auth.keycloak`) |
-| **Torneos** | `GET /tournaments`, `GET /tournaments/{tournament}` | `POST /tournaments`, `PUT/PATCH /tournaments/{tournament}` | `tournaments.manage` |
+| **Torneos** | `GET /tournaments`, `GET /tournaments/{tournament}` | `POST /tournaments`, `PUT/PATCH /tournaments/{tournament}`, `POST /tournaments/{tournament}/close` | `tournaments.manage` |
 | **Competencias** | `GET /tournaments/{t}/competitions`, `GET /competitions/{c}`, `GET /competitions/{c}/standings` | `POST /tournaments/{t}/competitions`, `PUT/PATCH /competitions/{c}` | `competitions.manage` |
 | **Jugadores** | `GET /players`, `GET /players/{player}` | `POST /players`, `PUT/PATCH /players/{player}`, `DELETE /players/{player}` | `players.manage` |
 | **Inscripciones** | `GET /competitions/{c}/registrations` | `POST /competitions/{c}/registrations`, `POST .../registrations/bulk` | `registrations.manage` |

@@ -4,6 +4,10 @@ export const TOURNAMENT_STATUS_OPTIONS = [
   { value: 'finished', label: 'Finalizado' },
 ]
 
+export const TOURNAMENT_STATUS_EDIT_OPTIONS = TOURNAMENT_STATUS_OPTIONS.filter(
+  (option) => option.value !== 'finished',
+)
+
 const STATUS_LABELS = Object.fromEntries(
   TOURNAMENT_STATUS_OPTIONS.map(({ value, label }) => [value, label]),
 )

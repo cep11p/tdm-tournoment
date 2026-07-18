@@ -20,6 +20,7 @@ class CompetitionController extends Controller
     {
         $competitions = $tournament->competitions()
             ->with('categoryModel:id,name,slug')
+            ->withCount(['registrations', 'games'])
             ->latest('id')
             ->get();
 
@@ -29,6 +30,7 @@ class CompetitionController extends Controller
     public function show(Competition $competition): CompetitionResource
     {
         $competition->load('categoryModel:id,name,slug');
+        $competition->loadCount(['registrations', 'games']);
 
         return new CompetitionResource($competition);
     }
