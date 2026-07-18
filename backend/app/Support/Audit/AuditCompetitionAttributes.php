@@ -23,6 +23,7 @@ final class AuditCompetitionAttributes
             'knockout_stage_best_of',
             'semifinal_best_of',
             'final_best_of',
+            'third_place_mode',
         ];
     }
 

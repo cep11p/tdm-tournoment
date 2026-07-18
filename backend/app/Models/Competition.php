@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
+use App\Enums\ThirdPlaceMode;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -21,6 +22,7 @@ class Competition extends Model
         'knockout_stage_best_of' => 5,
         'semifinal_best_of' => 7,
         'final_best_of' => 7,
+        'third_place_mode' => ThirdPlaceMode::Shared,
     ];
 
     protected function casts(): array
@@ -35,6 +37,7 @@ class Competition extends Model
             'knockout_stage_best_of' => 'integer',
             'semifinal_best_of' => 'integer',
             'final_best_of' => 'integer',
+            'third_place_mode' => ThirdPlaceMode::class,
         ];
     }
 

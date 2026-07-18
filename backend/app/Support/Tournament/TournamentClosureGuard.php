@@ -27,6 +27,9 @@ final class TournamentClosureGuard
      *         champion_name: string,
      *         runner_up_id: int,
      *         runner_up_name: string,
+     *         third_place_mode: string,
+     *         third_place: list<array{id: int, name: string}>,
+     *         fourth_place: null,
      *     }>,
      * }
      */
@@ -104,14 +107,7 @@ final class TournamentClosureGuard
             }
 
             $completedCompetitions++;
-            $results[] = [
-                'competition_id' => $competition->id,
-                'competition_name' => $competition->name,
-                'champion_id' => $result['champion']['id'],
-                'champion_name' => $result['champion']['name'],
-                'runner_up_id' => $result['runner_up']['id'],
-                'runner_up_name' => $result['runner_up']['name'],
-            ];
+            $results[] = self::buildCompetitionResultEntry($competition, $result);
         }
 
         return [
@@ -138,6 +134,9 @@ final class TournamentClosureGuard
      *         champion_name: string,
      *         runner_up_id: int,
      *         runner_up_name: string,
+     *         third_place_mode: string,
+     *         third_place: list<array{id: int, name: string}>,
+     *         fourth_place: null,
      *     }>,
      * }|null
      */
@@ -175,14 +174,7 @@ final class TournamentClosureGuard
             }
 
             $completedCompetitions++;
-            $results[] = [
-                'competition_id' => $competition->id,
-                'competition_name' => $competition->name,
-                'champion_id' => $result['champion']['id'],
-                'champion_name' => $result['champion']['name'],
-                'runner_up_id' => $result['runner_up']['id'],
-                'runner_up_name' => $result['runner_up']['name'],
-            ];
+            $results[] = self::buildCompetitionResultEntry($competition, $result);
         }
 
         return [
@@ -200,5 +192,40 @@ final class TournamentClosureGuard
     {
         return (int) $competition->registrations_count === 0
             && (int) $competition->games_count === 0;
+    }
+
+    /**
+     * @param  array{
+     *     champion: array{id: int, name: string},
+     *     runner_up: array{id: int, name: string},
+     *     third_place_mode?: string,
+     *     third_place?: list<array{id: int, name: string}>,
+     *     fourth_place?: null,
+     * }  $result
+     * @return array{
+     *     competition_id: int,
+     *     competition_name: string,
+     *     champion_id: int,
+     *     champion_name: string,
+     *     runner_up_id: int,
+     *     runner_up_name: string,
+     *     third_place_mode: string,
+     *     third_place: list<array{id: int, name: string}>,
+     *     fourth_place: null,
+     * }
+     */
+    private static function buildCompetitionResultEntry(Competition $competition, array $result): array
+    {
+        return [
+            'competition_id' => $competition->id,
+            'competition_name' => $competition->name,
+            'champion_id' => $result['champion']['id'],
+            'champion_name' => $result['champion']['name'],
+            'runner_up_id' => $result['runner_up']['id'],
+            'runner_up_name' => $result['runner_up']['name'],
+            'third_place_mode' => $result['third_place_mode'] ?? 'none',
+            'third_place' => $result['third_place'] ?? [],
+            'fourth_place' => $result['fourth_place'] ?? null,
+        ];
     }
 }

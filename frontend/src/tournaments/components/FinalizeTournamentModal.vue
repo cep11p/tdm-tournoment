@@ -52,6 +52,7 @@ const availableResults = computed(() =>
       name: competition.name,
       champion: competition.result_summary.champion.name,
       runnerUp: competition.result_summary.runner_up?.name ?? '-',
+      thirdPlace: competition.result_summary.third_place ?? [],
     })),
 )
 
@@ -169,6 +170,13 @@ watch(
             <p class="font-medium text-slate-900 dark:text-slate-100">{{ result.name }}</p>
             <p class="mt-1 text-slate-700 dark:text-slate-300">Campeón: {{ result.champion }}</p>
             <p class="text-slate-700 dark:text-slate-300">Subcampeón: {{ result.runnerUp }}</p>
+            <p
+              v-for="(entry, index) in result.thirdPlace"
+              :key="`${result.name}-third-${entry.id}-${index}`"
+              class="text-slate-700 dark:text-slate-300"
+            >
+              3.º puesto: {{ entry.name }}
+            </p>
           </li>
         </ul>
       </div>

@@ -13,6 +13,7 @@ export const DEFAULT_COMPETITION_FORM_VALUES = {
   knockout_stage_best_of: 5,
   semifinal_best_of: 7,
   final_best_of: 7,
+  third_place_mode: 'shared',
 }
 
 export function competitionToFormValues(competition) {
@@ -31,6 +32,7 @@ export function competitionToFormValues(competition) {
     knockout_stage_best_of: competition.knockout_stage_best_of ?? 5,
     semifinal_best_of: competition.semifinal_best_of ?? 7,
     final_best_of: competition.final_best_of ?? 7,
+    third_place_mode: competition.third_place_mode ?? 'shared',
   }
 }
 
@@ -55,5 +57,6 @@ export function buildCompetitionPayload(form, { structureEditable = true } = {})
     knockout_stage_best_of: Number(form.knockout_stage_best_of),
     semifinal_best_of: Number(form.semifinal_best_of),
     final_best_of: Number(form.final_best_of),
+    third_place_mode: form.third_place_mode,
   }
 }

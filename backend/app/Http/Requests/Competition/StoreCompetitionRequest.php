@@ -4,6 +4,7 @@ namespace App\Http\Requests\Competition;
 
 use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
+use App\Enums\ThirdPlaceMode;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -29,6 +30,7 @@ class StoreCompetitionRequest extends FormRequest
             'knockout_stage_best_of' => ['nullable', 'integer', Rule::in([1, 3, 5, 7])],
             'semifinal_best_of' => ['nullable', 'integer', Rule::in([1, 3, 5, 7])],
             'final_best_of' => ['nullable', 'integer', Rule::in([1, 3, 5, 7])],
+            'third_place_mode' => ['nullable', Rule::enum(ThirdPlaceMode::class)],
         ];
     }
 
@@ -54,5 +56,16 @@ class StoreCompetitionRequest extends FormRequest
         if ($payload !== []) {
             $this->merge($payload);
         }
+    }
+
+    protected function passedValidation(): void
+    {
+        if ($this->filled('third_place_mode')) {
+            return;
+        }
+
+        $this->merge([
+            'third_place_mode' => ThirdPlaceMode::Shared->value,
+        ]);
     }
 }

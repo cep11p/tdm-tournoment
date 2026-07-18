@@ -4,6 +4,7 @@ namespace App\Http\Requests\Competition;
 
 use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
+use App\Enums\ThirdPlaceMode;
 use App\Models\Competition;
 use App\Support\Competition\CompetitionStructureGuard;
 use Illuminate\Foundation\Http\FormRequest;
@@ -24,6 +25,7 @@ class UpdateCompetitionRequest extends FormRequest
         'knockout_stage_best_of',
         'semifinal_best_of',
         'final_best_of',
+        'third_place_mode',
     ];
 
     public function authorize(): bool
@@ -45,6 +47,7 @@ class UpdateCompetitionRequest extends FormRequest
             'knockout_stage_best_of' => ['sometimes', 'integer', Rule::in([1, 3, 5, 7])],
             'semifinal_best_of' => ['sometimes', 'integer', Rule::in([1, 3, 5, 7])],
             'final_best_of' => ['sometimes', 'integer', Rule::in([1, 3, 5, 7])],
+            'third_place_mode' => ['sometimes', Rule::enum(ThirdPlaceMode::class)],
         ];
     }
 
@@ -111,6 +114,15 @@ class UpdateCompetitionRequest extends FormRequest
                 : CompetitionType::from((string) $competition->type);
 
             return $newType !== $currentType;
+        }
+
+        if ($field === 'third_place_mode') {
+            $newMode = ThirdPlaceMode::from((string) $this->input('third_place_mode'));
+            $currentMode = $competition->third_place_mode instanceof ThirdPlaceMode
+                ? $competition->third_place_mode
+                : ThirdPlaceMode::from((string) $competition->third_place_mode);
+
+            return $newMode !== $currentMode;
         }
 
         return (int) $this->input($field) !== (int) $competition->{$field};

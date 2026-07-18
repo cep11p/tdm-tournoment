@@ -114,6 +114,15 @@ Representa una competencia concreta dentro de un torneo.
 | knockout_stage_best_of   | int      | Mejor de N en rondas eliminatorias tempranas (default: 5). |
 | semifinal_best_of        | int      | Mejor de N en semifinal (default: 7).               |
 | final_best_of            | int      | Mejor de N en final (default: 7).                     |
+| third_place_mode         | enum     | `shared`, `playoff`, `none`. Default en competencias nuevas: `shared`. Filas existentes (migración): `none`. |
+
+`third_place_mode` define cómo se determina el podio más allá de campeón y subcampeón:
+
+| Valor | Comportamiento |
+|-------|----------------|
+| `shared` | Los dos perdedores de semifinales reales comparten el 3.º puesto (derivado, sin partido extra). |
+| `none` | Solo campeón y subcampeón. |
+| `playoff` | Reservado para partido por 3.º/4.º puesto en la llave. Comportamiento completo en etapa posterior. |
 
 `qualified_per_group` define cuántos jugadores de cada grupo avanzan al cuadro eliminatorio. El valor se configura al crear o editar la competencia (no puede modificarse una vez generado el bracket).
 
@@ -194,6 +203,26 @@ Se calcula en `CompetitionResultResolver` desde la final terminada del bracket:
 
 El campeón es el `winner_id` de la final.
 El subcampeón es el otro jugador de la final.
+
+Campos adicionales (backward compatible):
+
+```json
+{
+  "champion": { "id": 1, "name": "..." },
+  "runner_up": { "id": 2, "name": "..." },
+  "final_game_id": 99,
+  "third_place_mode": "shared",
+  "third_place": [],
+  "fourth_place": null,
+  "third_place_game_id": null
+}
+```
+
+- `third_place_mode`: refleja la configuración de la competencia.
+- `third_place`: array de jugadores. Con `shared` y semifinales elegibles, contiene los dos perdedores (orden: `bracket_match` 1, luego 2). Con `none` o `playoff` (etapa actual), array vacío.
+- `fourth_place` y `third_place_game_id`: reservados; hoy siempre `null`.
+
+La elegibilidad del tercer puesto compartido se calcula en `BracketPodiumSupport` a partir del bracket eliminatorio (`bracket_size >= 4`, exactamente dos semifinales reales terminadas con dos perdedores distintos). No usa standings de grupos.
 
 Si la competencia no está finalizada, falta final, falta ganador o falta rival, `result_summary` devuelve `null`.
 

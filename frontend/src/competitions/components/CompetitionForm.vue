@@ -8,6 +8,7 @@ import {
   buildCompetitionPayload,
   DEFAULT_COMPETITION_FORM_VALUES,
 } from '../utils/buildCompetitionPayload'
+import { THIRD_PLACE_MODE_OPTIONS } from '../constants/thirdPlaceMode'
 
 const props = defineProps({
   initialValues: {
@@ -56,6 +57,7 @@ const form = reactive({
   knockout_stage_best_of: 5,
   semifinal_best_of: 7,
   final_best_of: 7,
+  third_place_mode: 'shared',
 })
 
 const bestOfOptions = [1, 3, 5, 7]
@@ -71,6 +73,7 @@ const syncForm = (values) => {
   form.knockout_stage_best_of = values.knockout_stage_best_of ?? 5
   form.semifinal_best_of = values.semifinal_best_of ?? 7
   form.final_best_of = values.final_best_of ?? 7
+  form.third_place_mode = values.third_place_mode ?? 'shared'
 }
 
 watch(
@@ -265,6 +268,46 @@ onMounted(loadCategories)
           {{ fieldError('qualified_per_group') }}
         </p>
       </div>
+
+      <fieldset
+        class="space-y-3 rounded-md border border-slate-200 p-3 dark:border-slate-700"
+        :disabled="fieldsDisabled || isSubmitting"
+      >
+        <legend class="px-1 text-sm font-medium text-slate-700 dark:text-slate-200">
+          Tercer puesto
+        </legend>
+
+        <label
+          v-for="option in THIRD_PLACE_MODE_OPTIONS"
+          :key="option.value"
+          class="flex cursor-pointer gap-3 rounded-md border border-slate-200 p-3 dark:border-slate-700"
+          :class="
+            fieldsDisabled || isSubmitting
+              ? 'cursor-not-allowed opacity-60'
+              : 'hover:border-slate-300 dark:hover:border-slate-600'
+          "
+        >
+          <input
+            v-model="form.third_place_mode"
+            type="radio"
+            class="mt-1"
+            :value="option.value"
+            :disabled="fieldsDisabled || isSubmitting"
+          />
+          <span>
+            <span class="block text-sm font-medium text-slate-900 dark:text-slate-100">
+              {{ option.label }}
+            </span>
+            <span class="mt-1 block text-sm text-slate-600 dark:text-slate-300">
+              {{ option.description }}
+            </span>
+          </span>
+        </label>
+
+        <p v-if="fieldError('third_place_mode')" class="text-xs text-red-600 dark:text-red-400">
+          {{ fieldError('third_place_mode') }}
+        </p>
+      </fieldset>
 
       <fieldset class="space-y-3 rounded-md border border-slate-200 p-3 dark:border-slate-700">
         <legend class="px-1 text-sm font-medium text-slate-700 dark:text-slate-200">Formato de partidos</legend>

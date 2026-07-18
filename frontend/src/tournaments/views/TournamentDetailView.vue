@@ -61,7 +61,12 @@ const tournamentResults = computed(() => {
   const summary = tournament.value?.results_summary
 
   if (summary?.results?.length) {
-    return summary.results
+    return summary.results.map((result) => ({
+      competition_name: result.competition_name,
+      champion_name: result.champion_name,
+      runner_up_name: result.runner_up_name ?? '-',
+      third_place: result.third_place ?? [],
+    }))
   }
 
   return competitions.value
@@ -70,6 +75,7 @@ const tournamentResults = computed(() => {
       competition_name: competition.name,
       champion_name: competition.result_summary.champion.name,
       runner_up_name: competition.result_summary.runner_up?.name ?? '-',
+      third_place: competition.result_summary.third_place ?? [],
     }))
 })
 
@@ -332,6 +338,13 @@ const handleFinalizeSaved = async () => {
             <p class="font-semibold text-slate-900 dark:text-slate-100">{{ result.competition_name }}</p>
             <p class="mt-2 text-slate-700 dark:text-slate-300">Campeón: {{ result.champion_name }}</p>
             <p class="text-slate-700 dark:text-slate-300">Subcampeón: {{ result.runner_up_name }}</p>
+            <p
+              v-for="(entry, index) in result.third_place"
+              :key="`${result.competition_name}-third-${entry.id}-${index}`"
+              class="text-slate-700 dark:text-slate-300"
+            >
+              3.º puesto: {{ entry.name }}
+            </p>
           </article>
         </div>
 

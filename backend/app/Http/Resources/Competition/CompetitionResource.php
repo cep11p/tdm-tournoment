@@ -4,6 +4,7 @@ namespace App\Http\Resources\Competition;
 
 use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
+use App\Enums\ThirdPlaceMode;
 use App\Support\Competition\CompetitionResultResolver;
 use App\Support\Competition\CompetitionStatusResolver;
 use App\Support\Competition\CompetitionStructureGuard;
@@ -26,6 +27,10 @@ class CompetitionResource extends JsonResource
         $normalizedFormat = $this->format instanceof CompetitionFormat
             ? $this->format->normalized()
             : CompetitionFormat::from((string) $this->format)->normalized();
+
+        $thirdPlaceMode = $this->third_place_mode instanceof ThirdPlaceMode
+            ? $this->third_place_mode
+            : ThirdPlaceMode::from((string) ($this->third_place_mode ?? ThirdPlaceMode::None->value));
 
         return [
             'id' => $this->id,
@@ -53,6 +58,8 @@ class CompetitionResource extends JsonResource
             'knockout_stage_best_of' => $this->knockout_stage_best_of,
             'semifinal_best_of' => $this->semifinal_best_of,
             'final_best_of' => $this->final_best_of,
+            'third_place_mode' => $thirdPlaceMode->value,
+            'third_place_mode_label' => $thirdPlaceMode->label(),
             'qualified_per_group' => $this->qualified_per_group,
             'is_structure_editable' => CompetitionStructureGuard::isStructureEditable($this->resource),
             'structure_lock_reason' => CompetitionStructureGuard::structureLockReason($this->resource),
