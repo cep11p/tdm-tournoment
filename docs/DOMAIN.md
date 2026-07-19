@@ -122,7 +122,13 @@ Representa una competencia concreta dentro de un torneo.
 |-------|----------------|
 | `shared` | Los dos perdedores de semifinales reales comparten el 3.º puesto (derivado, sin partido extra). |
 | `none` | Solo campeón y subcampeón. |
-| `playoff` | Reservado para partido por 3.º/4.º puesto en la llave. Comportamiento completo en etapa posterior. |
+| `playoff` | Al completar semifinales elegibles, se crean Final y partido por tercer puesto en paralelo. Ambos pueden jugarse en cualquier orden. La competencia queda `completed` cuando ambos terminan. El 3.º y 4.º puesto se resuelven con el ganador y perdedor de ese partido. |
+
+Con **2 o 3 jugadores** no existen dos semifinales reales elegibles: `playoff` se comporta efectivamente como `none` (solo Final define `completed`).
+
+El partido por tercer puesto usa el mismo formato de sets que semifinales (`semifinal_best_of`).
+
+Corregir una semifinal queda **bloqueado temporalmente** una vez generado el partido por tercer puesto, hasta implementar propagación dual (Etapa 5).
 
 `qualified_per_group` define cuántos jugadores de cada grupo avanzan al cuadro eliminatorio. El valor se configura al crear o editar la competencia (no puede modificarse una vez generado el bracket).
 
@@ -147,6 +153,7 @@ Mapeo de ronda eliminatoria → campo de competencia:
 | 16avos / 8vos / Cuartos | `knockout_stage_best_of` |
 | Semifinal | `semifinal_best_of` |
 | Final | `final_best_of` |
+| Tercer puesto (`playoff`) | `semifinal_best_of` |
 
 `sets_to_win` a nivel competencia es **legacy**: la columna permanece en base de datos (NOT NULL) pero no forma parte de la API ni del formulario. Al crear una competencia, el sistema la rellena internamente como `intdiv(group_stage_best_of, 2) + 1`. La regla efectiva del partido vive en el snapshot de `Game` (`best_of`, `sets_to_win`). Solo `RecordGameSetAction` consulta `Competition.sets_to_win` como fallback para partidos legacy sin snapshot.
 
@@ -444,6 +451,7 @@ Representa un partido entre dos jugadores dentro de una competencia.
 | round          | string     | Ronda descriptiva (ej: "Semifinal", "Final").      |
 | bracket_round  | int        | Número de ronda en bracket (nullable).             |
 | bracket_match  | int        | Número de partido dentro de la ronda (nullable).   |
+| bracket_purpose | enum      | `main` (llave principal) o `third_place` (partido por tercer puesto). Default: `main`. El tercer puesto usa `bracket_round = null` y no participa en el árbol principal. |
 | table_number   | int        | Número de mesa (nullable, sin scheduling automático). |
 
 Un partido puede pertenecer al flujo manual, a grupos o a bracket.

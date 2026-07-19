@@ -2,6 +2,7 @@
 
 namespace App\Actions\Game;
 
+use App\Enums\BracketGamePurpose;
 use App\Enums\GameStatus;
 use App\Models\Competition;
 use App\Models\Game;
@@ -14,6 +15,7 @@ final class CreateGameAction
         $payload['status'] ??= GameStatus::Pending;
         $payload['winner_id'] ??= null;
         $payload['is_bye'] ??= false;
+        $payload['bracket_purpose'] ??= BracketGamePurpose::Main;
 
         if ($payload['is_bye']) {
             $payload['best_of'] = null;

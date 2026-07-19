@@ -29,6 +29,7 @@ final class GameDependencyResolver
 
         return Game::query()
             ->where('bracket_id', $source->bracket_id)
+            ->mainBracket()
             ->where('bracket_round', '>', $nextRound)
             ->exists();
     }
@@ -58,6 +59,7 @@ final class GameDependencyResolver
 
         $destinationGame = Game::query()
             ->where('bracket_id', $source->bracket_id)
+            ->mainBracket()
             ->where('bracket_round', $destinationRound)
             ->where('bracket_match', $destinationMatch)
             ->first();

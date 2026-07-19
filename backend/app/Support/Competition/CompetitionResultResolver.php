@@ -2,6 +2,7 @@
 
 namespace App\Support\Competition;
 
+use App\Enums\BracketGamePurpose;
 use App\Enums\GameStatus;
 use App\Enums\ThirdPlaceMode;
 use App\Models\Competition;
@@ -18,8 +19,8 @@ final class CompetitionResultResolver
      *     final_game_id: int,
      *     third_place_mode: string,
      *     third_place: list<array{id: int, name: string}>,
-     *     fourth_place: null,
-     *     third_place_game_id: null,
+     *     fourth_place: array{id: int, name: string}|null,
+     *     third_place_game_id: int|null,
      * }|null
      */
     public static function resolve(Competition $competition): ?array
@@ -27,6 +28,7 @@ final class CompetitionResultResolver
         $finalGame = Game::query()
             ->where('competition_id', $competition->id)
             ->whereNotNull('bracket_id')
+            ->mainBracket()
             ->where('round', 'Final')
             ->where('status', GameStatus::Finished)
             ->whereNotNull('winner_id')
@@ -56,6 +58,8 @@ final class CompetitionResultResolver
             : ThirdPlaceMode::from((string) $competition->third_place_mode);
 
         $thirdPlace = [];
+        $fourthPlace = null;
+        $thirdPlaceGameId = null;
 
         if ($thirdPlaceMode === ThirdPlaceMode::Shared) {
             $bracket = $competition->brackets()->first();
@@ -68,14 +72,48 @@ final class CompetitionResultResolver
             }
         }
 
+        if ($thirdPlaceMode === ThirdPlaceMode::Playoff) {
+            $bracket = $competition->brackets()->first();
+
+            if ($bracket !== null && BracketPodiumSupport::requiresPlayoffThirdPlace($competition, $bracket)) {
+                $thirdPlaceGame = BracketPodiumSupport::findThirdPlaceGame($bracket);
+
+                if ($thirdPlaceGame !== null) {
+                    $thirdPlaceGameId = $thirdPlaceGame->id;
+
+                    if (
+                        $thirdPlaceGame->status === GameStatus::Finished
+                        && $thirdPlaceGame->winner_id !== null
+                        && $thirdPlaceGame->player1_id !== null
+                        && $thirdPlaceGame->player2_id !== null
+                    ) {
+                        $thirdPlaceGame->loadMissing(['player1', 'player2', 'winner']);
+                        $thirdPlaceWinner = $thirdPlaceGame->winner;
+
+                        if ($thirdPlaceWinner !== null) {
+                            $thirdPlace = [self::playerSummary($thirdPlaceWinner)];
+
+                            $fourthPlacePlayer = (int) $thirdPlaceGame->winner_id === (int) $thirdPlaceGame->player1_id
+                                ? $thirdPlaceGame->player2
+                                : $thirdPlaceGame->player1;
+
+                            if ($fourthPlacePlayer !== null && $fourthPlacePlayer->id) {
+                                $fourthPlace = self::playerSummary($fourthPlacePlayer);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         return [
             'champion' => self::playerSummary($champion),
             'runner_up' => self::playerSummary($runnerUp),
             'final_game_id' => $finalGame->id,
             'third_place_mode' => $thirdPlaceMode->value,
             'third_place' => $thirdPlace,
-            'fourth_place' => null,
-            'third_place_game_id' => null,
+            'fourth_place' => $fourthPlace,
+            'third_place_game_id' => $thirdPlaceGameId,
         ];
     }
 

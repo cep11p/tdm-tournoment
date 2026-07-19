@@ -11,6 +11,7 @@ use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 final class DeleteManualGameAction
 {
@@ -36,6 +37,12 @@ final class DeleteManualGameAction
                 ->findOrFail($game->id);
 
             TournamentLifecycleGuard::ensureMutableForGame($game);
+
+            if ($game->bracket_id !== null) {
+                throw ValidationException::withMessages([
+                    'game' => ['No se puede eliminar un partido de la llave eliminatoria.'],
+                ]);
+            }
 
             $context = AuditContextBuilder::fromGame($game);
             $snapshot = $this->snapshot($game);

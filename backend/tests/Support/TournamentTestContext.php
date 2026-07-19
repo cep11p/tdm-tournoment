@@ -380,6 +380,7 @@ final class TournamentTestContext
     {
         return Game::query()
             ->where('bracket_id', $bracket->id)
+            ->mainBracket()
             ->where('bracket_round', $round)
             ->orderBy('bracket_match')
             ->get();
@@ -473,6 +474,7 @@ final class TournamentTestContext
             $bracket->refresh();
             $currentRound = (int) Game::query()
                 ->where('bracket_id', $bracket->id)
+                ->mainBracket()
                 ->max('bracket_round');
 
             $currentGames = $this->bracketGamesForRound($bracket, $currentRound);

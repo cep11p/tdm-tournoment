@@ -11,6 +11,12 @@ defineProps({
 })
 
 const thirdPlaceEntries = (resultSummary) => resultSummary?.third_place ?? []
+
+const isPlayoffPendingThirdPlace = (resultSummary) =>
+  resultSummary?.third_place_mode === 'playoff'
+  && resultSummary?.third_place_game_id
+  && thirdPlaceEntries(resultSummary).length === 0
+  && !resultSummary?.fourth_place
 </script>
 
 <template>
@@ -97,5 +103,44 @@ const thirdPlaceEntries = (resultSummary) => resultSummary?.third_place ?? []
         {{ entry.name }}
       </span>
     </article>
+
+    <article
+      v-if="resultSummary.fourth_place"
+      :class="
+        compact
+          ? ''
+          : 'rounded-md border border-slate-300 bg-slate-50 p-4 dark:border-slate-600 dark:bg-slate-800/60 sm:col-span-2 sm:max-w-md'
+      "
+    >
+      <p
+        :class="
+          compact
+            ? 'text-slate-700 dark:text-slate-300'
+            : 'text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300'
+        "
+      >
+        {{ compact ? '4.º puesto:' : '4.º puesto' }}
+      </p>
+      <p
+        v-if="!compact"
+        class="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100"
+      >
+        {{ resultSummary.fourth_place.name }}
+      </p>
+      <span v-else class="font-medium text-slate-900 dark:text-slate-100">
+        {{ resultSummary.fourth_place.name }}
+      </span>
+    </article>
+
+    <p
+      v-if="isPlayoffPendingThirdPlace(resultSummary)"
+      :class="
+        compact
+          ? 'text-slate-600 dark:text-slate-400'
+          : 'text-sm text-amber-800 dark:text-amber-200 sm:col-span-2'
+      "
+    >
+      Tercer puesto pendiente
+    </p>
   </div>
 </template>

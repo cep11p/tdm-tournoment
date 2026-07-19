@@ -4,6 +4,7 @@ namespace App\Support\Game;
 
 use App\Enums\GameStatus;
 use App\Models\Game;
+use App\Support\Bracket\BracketPodiumSupport;
 use App\Support\Competition\CompetitionResultResolver;
 use Illuminate\Validation\ValidationException;
 
@@ -45,6 +46,19 @@ final class GameResultCorrectionGuard
         if ($setsToWin < 1) {
             throw ValidationException::withMessages([
                 'game' => ['El partido no tiene una configuración válida de sets para ganar.'],
+            ]);
+        }
+
+        $game->loadMissing('bracket');
+
+        if (
+            $game->bracket_id !== null
+            && $game->bracket !== null
+            && BracketPodiumSupport::isSemifinalRound($game->bracket, (int) $game->bracket_round)
+            && BracketPodiumSupport::findThirdPlaceGame($game->bracket) !== null
+        ) {
+            throw ValidationException::withMessages([
+                'game' => ['No se puede corregir esta semifinal porque ya se generó el partido por tercer puesto.'],
             ]);
         }
 

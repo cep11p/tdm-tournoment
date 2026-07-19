@@ -5,13 +5,15 @@ namespace App\Actions\Bracket;
 use App\Actions\Game\CreateGameAction;
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
+use App\Enums\BracketGamePurpose;
 use App\Enums\GameStatus;
 use App\Models\Bracket;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
-use App\Support\Tournament\TournamentLifecycleGuard;
+use App\Support\Bracket\BracketPodiumSupport;
 use App\Support\Bracket\BracketSupport;
 use App\Support\Game\GameFormatResolver;
+use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -27,7 +29,7 @@ final class GenerateBracketNextRoundAction
         $bracket->loadMissing('competition.tournament');
         TournamentLifecycleGuard::ensureMutableForBracket($bracket);
 
-        $currentRound = (int) $bracket->games()->max('bracket_round');
+        $currentRound = (int) $bracket->games()->mainBracket()->max('bracket_round');
 
         if ($currentRound === 0) {
             throw ValidationException::withMessages([
@@ -36,6 +38,7 @@ final class GenerateBracketNextRoundAction
         }
 
         $currentRoundGames = $bracket->games()
+            ->mainBracket()
             ->where('bracket_round', $currentRound)
             ->orderBy('bracket_match')
             ->get();
@@ -71,7 +74,7 @@ final class GenerateBracketNextRoundAction
 
         $nextRound = $currentRound + 1;
 
-        if ($bracket->games()->where('bracket_round', $nextRound)->exists()) {
+        if ($bracket->games()->mainBracket()->where('bracket_round', $nextRound)->exists()) {
             throw ValidationException::withMessages([
                 'bracket' => ['La ronda siguiente ya fue generada.'],
             ]);
@@ -89,6 +92,8 @@ final class GenerateBracketNextRoundAction
         $competitionId = (int) $bracket->competition_id;
         $competition = $bracket->competition()->firstOrFail();
         $matchFormat = GameFormatResolver::resolveForBracketRound($competition, $roundLabel);
+        $shouldCreateThirdPlace = $roundLabel === 'Final'
+            && BracketPodiumSupport::requiresPlayoffThirdPlace($competition, $bracket);
 
         return DB::transaction(function () use (
             $bracket,
@@ -99,11 +104,14 @@ final class GenerateBracketNextRoundAction
             $competitionId,
             $matchFormat,
             $currentRound,
+            $competition,
+            $shouldCreateThirdPlace,
         ): Bracket {
             for ($matchIndex = 0; $matchIndex < $matchCount; $matchIndex++) {
                 ($this->createGame)([
                     'competition_id' => $competitionId,
                     'bracket_id' => $bracket->id,
+                    'bracket_purpose' => BracketGamePurpose::Main,
                     'player1_id' => $winners[$matchIndex * 2],
                     'player2_id' => $winners[($matchIndex * 2) + 1],
                     'round' => $roundLabel,
@@ -113,6 +121,53 @@ final class GenerateBracketNextRoundAction
                     'best_of' => $matchFormat['best_of'],
                     'sets_to_win' => $matchFormat['sets_to_win'],
                 ]);
+            }
+
+            $thirdPlaceGame = null;
+            $thirdPlaceGameCreated = false;
+
+            if ($shouldCreateThirdPlace) {
+                $existingThirdPlace = BracketPodiumSupport::findThirdPlaceGame($bracket);
+
+                if ($existingThirdPlace === null) {
+                    $participants = BracketPodiumSupport::thirdPlaceParticipants($bracket);
+
+                    if (count($participants) === 2) {
+                        $thirdPlaceFormat = GameFormatResolver::resolveForBracketPurpose(
+                            $competition,
+                            BracketGamePurpose::ThirdPlace,
+                        );
+
+                        $thirdPlaceGame = ($this->createGame)([
+                            'competition_id' => $competitionId,
+                            'bracket_id' => $bracket->id,
+                            'bracket_purpose' => BracketGamePurpose::ThirdPlace,
+                            'player1_id' => $participants[0]->id,
+                            'player2_id' => $participants[1]->id,
+                            'round' => 'Tercer puesto',
+                            'bracket_round' => null,
+                            'bracket_match' => 1,
+                            'is_bye' => false,
+                            'best_of' => $thirdPlaceFormat['best_of'],
+                            'sets_to_win' => $thirdPlaceFormat['sets_to_win'],
+                        ]);
+                        $thirdPlaceGameCreated = true;
+                    }
+                } else {
+                    $thirdPlaceGame = $existingThirdPlace;
+                }
+            }
+
+            $auditSummary = [
+                'source_round' => $currentRound,
+                'generated_round' => $nextRound,
+                'games_created' => $matchCount,
+                'players_advanced' => count($winners),
+            ];
+
+            if ($shouldCreateThirdPlace) {
+                $auditSummary['third_place_game_created'] = $thirdPlaceGameCreated;
+                $auditSummary['third_place_game_id'] = $thirdPlaceGame?->id;
             }
 
             $this->auditLogger->log(new AuditEntry(
@@ -126,12 +181,7 @@ final class GenerateBracketNextRoundAction
                 new: [
                     'generated_round' => $nextRound,
                 ],
-                summary: [
-                    'source_round' => $currentRound,
-                    'generated_round' => $nextRound,
-                    'games_created' => $matchCount,
-                    'players_advanced' => count($winners),
-                ],
+                summary: $auditSummary,
             ));
 
             return $bracket->load([

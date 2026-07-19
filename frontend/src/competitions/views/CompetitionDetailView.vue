@@ -1115,6 +1115,25 @@ const handleEditCompetitionSaved = async () => {
             </div>
 
             <div>
+              <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Modalidad tercer puesto</dt>
+              <dd class="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+                {{ competition.third_place_mode_label ?? '—' }}
+              </dd>
+            </div>
+
+            <div v-if="resultSummary?.third_place_game_id && statusSummary?.code !== 'completed'">
+              <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Tercer puesto</dt>
+              <dd class="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+                <RouterLink
+                  :to="bracketRoute"
+                  class="text-slate-700 underline hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
+                >
+                  {{ statusSummary?.next_action ?? 'Ver partido por tercer puesto' }}
+                </RouterLink>
+              </dd>
+            </div>
+
+            <div>
               <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Puntos por set</dt>
               <dd class="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">{{ competition.points_per_set }}</dd>
             </div>

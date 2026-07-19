@@ -2,6 +2,7 @@
 
 namespace App\Support\Game;
 
+use App\Enums\BracketGamePurpose;
 use App\Models\Competition;
 use Illuminate\Validation\ValidationException;
 
@@ -23,7 +24,21 @@ final class GameFormatResolver
         $bestOf = match ($roundLabel) {
             'Semifinal' => (int) $competition->semifinal_best_of,
             'Final' => (int) $competition->final_best_of,
+            'Tercer puesto' => (int) $competition->semifinal_best_of,
             default => (int) $competition->knockout_stage_best_of,
+        };
+
+        return self::fromBestOf($bestOf);
+    }
+
+    /**
+     * @return array{best_of: int, sets_to_win: int}
+     */
+    public static function resolveForBracketPurpose(Competition $competition, BracketGamePurpose $purpose): array
+    {
+        $bestOf = match ($purpose) {
+            BracketGamePurpose::ThirdPlace => (int) $competition->semifinal_best_of,
+            BracketGamePurpose::Main => (int) $competition->knockout_stage_best_of,
         };
 
         return self::fromBestOf($bestOf);

@@ -411,10 +411,12 @@ class CompletedTournamentSeeder extends Seeder
         while (true) {
             $currentRound = (int) Game::query()
                 ->where('bracket_id', $bracket->id)
+                ->mainBracket()
                 ->max('bracket_round');
 
             $currentGames = Game::query()
                 ->where('bracket_id', $bracket->id)
+                ->mainBracket()
                 ->where('bracket_round', $currentRound)
                 ->orderBy('bracket_match')
                 ->get();

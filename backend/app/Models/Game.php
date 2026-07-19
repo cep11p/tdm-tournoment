@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\BracketGamePurpose;
 use App\Enums\GameStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -28,7 +30,16 @@ class Game extends Model
             'is_bye' => 'boolean',
             'best_of' => 'integer',
             'sets_to_win' => 'integer',
+            'bracket_purpose' => BracketGamePurpose::class,
         ];
+    }
+
+    /**
+     * @param  Builder<Game>  $query
+     */
+    public function scopeMainBracket(Builder $query): Builder
+    {
+        return $query->where('bracket_purpose', BracketGamePurpose::Main);
     }
 
     public function competition(): BelongsTo

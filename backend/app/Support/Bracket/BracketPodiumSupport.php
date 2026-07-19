@@ -2,8 +2,11 @@
 
 namespace App\Support\Bracket;
 
+use App\Enums\BracketGamePurpose;
 use App\Enums\GameStatus;
+use App\Enums\ThirdPlaceMode;
 use App\Models\Bracket;
+use App\Models\Competition;
 use App\Models\Game;
 use App\Models\Player;
 use Illuminate\Support\Collection;
@@ -24,6 +27,13 @@ final class BracketPodiumSupport
         return self::finalRound($bracket) - 1;
     }
 
+    public static function isSemifinalRound(Bracket $bracket, int $round): bool
+    {
+        $semifinalRound = self::semifinalRound($bracket);
+
+        return $semifinalRound !== null && $semifinalRound === $round;
+    }
+
     /**
      * @return Collection<int, Game>
      */
@@ -37,6 +47,7 @@ final class BracketPodiumSupport
 
         return Game::query()
             ->where('bracket_id', $bracket->id)
+            ->mainBracket()
             ->where('bracket_round', $semifinalRound)
             ->with(['player1:id,first_name,last_name', 'player2:id,first_name,last_name'])
             ->orderBy('bracket_match')
@@ -46,6 +57,32 @@ final class BracketPodiumSupport
     public static function canDetermineThirdPlace(Bracket $bracket): bool
     {
         return self::semifinalLosers($bracket) !== [];
+    }
+
+    public static function requiresPlayoffThirdPlace(Competition $competition, Bracket $bracket): bool
+    {
+        $thirdPlaceMode = $competition->third_place_mode instanceof ThirdPlaceMode
+            ? $competition->third_place_mode
+            : ThirdPlaceMode::from((string) $competition->third_place_mode);
+
+        return $thirdPlaceMode === ThirdPlaceMode::Playoff
+            && self::canDetermineThirdPlace($bracket);
+    }
+
+    public static function findThirdPlaceGame(Bracket $bracket): ?Game
+    {
+        return Game::query()
+            ->where('bracket_id', $bracket->id)
+            ->where('bracket_purpose', BracketGamePurpose::ThirdPlace)
+            ->first();
+    }
+
+    /**
+     * @return array<int, Player>
+     */
+    public static function thirdPlaceParticipants(Bracket $bracket): array
+    {
+        return self::semifinalLosers($bracket);
     }
 
     /**

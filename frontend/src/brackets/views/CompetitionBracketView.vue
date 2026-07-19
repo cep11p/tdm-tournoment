@@ -148,7 +148,7 @@ const showQualifiersPerGroup = computed(
 )
 
 const initialRoundLabel = computed(() => {
-  const games = bracket.value?.games
+  const games = mainBracketGames.value
   if (!games?.length) {
     return null
   }
@@ -158,6 +158,14 @@ const initialRoundLabel = computed(() => {
 
   return firstGame?.round ?? null
 })
+
+const mainBracketGames = computed(() =>
+  (bracket.value?.games ?? []).filter((game) => game.bracket_purpose !== 'third_place'),
+)
+
+const thirdPlaceGame = computed(() =>
+  (bracket.value?.games ?? []).find((game) => game.bracket_purpose === 'third_place') ?? null,
+)
 
 const refreshBracket = async () => {
   bracket.value = await BracketService.show(competitionId.value)
@@ -373,11 +381,11 @@ const setScoresDetail = (game) => {
 }
 
 const groupedRounds = computed(() => {
-  if (!bracket.value?.games?.length) {
+  if (!mainBracketGames.value?.length) {
     return []
   }
 
-  const orderedGames = [...bracket.value.games].sort((left, right) => {
+  const orderedGames = [...mainBracketGames.value].sort((left, right) => {
     if ((left.bracket_round || 0) !== (right.bracket_round || 0)) {
       return (left.bracket_round || 0) - (right.bracket_round || 0)
     }
@@ -532,7 +540,7 @@ const gameCardClasses = (round) => {
 }
 
 const finalGame = computed(() => {
-  const games = bracket.value?.games
+  const games = mainBracketGames.value
 
   if (!games?.length) {
     return null
@@ -565,7 +573,7 @@ const canGenerateNextRound = computed(() => {
     return false
   }
 
-  const games = bracket.value?.games
+  const games = mainBracketGames.value
 
   if (!games?.length) {
     return false
@@ -815,6 +823,59 @@ onMounted(loadData)
                 <dd class="text-slate-900 dark:text-slate-100">{{ finalResult.runnerUp }}</dd>
               </div>
             </dl>
+          </div>
+
+          <div
+            v-if="thirdPlaceGame"
+            class="mb-4 rounded-md border border-amber-300/80 bg-amber-50/50 p-4 dark:border-amber-600/50 dark:bg-amber-950/30"
+          >
+            <p class="text-sm font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-200">
+              Partido por tercer puesto
+            </p>
+
+            <div
+              class="mt-3 overflow-hidden rounded border border-slate-200 dark:border-slate-700"
+            >
+              <div
+                class="flex items-center justify-between gap-2 px-3 py-2"
+                :class="compactPlayerRowClasses(thirdPlaceGame, thirdPlaceGame.player1)"
+              >
+                <span class="truncate text-sm">{{ playerName(thirdPlaceGame.player1) }}</span>
+                <span class="shrink-0 tabular-nums text-sm">{{ participantScoreLabel(thirdPlaceGame, 1) }}</span>
+              </div>
+              <div
+                class="flex items-center justify-between gap-2 border-t border-slate-200 px-3 py-2 dark:border-slate-700"
+                :class="compactPlayerRowClasses(thirdPlaceGame, thirdPlaceGame.player2)"
+              >
+                <span class="truncate text-sm">{{ playerName(thirdPlaceGame.player2) }}</span>
+                <span class="shrink-0 tabular-nums text-sm">{{ participantScoreLabel(thirdPlaceGame, 2) }}</span>
+              </div>
+            </div>
+
+            <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+              <span
+                class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+                :class="statusBadgeClasses(thirdPlaceGame)"
+              >
+                {{ statusLabel(thirdPlaceGame) }}
+              </span>
+              <span v-if="setsResult(thirdPlaceGame)" class="text-slate-600 dark:text-slate-300">
+                Sets: {{ setsResult(thirdPlaceGame) }}
+              </span>
+              <span v-if="isFinishedGame(thirdPlaceGame)" class="text-slate-600 dark:text-slate-300">
+                Ganador: {{ winnerName(thirdPlaceGame) }}
+              </span>
+            </div>
+
+            <div v-if="canLoadResult(thirdPlaceGame)" class="mt-3">
+              <button
+                type="button"
+                class="rounded-md bg-emerald-700 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-600"
+                @click="openResultModal(thirdPlaceGame)"
+              >
+                Cargar resultado
+              </button>
+            </div>
           </div>
 
           <p class="mb-3 font-medium text-slate-700 dark:text-slate-200">Vista de llave</p>

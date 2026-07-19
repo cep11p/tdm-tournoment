@@ -37,20 +37,56 @@ class ThirdPlaceResultSummaryTest extends TestCase
             ->assertJsonPath('data.result_summary.champion.id', fn ($value): bool => $value !== null);
     }
 
-    public function test_playoff_mode_returns_empty_third_place_in_this_stage(): void
+    public function test_playoff_mode_returns_empty_third_place_when_final_pending(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createKnockoutDirectCompetition();
+        $competition->update(['third_place_mode' => ThirdPlaceMode::Playoff]);
+        $competition->refresh();
+
+        $players = $context->createPlayers(4);
+        $context->registerPlayers($competition, $players);
+        $context->createBracket($competition)->assertCreated();
+
+        $bracket = Bracket::query()->where('competition_id', $competition->id)->sole();
+        $semifinals = $context->bracketGamesForRound($bracket, 1);
+        $context->finishGame($semifinals[0], $players[0])->assertOk();
+        $context->finishGame($semifinals[1], $players[2])->assertOk();
+        $context->generateBracketNextRound($bracket)->assertCreated();
+
+        $this->getJson($context->apiUrl("competitions/{$competition->id}"))
+            ->assertOk()
+            ->assertJsonPath('data.result_summary', null);
+    }
+
+    public function test_playoff_mode_returns_pending_third_place_after_final(): void
     {
         $context = $this->tournamentContext();
         $setup = $context->createFourQualifierGroupPhase();
         $setup['competition']->update(['third_place_mode' => ThirdPlaceMode::Playoff]);
         $setup['competition']->refresh();
 
-        $context->completeCompetitionThroughFinal($setup['competition']);
+        $context->createBracket($setup['competition'])->assertCreated();
+        $bracket = Bracket::query()->where('competition_id', $setup['competition']->id)->sole();
+        $semifinals = $context->bracketGamesForRound($bracket, 1);
+        $context->finishGame($semifinals[0], $setup['playerOne'])->assertOk();
+        $context->finishGame($semifinals[1], $setup['playerThree'])->assertOk();
+        $context->generateBracketNextRound($bracket)->assertCreated();
+
+        $final = $context->bracketGamesForRound($bracket->fresh(), 2)->sole();
+        $context->finishGame($final, $setup['playerOne'])->assertOk();
+
+        $thirdPlace = Game::query()
+            ->where('bracket_id', $bracket->id)
+            ->where('bracket_purpose', \App\Enums\BracketGamePurpose::ThirdPlace)
+            ->sole();
 
         $this->getJson($context->apiUrl("competitions/{$setup['competition']->id}"))
             ->assertOk()
             ->assertJsonPath('data.result_summary.third_place_mode', ThirdPlaceMode::Playoff->value)
             ->assertJsonPath('data.result_summary.third_place', [])
-            ->assertJsonPath('data.result_summary.fourth_place', null);
+            ->assertJsonPath('data.result_summary.fourth_place', null)
+            ->assertJsonPath('data.result_summary.third_place_game_id', $thirdPlace->id);
     }
 
     public function test_shared_mode_with_four_players_returns_two_third_places(): void

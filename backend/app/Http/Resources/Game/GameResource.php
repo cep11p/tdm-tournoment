@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Game;
 
+use App\Enums\BracketGamePurpose;
 use App\Enums\GameStatus;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -13,6 +14,10 @@ class GameResource extends JsonResource
         $status = $this->status instanceof GameStatus
             ? $this->status->value
             : (string) $this->status;
+
+        $bracketPurpose = $this->bracket_purpose instanceof BracketGamePurpose
+            ? $this->bracket_purpose
+            : BracketGamePurpose::from((string) ($this->bracket_purpose ?? BracketGamePurpose::Main->value));
 
         $player1 = $this->whenLoaded('player1');
         $player2 = $this->whenLoaded('player2');
@@ -27,6 +32,8 @@ class GameResource extends JsonResource
             'bracket_id' => $this->bracket_id,
             'bracket_round' => $this->bracket_round,
             'bracket_match' => $this->bracket_match,
+            'bracket_purpose' => $bracketPurpose->value,
+            'bracket_purpose_label' => $bracketPurpose->label(),
             'group_round' => $this->group_round,
             'group_match' => $this->group_match,
             'player1' => [

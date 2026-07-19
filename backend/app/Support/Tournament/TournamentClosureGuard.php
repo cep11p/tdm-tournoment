@@ -3,10 +3,12 @@
 namespace App\Support\Tournament;
 
 use App\Enums\GameStatus;
+use App\Enums\ThirdPlaceMode;
 use App\Enums\TournamentStatus;
 use App\Models\Competition;
 use App\Models\Game;
 use App\Models\Tournament;
+use App\Support\Bracket\BracketPodiumSupport;
 use App\Support\Competition\CompetitionResultResolver;
 use App\Support\Competition\CompetitionStatusResolver;
 use Illuminate\Support\Collection;
@@ -69,10 +71,7 @@ final class TournamentClosureGuard
             if ($status['code'] !== 'completed') {
                 throw ValidationException::withMessages([
                     'tournament' => [
-                        sprintf(
-                            'No se puede finalizar el torneo porque la competencia «%s» no está finalizada.',
-                            $competition->name,
-                        ),
+                        self::incompleteCompetitionMessage($competition),
                     ],
                 ]);
             }
@@ -200,7 +199,7 @@ final class TournamentClosureGuard
      *     runner_up: array{id: int, name: string},
      *     third_place_mode?: string,
      *     third_place?: list<array{id: int, name: string}>,
-     *     fourth_place?: null,
+     *     fourth_place: array{id: int, name: string}|null,
      * }  $result
      * @return array{
      *     competition_id: int,
@@ -211,7 +210,7 @@ final class TournamentClosureGuard
      *     runner_up_name: string,
      *     third_place_mode: string,
      *     third_place: list<array{id: int, name: string}>,
-     *     fourth_place: null,
+     *     fourth_place: array{id: int, name: string}|null,
      * }
      */
     private static function buildCompetitionResultEntry(Competition $competition, array $result): array
@@ -227,5 +226,43 @@ final class TournamentClosureGuard
             'third_place' => $result['third_place'] ?? [],
             'fourth_place' => $result['fourth_place'] ?? null,
         ];
+    }
+
+    private static function incompleteCompetitionMessage(Competition $competition): string
+    {
+        $thirdPlaceMode = $competition->third_place_mode instanceof ThirdPlaceMode
+            ? $competition->third_place_mode
+            : ThirdPlaceMode::from((string) $competition->third_place_mode);
+
+        if ($thirdPlaceMode === ThirdPlaceMode::Playoff) {
+            $bracket = $competition->brackets()->first();
+
+            if ($bracket !== null && BracketPodiumSupport::requiresPlayoffThirdPlace($competition, $bracket)) {
+                $finalFinished = Game::query()
+                    ->where('competition_id', $competition->id)
+                    ->whereNotNull('bracket_id')
+                    ->mainBracket()
+                    ->where('round', 'Final')
+                    ->where('status', GameStatus::Finished)
+                    ->whereNotNull('winner_id')
+                    ->exists();
+
+                $thirdPlaceGame = BracketPodiumSupport::findThirdPlaceGame($bracket);
+                $thirdPlacePending = $thirdPlaceGame !== null
+                    && ($thirdPlaceGame->status !== GameStatus::Finished || $thirdPlaceGame->winner_id === null);
+
+                if ($finalFinished && $thirdPlacePending) {
+                    return sprintf(
+                        'La competencia «%s» aún tiene pendiente el partido por tercer puesto.',
+                        $competition->name,
+                    );
+                }
+            }
+        }
+
+        return sprintf(
+            'No se puede finalizar el torneo porque la competencia «%s» no está finalizada.',
+            $competition->name,
+        );
     }
 }
