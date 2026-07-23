@@ -1256,13 +1256,13 @@ El cliente **no** envía `set_number`; el servidor asigna numeración correlativ
 | Contexto | Restricción |
 |----------|-------------|
 | Partido de grupo | Bloqueado si la competencia ya tiene bracket generado |
-| Partido de llave | Si existe una ronda posterior, solo se permite propagar a la **ronda inmediata** cuando el partido destino está `pending`, sin sets, sin ganador y contiene al ganador anterior en el slot esperado. Bloqueado si la llave avanzó más de una ronda o el destino ya comenzó. |
+| Partido de llave | Si existe una ronda posterior, solo se permite propagar a la **ronda inmediata** cuando el partido destino está `pending`, sin sets, sin ganador y contiene al participante anterior en el slot esperado. Bloqueado si la llave avanzó más de una ronda o el destino ya comenzó. En semifinales con `third_place_mode = playoff`, una corrección puede propagar atómicamente el **ganador** a la Final y el **perdedor** al partido por tercer puesto, con las mismas reglas de seguridad en **cada** destino. Si la Final o el partido por tercer puesto (o ambos) ya comenzaron, tienen sets o ganador, la corrección se rechaza por completo. |
 | Competencia | Bloqueada si ya existe una final terminada con ganador |
 
 ### Impacto
 
 - **Grupos:** standings se recalculan automáticamente; desempates manuales previos pueden quedar **stale**; no se eliminan automáticamente.
-- **Llave:** si la ronda inmediata está generada y pendiente, el ganador corregido puede propagarse automáticamente al slot correspondiente (`player1_id` o `player2_id`). No hay cascada multi-ronda.
+- **Llave:** si la ronda inmediata está generada y pendiente, el ganador corregido puede propagarse automáticamente al slot correspondiente (`player1_id` o `player2_id`). En playoff, el perdedor corregido puede propagarse al partido por tercer puesto (SF1 → `player1_id`, SF2 → `player2_id`). La operación es **atómica**: o se actualizan source y todos los destinos seguros, o no cambia nada. No hay cascada multi-ronda ni reapertura de partidos ya jugados (reapertura administrativa fuera de alcance).
 - **Auditoría:** una actividad `game.result_corrected` por operación exitosa.
 
 ### BYEs

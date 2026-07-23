@@ -9,6 +9,7 @@ use App\Models\Game;
 use App\Models\Player;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
+use App\Support\Bracket\BracketPodiumSupport;
 use App\Support\Game\GameDependencyResolver;
 use App\Support\Game\GameResultCorrectionGuard;
 use App\Support\Game\GameSetScoreValidator;
@@ -38,6 +39,7 @@ final class CorrectFinishedGameResultAction
                     'player1:id,first_name,last_name,nickname',
                     'player2:id,first_name,last_name,nickname',
                     'winner:id,first_name,last_name,nickname',
+                    'bracket',
                 ])
                 ->lockForUpdate()
                 ->findOrFail($game->id);
@@ -49,6 +51,7 @@ final class CorrectFinishedGameResultAction
             $oldSnapshot = $this->snapshot($game);
             $setsCountBefore = $game->sets->count();
             $oldWinnerId = (int) $game->winner_id;
+            $oldLoserId = self::loserIdForWinner($game, $oldWinnerId);
 
             $competition = $game->competition;
             $setsToWin = (int) ($game->sets_to_win ?? $competition->sets_to_win);
@@ -57,33 +60,64 @@ final class CorrectFinishedGameResultAction
 
             $validatedResult = $this->validateFullResult($game, $newSets, $setsToWin, $pointsPerSet);
             $newWinnerId = $validatedResult['winner_id'];
+            $newLoserId = self::loserIdForWinner($game, $newWinnerId);
 
             $this->correctionGuard->assertNoRoundBeyondImmediate($game);
 
-            $dependency = $this->dependencyResolver->resolveNextRoundDependency($game);
-            $destinationBefore = null;
-            $destinationGame = null;
-            $destinationSlot = null;
+            $winnerDependency = $this->dependencyResolver->resolveWinnerDependency($game);
+            $loserDependency = $this->dependencyResolver->resolveLoserThirdPlaceDependency($game);
 
-            if ($dependency !== null) {
-                $destinationGame = Game::query()
-                    ->lockForUpdate()
-                    ->findOrFail($dependency['game']->id);
+            $destinationIds = [];
 
-                $destinationSlot = $dependency['slot'];
-
-                $this->correctionGuard->assertPropagationSafe(
-                    source: $game,
-                    destination: $destinationGame,
-                    slot: $destinationSlot,
-                    oldWinnerId: $oldWinnerId,
-                    newWinnerId: $newWinnerId,
-                );
-
-                if ($newWinnerId !== $oldWinnerId) {
-                    $destinationBefore = $this->destinationSnapshot($destinationGame);
-                }
+            if ($winnerDependency !== null) {
+                $destinationIds[] = (int) $winnerDependency['game']->id;
             }
+
+            if ($loserDependency !== null) {
+                $destinationIds[] = (int) $loserDependency['game']->id;
+            }
+
+            $destinationIds = array_values(array_unique($destinationIds));
+            sort($destinationIds);
+
+            /** @var array<int, Game> $lockedDestinations */
+            $lockedDestinations = [];
+
+            foreach ($destinationIds as $destinationId) {
+                $lockedDestinations[$destinationId] = Game::query()
+                    ->lockForUpdate()
+                    ->findOrFail($destinationId);
+            }
+
+            $propagations = [];
+
+            if ($winnerDependency !== null) {
+                $destination = $lockedDestinations[(int) $winnerDependency['game']->id];
+
+                $propagations[] = [
+                    'destination' => $destination,
+                    'slot' => $winnerDependency['slot'],
+                    'oldParticipantId' => $oldWinnerId,
+                    'newParticipantId' => $newWinnerId,
+                    'context' => $this->winnerPropagationContext($game, $winnerDependency),
+                    'kind' => 'winner',
+                ];
+            }
+
+            if ($loserDependency !== null) {
+                $destination = $lockedDestinations[(int) $loserDependency['game']->id];
+
+                $propagations[] = [
+                    'destination' => $destination,
+                    'slot' => $loserDependency['slot'],
+                    'oldParticipantId' => $oldLoserId,
+                    'newParticipantId' => $newLoserId,
+                    'context' => 'third_place',
+                    'kind' => 'loser',
+                ];
+            }
+
+            $this->correctionGuard->assertPropagationsSafe($propagations);
 
             $game->sets()->delete();
 
@@ -100,16 +134,14 @@ final class CorrectFinishedGameResultAction
             $game->finished_at = now();
             $game->save();
 
-            $destinationAfter = null;
+            foreach ($propagations as $propagation) {
+                if ((int) $propagation['oldParticipantId'] === (int) $propagation['newParticipantId']) {
+                    continue;
+                }
 
-            if (
-                $destinationGame !== null
-                && $destinationSlot !== null
-                && $newWinnerId !== $oldWinnerId
-            ) {
-                $destinationGame->{$destinationSlot} = $newWinnerId;
-                $destinationGame->save();
-                $destinationAfter = $this->destinationSnapshot($destinationGame->fresh());
+                $destination = $propagation['destination'];
+                $destination->{$propagation['slot']} = (int) $propagation['newParticipantId'];
+                $destination->save();
             }
 
             $game->load([
@@ -136,11 +168,13 @@ final class CorrectFinishedGameResultAction
                     'sets_count_before' => $setsCountBefore,
                     'sets_count_after' => count($newSets),
                     'propagation' => $this->buildPropagationSummary(
-                        dependency: $dependency,
+                        winnerDependency: $winnerDependency,
+                        loserDependency: $loserDependency,
+                        lockedDestinations: $lockedDestinations,
                         oldWinnerId: $oldWinnerId,
                         newWinnerId: $newWinnerId,
-                        destinationBefore: $destinationBefore,
-                        destinationAfter: $destinationAfter,
+                        oldLoserId: $oldLoserId,
+                        newLoserId: $newLoserId,
                     ),
                 ],
                 reason: $payload['reason'],
@@ -148,6 +182,135 @@ final class CorrectFinishedGameResultAction
 
             return $game;
         });
+    }
+
+    /**
+     * @param  array{
+     *     game: Game,
+     *     slot: 'player1_id'|'player2_id',
+     *     destination_round: int,
+     *     destination_match: int,
+     *     expected_player_id: int,
+     * }|null  $winnerDependency
+     * @param  array{
+     *     game: Game,
+     *     slot: 'player1_id'|'player2_id',
+     *     expected_player_id: int,
+     * }|null  $loserDependency
+     * @param  array<int, Game>  $lockedDestinations
+     * @return array<string, mixed>
+     */
+    private function buildPropagationSummary(
+        ?array $winnerDependency,
+        ?array $loserDependency,
+        array $lockedDestinations,
+        int $oldWinnerId,
+        int $newWinnerId,
+        int $oldLoserId,
+        int $newLoserId,
+    ): array {
+        return [
+            'winner' => $this->buildSinglePropagationSummary(
+                dependency: $winnerDependency,
+                lockedDestinations: $lockedDestinations,
+                oldParticipantId: $oldWinnerId,
+                newParticipantId: $newWinnerId,
+                unchangedReason: 'winner_unchanged',
+            ),
+            'loser' => $this->buildSinglePropagationSummary(
+                dependency: $loserDependency,
+                lockedDestinations: $lockedDestinations,
+                oldParticipantId: $oldLoserId,
+                newParticipantId: $newLoserId,
+                unchangedReason: 'loser_unchanged',
+            ),
+        ];
+    }
+
+    /**
+     * @param  array{
+     *     game: Game,
+     *     slot: 'player1_id'|'player2_id',
+     *     destination_round?: int,
+     *     destination_match?: int,
+     *     expected_player_id: int,
+     * }|null  $dependency
+     * @param  array<int, Game>  $lockedDestinations
+     * @return array<string, mixed>
+     */
+    private function buildSinglePropagationSummary(
+        ?array $dependency,
+        array $lockedDestinations,
+        int $oldParticipantId,
+        int $newParticipantId,
+        string $unchangedReason,
+    ): array {
+        if ($dependency === null) {
+            return [
+                'applied' => false,
+                'reason' => 'not_applicable',
+            ];
+        }
+
+        if ($oldParticipantId === $newParticipantId) {
+            return [
+                'applied' => false,
+                'reason' => $unchangedReason,
+            ];
+        }
+
+        $destination = $lockedDestinations[(int) $dependency['game']->id] ?? $dependency['game'];
+
+        $summary = [
+            'applied' => true,
+            'destination_game_id' => $destination->id,
+            'slot' => $dependency['slot'],
+            'before' => $oldParticipantId,
+            'after' => $newParticipantId,
+        ];
+
+        if (isset($dependency['destination_round'])) {
+            $summary['destination_round'] = $destination->round;
+            $summary['destination_bracket_round'] = $dependency['destination_round'];
+            $summary['destination_bracket_match'] = $dependency['destination_match'];
+        }
+
+        return $summary;
+    }
+
+    /**
+     * @param  array{
+     *     game: Game,
+     *     slot: 'player1_id'|'player2_id',
+     *     destination_round: int,
+     *     destination_match: int,
+     *     expected_player_id: int,
+     * }  $winnerDependency
+     * @return 'final'|'next_round'
+     */
+    private function winnerPropagationContext(Game $source, array $winnerDependency): string
+    {
+        $source->loadMissing('bracket');
+        $bracket = $source->bracket;
+
+        if ($bracket === null) {
+            return 'next_round';
+        }
+
+        $finalRound = BracketPodiumSupport::finalRound($bracket);
+
+        if ((int) $winnerDependency['destination_round'] === $finalRound) {
+            return 'final';
+        }
+
+        return 'next_round';
+    }
+
+    private static function loserIdForWinner(Game $game, int $winnerId): int
+    {
+        return (int) $game->player1_id === $winnerId
+            ? (int) $game->player2_id
+            : (int) $game->player1_id;
     }
 
     /**
@@ -237,50 +400,6 @@ final class CorrectFinishedGameResultAction
     }
 
     /**
-     * @param  array{
-     *     game: Game,
-     *     slot: 'player1_id'|'player2_id',
-     *     destination_round: int,
-     *     destination_match: int,
-     *     expected_player_id: int,
-     * }|null  $dependency
-     * @param  array{player1_id: int|null, player2_id: int|null, status: string}|null  $destinationBefore
-     * @param  array{player1_id: int|null, player2_id: int|null, status: string}|null  $destinationAfter
-     * @return array<string, mixed>
-     */
-    private function buildPropagationSummary(
-        ?array $dependency,
-        int $oldWinnerId,
-        int $newWinnerId,
-        ?array $destinationBefore,
-        ?array $destinationAfter,
-    ): array {
-        if ($dependency === null) {
-            return ['applied' => false];
-        }
-
-        if ($oldWinnerId === $newWinnerId) {
-            return [
-                'applied' => false,
-                'reason' => 'winner_unchanged',
-            ];
-        }
-
-        return [
-            'applied' => true,
-            'destination_game_id' => $dependency['game']->id,
-            'destination_round' => $dependency['game']->round,
-            'destination_bracket_round' => $dependency['destination_round'],
-            'destination_bracket_match' => $dependency['destination_match'],
-            'slot' => $dependency['slot'],
-            'old_player_id' => $oldWinnerId,
-            'new_player_id' => $newWinnerId,
-            'before' => $destinationBefore,
-            'after' => $destinationAfter,
-        ];
-    }
-
-    /**
      * @return array{
      *     status: string,
      *     winner_id: int|null,
@@ -314,20 +433,6 @@ final class CorrectFinishedGameResultAction
                 ->values()
                 ->all(),
             'sets_won' => $setsWon,
-        ];
-    }
-
-    /**
-     * @return array{player1_id: int|null, player2_id: int|null, status: string}
-     */
-    private function destinationSnapshot(Game $game): array
-    {
-        return [
-            'player1_id' => $game->player1_id !== null ? (int) $game->player1_id : null,
-            'player2_id' => $game->player2_id !== null ? (int) $game->player2_id : null,
-            'status' => $game->status instanceof GameStatus
-                ? $game->status->value
-                : (string) $game->status,
         ];
     }
 

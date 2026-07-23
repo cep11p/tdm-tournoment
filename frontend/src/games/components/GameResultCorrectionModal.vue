@@ -48,7 +48,7 @@ const contextWarning = computed(() => {
   }
 
   if (activeGame.value?.bracket_id) {
-    return 'Si la siguiente ronda ya fue generada pero el partido todavía no comenzó, el sistema actualizará automáticamente al jugador clasificado. La corrección será bloqueada si el partido siguiente ya tiene actividad o si la llave avanzó más de una ronda.'
+    return 'Si la siguiente ronda y/o el partido por tercer puesto ya fueron generados pero todavía no comenzaron, el sistema actualizará automáticamente los jugadores afectados. La corrección se bloqueará si alguno de los partidos dependientes ya comenzó o tiene resultados.'
   }
 
   return null
@@ -196,8 +196,36 @@ const applyApiErrors = (error) => {
 
   const message = extractApiErrorMessage(error, FORBIDDEN_MESSAGE)
   const fieldMessages = Object.values(fieldErrors.value).filter(Boolean)
+  const uniqueFieldMessages = [...new Set(fieldMessages)]
 
-  generalError.value = fieldMessages.includes(message) ? '' : message
+  if (message && uniqueFieldMessages.includes(message)) {
+    generalError.value = ''
+
+    return
+  }
+
+  const dedupedFieldMessages = uniqueFieldMessages.filter(
+    (fieldMessage, index) => uniqueFieldMessages.indexOf(fieldMessage) === index,
+  )
+
+  const seen = new Set(dedupedFieldMessages)
+  const fieldKeys = ['reason', 'sets', 'game', 'dependent_game', 'competition']
+
+  fieldKeys.forEach((key) => {
+    const value = fieldErrors.value[key]
+
+    if (value && seen.has(value)) {
+      const firstKey = fieldKeys.find((candidate) => fieldErrors.value[candidate] === value)
+
+      if (firstKey !== key) {
+        fieldErrors.value[key] = null
+      }
+    } else if (value) {
+      seen.add(value)
+    }
+  })
+
+  generalError.value = message && seen.has(message) ? '' : message
 }
 
 const handleClose = () => {

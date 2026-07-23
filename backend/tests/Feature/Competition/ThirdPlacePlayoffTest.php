@@ -360,7 +360,7 @@ class ThirdPlacePlayoffTest extends TestCase
         );
     }
 
-    public function test_rejects_semifinal_correction_when_third_place_exists(): void
+    public function test_allows_semifinal_correction_when_third_place_is_pending(): void
     {
         $setup = $this->setupPlayoffKnockoutDirect();
         $context = $setup['context'];
@@ -382,12 +382,13 @@ class ThirdPlacePlayoffTest extends TestCase
             ];
         }
 
+        $this->withHeaders($this->authHeaders(['admin']));
+
         $context->correctResult(
             $semifinal,
-            'Corrección temporal bloqueada',
+            'Corrección con third-place pendiente',
             $sets,
-        )->assertUnprocessable()
-            ->assertJsonValidationErrors(['game']);
+        )->assertOk();
     }
 
     public function test_bracket_round_advanced_audit_includes_third_place_creation(): void

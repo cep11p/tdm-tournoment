@@ -2,9 +2,10 @@
 
 namespace Tests\Unit\Game;
 
+use App\Enums\BracketGamePurpose;
 use App\Enums\GameStatus;
+use App\Enums\ThirdPlaceMode;
 use App\Models\Bracket;
-use App\Models\Competition;
 use App\Models\Game;
 use App\Support\Bracket\BracketSupport;
 use App\Support\Game\GameDependencyResolver;
@@ -103,6 +104,111 @@ class GameDependencyResolverTest extends TestCase
         $this->assertSame(1, $dependency['destination_match']);
         $this->assertSame('player2_id', $dependency['slot']);
         $this->assertSame('Cuartos de final', $dependency['game']->round);
+    }
+
+    public function test_resolve_winner_dependency_matches_next_round_dependency(): void
+    {
+        $fixture = $this->createBracketFixture(roundOneMatches: 4, roundTwoMatches: 2);
+        $source = $fixture['roundOneGames'][0]->fresh();
+
+        $this->assertEquals(
+            $this->resolver->resolveNextRoundDependency($source),
+            $this->resolver->resolveWinnerDependency($source),
+        );
+    }
+
+    public function test_loser_dependency_maps_semifinals_to_third_place_slots(): void
+    {
+        $fixture = $this->createSemifinalPlayoffFixture();
+
+        $sf1 = $fixture['semifinals'][0]->fresh();
+        $sf2 = $fixture['semifinals'][1]->fresh();
+
+        $loserOne = $this->resolver->resolveLoserThirdPlaceDependency($sf1);
+        $loserTwo = $this->resolver->resolveLoserThirdPlaceDependency($sf2);
+
+        $this->assertNotNull($loserOne);
+        $this->assertNotNull($loserTwo);
+        $this->assertSame('player1_id', $loserOne['slot']);
+        $this->assertSame('player2_id', $loserTwo['slot']);
+        $this->assertSame($fixture['thirdPlace']->id, $loserOne['game']->id);
+        $this->assertSame((int) $sf1->player2_id, $loserOne['expected_player_id']);
+        $this->assertSame((int) $sf2->player2_id, $loserTwo['expected_player_id']);
+    }
+
+    public function test_loser_dependency_is_null_for_shared_and_none(): void
+    {
+        foreach ([ThirdPlaceMode::Shared, ThirdPlaceMode::None] as $mode) {
+            $fixture = $this->createSemifinalPlayoffFixture($mode);
+            $sf1 = $fixture['semifinals'][0]->fresh();
+
+            $this->assertNull($this->resolver->resolveLoserThirdPlaceDependency($sf1));
+        }
+    }
+
+    public function test_loser_dependency_is_null_without_third_place_game(): void
+    {
+        $fixture = $this->createSemifinalPlayoffFixture(createThirdPlace: false);
+        $sf1 = $fixture['semifinals'][0]->fresh();
+
+        $this->assertNull($this->resolver->resolveLoserThirdPlaceDependency($sf1));
+    }
+
+    /**
+     * @return array{
+     *     bracket: Bracket,
+     *     semifinals: array<int, Game>,
+     *     thirdPlace: Game|null,
+     * }
+     */
+    private function createSemifinalPlayoffFixture(
+        ThirdPlaceMode $mode = ThirdPlaceMode::Playoff,
+        bool $createThirdPlace = true,
+    ): array {
+        $context = $this->tournamentContext();
+        $competition = $context->createKnockoutDirectCompetition();
+        $competition->update(['third_place_mode' => $mode]);
+        $players = $context->createPlayers(4);
+        $context->registerPlayers($competition, $players);
+        $context->createBracket($competition);
+
+        $bracket = Bracket::query()->where('competition_id', $competition->id)->sole();
+        $semifinals = $context->bracketGamesForRound($bracket, 1)->sortBy('bracket_match')->values()->all();
+
+        foreach ($semifinals as $index => $semifinal) {
+            $semifinal->update([
+                'winner_id' => $semifinal->player1_id,
+                'status' => GameStatus::Finished,
+                'finished_at' => now(),
+            ]);
+            $semifinals[$index] = $semifinal->fresh();
+        }
+
+        $thirdPlace = null;
+
+        if ($createThirdPlace && $mode === ThirdPlaceMode::Playoff) {
+            $thirdPlace = Game::query()->create([
+                'competition_id' => $competition->id,
+                'bracket_id' => $bracket->id,
+                'bracket_purpose' => BracketGamePurpose::ThirdPlace,
+                'player1_id' => $players[1]->id,
+                'player2_id' => $players[3]->id,
+                'winner_id' => null,
+                'status' => GameStatus::Pending,
+                'round' => 'Tercer puesto',
+                'bracket_round' => null,
+                'bracket_match' => 1,
+                'is_bye' => false,
+                'best_of' => 1,
+                'sets_to_win' => 1,
+            ]);
+        }
+
+        return [
+            'bracket' => $bracket,
+            'semifinals' => $semifinals,
+            'thirdPlace' => $thirdPlace,
+        ];
     }
 
     /**

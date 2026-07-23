@@ -2,7 +2,9 @@
 
 namespace App\Support\Game;
 
+use App\Enums\ThirdPlaceMode;
 use App\Models\Game;
+use App\Support\Bracket\BracketPodiumSupport;
 
 final class GameDependencyResolver
 {
@@ -43,7 +45,7 @@ final class GameDependencyResolver
      *     expected_player_id: int,
      * }|null
      */
-    public function resolveNextRoundDependency(Game $source): ?array
+    public function resolveWinnerDependency(Game $source): ?array
     {
         if ($source->bracket_id === null || $source->bracket_round === null || $source->bracket_match === null) {
             return null;
@@ -75,5 +77,75 @@ final class GameDependencyResolver
             'destination_match' => $destinationMatch,
             'expected_player_id' => (int) $source->winner_id,
         ];
+    }
+
+    /**
+     * @return array{
+     *     game: Game,
+     *     slot: 'player1_id'|'player2_id',
+     *     expected_player_id: int,
+     * }|null
+     */
+    public function resolveLoserThirdPlaceDependency(Game $source): ?array
+    {
+        if ($source->bracket_id === null || $source->bracket_round === null || $source->bracket_match === null) {
+            return null;
+        }
+
+        if ($source->winner_id === null || $source->player1_id === null || $source->player2_id === null) {
+            return null;
+        }
+
+        $source->loadMissing(['competition', 'bracket']);
+
+        $bracket = $source->bracket;
+        $competition = $source->competition;
+
+        if ($bracket === null || $competition === null) {
+            return null;
+        }
+
+        if (! BracketPodiumSupport::isSemifinalRound($bracket, (int) $source->bracket_round)) {
+            return null;
+        }
+
+        $thirdPlaceMode = $competition->third_place_mode instanceof ThirdPlaceMode
+            ? $competition->third_place_mode
+            : ThirdPlaceMode::from((string) $competition->third_place_mode);
+
+        if ($thirdPlaceMode !== ThirdPlaceMode::Playoff) {
+            return null;
+        }
+
+        $thirdPlaceGame = BracketPodiumSupport::findThirdPlaceGame($bracket);
+
+        if ($thirdPlaceGame === null) {
+            return null;
+        }
+
+        $winnerId = (int) $source->winner_id;
+        $loserId = $winnerId === (int) $source->player1_id
+            ? (int) $source->player2_id
+            : (int) $source->player1_id;
+
+        return [
+            'game' => $thirdPlaceGame,
+            'slot' => $this->winnerSlot((int) $source->bracket_match),
+            'expected_player_id' => $loserId,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     game: Game,
+     *     slot: 'player1_id'|'player2_id',
+     *     destination_round: int,
+     *     destination_match: int,
+     *     expected_player_id: int,
+     * }|null
+     */
+    public function resolveNextRoundDependency(Game $source): ?array
+    {
+        return $this->resolveWinnerDependency($source);
     }
 }

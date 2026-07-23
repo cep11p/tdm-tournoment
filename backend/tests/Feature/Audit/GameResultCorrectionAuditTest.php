@@ -116,7 +116,8 @@ class GameResultCorrectionAuditTest extends TestCase
         $this->assertFalse(data_get($activity->properties, 'summary.winner_changed'));
         $this->assertSame(2, data_get($activity->properties, 'summary.sets_count_before'));
         $this->assertSame(3, data_get($activity->properties, 'summary.sets_count_after'));
-        $this->assertFalse(data_get($activity->properties, 'summary.propagation.applied'));
+        $this->assertFalse(data_get($activity->properties, 'summary.propagation.winner.applied'));
+        $this->assertSame('not_applicable', data_get($activity->properties, 'summary.propagation.winner.reason'));
     }
 
     public function test_correction_without_next_round_records_propagation_not_applied(): void
@@ -138,8 +139,9 @@ class GameResultCorrectionAuditTest extends TestCase
             ->latest('id')
             ->firstOrFail();
 
-        $this->assertFalse(data_get($activity->properties, 'summary.propagation.applied'));
-        $this->assertNull(data_get($activity->properties, 'summary.propagation.reason'));
+        $this->assertFalse(data_get($activity->properties, 'summary.propagation.winner.applied'));
+        $this->assertSame('not_applicable', data_get($activity->properties, 'summary.propagation.winner.reason'));
+        $this->assertSame('not_applicable', data_get($activity->properties, 'summary.propagation.loser.reason'));
     }
 
     public function test_correction_with_propagation_records_destination_details(): void
@@ -164,13 +166,13 @@ class GameResultCorrectionAuditTest extends TestCase
             ->firstOrFail();
 
         $this->assertTrue(data_get($activity->properties, 'summary.winner_changed'));
-        $this->assertTrue(data_get($activity->properties, 'summary.propagation.applied'));
-        $this->assertSame($semifinalOne->id, data_get($activity->properties, 'summary.propagation.destination_game_id'));
-        $this->assertSame('player1_id', data_get($activity->properties, 'summary.propagation.slot'));
-        $this->assertSame($oldWinnerId, data_get($activity->properties, 'summary.propagation.old_player_id'));
-        $this->assertSame($newWinner->id, data_get($activity->properties, 'summary.propagation.new_player_id'));
-        $this->assertSame($oldWinnerId, data_get($activity->properties, 'summary.propagation.before.player1_id'));
-        $this->assertSame($newWinner->id, data_get($activity->properties, 'summary.propagation.after.player1_id'));
+        $this->assertTrue(data_get($activity->properties, 'summary.propagation.winner.applied'));
+        $this->assertSame($semifinalOne->id, data_get($activity->properties, 'summary.propagation.winner.destination_game_id'));
+        $this->assertSame('player1_id', data_get($activity->properties, 'summary.propagation.winner.slot'));
+        $this->assertSame($oldWinnerId, data_get($activity->properties, 'summary.propagation.winner.before'));
+        $this->assertSame($newWinner->id, data_get($activity->properties, 'summary.propagation.winner.after'));
+        $this->assertFalse(data_get($activity->properties, 'summary.propagation.loser.applied'));
+        $this->assertSame('not_applicable', data_get($activity->properties, 'summary.propagation.loser.reason'));
     }
 
     public function test_correction_with_unchanged_winner_records_propagation_reason(): void
@@ -192,8 +194,8 @@ class GameResultCorrectionAuditTest extends TestCase
             ->latest('id')
             ->firstOrFail();
 
-        $this->assertFalse(data_get($activity->properties, 'summary.propagation.applied'));
-        $this->assertSame('winner_unchanged', data_get($activity->properties, 'summary.propagation.reason'));
+        $this->assertFalse(data_get($activity->properties, 'summary.propagation.winner.applied'));
+        $this->assertSame('winner_unchanged', data_get($activity->properties, 'summary.propagation.winner.reason'));
     }
 
     public function test_failed_propagation_does_not_create_activity(): void

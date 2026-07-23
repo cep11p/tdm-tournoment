@@ -4,7 +4,6 @@ namespace App\Support\Game;
 
 use App\Enums\GameStatus;
 use App\Models\Game;
-use App\Support\Bracket\BracketPodiumSupport;
 use App\Support\Competition\CompetitionResultResolver;
 use Illuminate\Validation\ValidationException;
 
@@ -49,19 +48,6 @@ final class GameResultCorrectionGuard
             ]);
         }
 
-        $game->loadMissing('bracket');
-
-        if (
-            $game->bracket_id !== null
-            && $game->bracket !== null
-            && BracketPodiumSupport::isSemifinalRound($game->bracket, (int) $game->bracket_round)
-            && BracketPodiumSupport::findThirdPlaceGame($game->bracket) !== null
-        ) {
-            throw ValidationException::withMessages([
-                'game' => ['No se puede corregir esta semifinal porque ya se generó el partido por tercer puesto.'],
-            ]);
-        }
-
         if ($competition !== null && CompetitionResultResolver::resolve($competition) !== null) {
             throw ValidationException::withMessages([
                 'competition' => ['No se puede corregir el resultado porque la competencia ya tiene una final terminada.'],
@@ -86,47 +72,118 @@ final class GameResultCorrectionGuard
         ]);
     }
 
-    public function assertPropagationSafe(
-        Game $source,
-        Game $destination,
-        string $slot,
-        int $oldWinnerId,
-        int $newWinnerId,
-    ): void {
-        if ($destination->status !== GameStatus::Pending) {
-            throw ValidationException::withMessages([
-                'dependent_game' => ['No se puede corregir el resultado porque el partido de la ronda siguiente ya comenzó.'],
-            ]);
+    /**
+     * @param  array<int, array{
+     *     destination: Game,
+     *     slot: 'player1_id'|'player2_id',
+     *     oldParticipantId: int,
+     *     newParticipantId: int,
+     *     context: 'final'|'third_place'|'next_round',
+     * }>  $propagations
+     */
+    public function assertPropagationsSafe(array $propagations): void
+    {
+        $startedContexts = [];
+
+        foreach ($propagations as $propagation) {
+            $oldParticipantId = (int) $propagation['oldParticipantId'];
+            $newParticipantId = (int) $propagation['newParticipantId'];
+
+            if ($oldParticipantId === $newParticipantId) {
+                continue;
+            }
+
+            $destination = $propagation['destination'];
+            $slot = $propagation['slot'];
+            $context = $propagation['context'];
+
+            if ($this->destinationHasStarted($destination)) {
+                $startedContexts[$context] = true;
+
+                continue;
+            }
+
+            if ((int) $destination->{$slot} !== $oldParticipantId) {
+                throw ValidationException::withMessages([
+                    'game' => [$this->slotInconsistencyMessage($context)],
+                ]);
+            }
+
+            $otherSlot = $slot === 'player1_id' ? 'player2_id' : 'player1_id';
+
+            if ((int) $destination->{$otherSlot} === $newParticipantId) {
+                throw ValidationException::withMessages([
+                    'dependent_game' => [$this->duplicateParticipantMessage($context)],
+                ]);
+            }
         }
 
-        if ($destination->sets()->exists()) {
-            throw ValidationException::withMessages([
-                'dependent_game' => ['No se puede corregir el resultado porque el partido de la ronda siguiente ya comenzó.'],
-            ]);
-        }
-
-        if ($destination->winner_id !== null) {
-            throw ValidationException::withMessages([
-                'dependent_game' => ['No se puede corregir el resultado porque el partido de la ronda siguiente ya comenzó.'],
-            ]);
-        }
-
-        if ((int) $destination->{$slot} !== $oldWinnerId) {
-            throw ValidationException::withMessages([
-                'game' => ['No se puede corregir el resultado porque la llave presenta una inconsistencia en la ronda siguiente.'],
-            ]);
-        }
-
-        if ((int) $oldWinnerId === (int) $newWinnerId) {
+        if ($startedContexts === []) {
             return;
         }
 
-        $otherSlot = $slot === 'player1_id' ? 'player2_id' : 'player1_id';
+        $hasFinal = isset($startedContexts['final']);
+        $hasThirdPlace = isset($startedContexts['third_place']);
 
-        if ((int) $destination->{$otherSlot} === (int) $newWinnerId) {
+        if ($hasFinal && $hasThirdPlace) {
             throw ValidationException::withMessages([
-                'dependent_game' => ['No se puede corregir el resultado porque el nuevo ganador ya está asignado en la ronda siguiente.'],
+                'dependent_game' => [
+                    'La corrección no puede aplicarse porque la Final y el partido por tercer puesto ya comenzaron o tienen resultados registrados.',
+                ],
             ]);
         }
+
+        if ($hasFinal) {
+            throw ValidationException::withMessages([
+                'dependent_game' => [
+                    'La corrección no puede aplicarse porque la Final ya comenzó o tiene resultado registrado.',
+                ],
+            ]);
+        }
+
+        if ($hasThirdPlace) {
+            throw ValidationException::withMessages([
+                'dependent_game' => [
+                    'La corrección no puede aplicarse porque el partido por tercer puesto ya comenzó o tiene resultado registrado.',
+                ],
+            ]);
+        }
+
+        throw ValidationException::withMessages([
+            'dependent_game' => [
+                'No se puede corregir el resultado porque el partido de la ronda siguiente ya comenzó.',
+            ],
+        ]);
+    }
+
+    private function destinationHasStarted(Game $destination): bool
+    {
+        if ($destination->status !== GameStatus::Pending) {
+            return true;
+        }
+
+        if ($destination->relationLoaded('sets') ? $destination->sets->isNotEmpty() : $destination->sets()->exists()) {
+            return true;
+        }
+
+        return $destination->winner_id !== null;
+    }
+
+    private function slotInconsistencyMessage(string $context): string
+    {
+        return match ($context) {
+            'final' => 'No se puede corregir el resultado porque la Final presenta una inconsistencia en el slot esperado.',
+            'third_place' => 'No se puede corregir el resultado porque el partido por tercer puesto presenta una inconsistencia en el slot esperado.',
+            default => 'No se puede corregir el resultado porque la llave presenta una inconsistencia en la ronda siguiente.',
+        };
+    }
+
+    private function duplicateParticipantMessage(string $context): string
+    {
+        return match ($context) {
+            'final' => 'No se puede corregir el resultado porque el nuevo jugador ya estaría duplicado en la Final.',
+            'third_place' => 'No se puede corregir el resultado porque el nuevo jugador ya estaría duplicado en el partido por tercer puesto.',
+            default => 'No se puede corregir el resultado porque el nuevo ganador ya está asignado en la ronda siguiente.',
+        };
     }
 }
