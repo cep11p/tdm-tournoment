@@ -194,7 +194,10 @@ const applyApiErrors = (error) => {
     })
   }
 
-  generalError.value = extractApiErrorMessage(error, FORBIDDEN_MESSAGE)
+  const message = extractApiErrorMessage(error, FORBIDDEN_MESSAGE)
+  const fieldMessages = Object.values(fieldErrors.value).filter(Boolean)
+
+  generalError.value = fieldMessages.includes(message) ? '' : message
 }
 
 const handleClose = () => {
