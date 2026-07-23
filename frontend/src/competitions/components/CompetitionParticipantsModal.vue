@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import BaseModal from '../../shared/components/BaseModal.vue'
+import CompetitionContextHint from './CompetitionContextHint.vue'
 
 const props = defineProps({
   show: {
@@ -20,6 +21,10 @@ const props = defineProps({
   registrationsRoute: {
     type: String,
     required: true,
+  },
+  registrationsLockMessage: {
+    type: String,
+    default: null,
   },
 })
 
@@ -56,6 +61,14 @@ const formatParticipantName = (registration) => {
     size="lg"
     @close="$emit('close')"
   >
+    <CompetitionContextHint
+      v-if="!registrationsEditable && registrationsLockMessage"
+      :message="registrationsLockMessage"
+      variant="warning"
+      use-lock-icon
+      class="mb-3"
+    />
+
     <div
       v-if="registrations.length === 0"
       class="rounded-md border border-slate-200 p-4 text-slate-600 dark:border-slate-700 dark:text-slate-300"

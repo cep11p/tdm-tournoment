@@ -27,6 +27,7 @@ import {
   competitionHasGroupStage,
   getCompetitionFormatLabel,
 } from '../constants/competitionFormats'
+import CompetitionContextHint from '../components/CompetitionContextHint.vue'
 import CompetitionFormModal from '../components/CompetitionFormModal.vue'
 import CompetitionParticipantsModal from '../components/CompetitionParticipantsModal.vue'
 import CompetitionPodiumSummary from '../components/CompetitionPodiumSummary.vue'
@@ -630,13 +631,6 @@ const handleEditCompetitionSaved = async () => {
     <p v-else-if="errorMessage" class="text-sm text-red-600 dark:text-red-400">{{ errorMessage }}</p>
 
     <template v-else-if="competition">
-      <p
-        v-if="!competitionStructureEditable && competitionStructureLockReason"
-        class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
-      >
-        {{ competitionStructureLockReason }}
-      </p>
-
       <div
         class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-700 dark:bg-slate-900/60"
       >
@@ -719,13 +713,6 @@ const handleEditCompetitionSaved = async () => {
           />
         </span>
       </button>
-
-      <p
-        v-if="registrations !== null && !registrationsEditable && registrationsLockMessage"
-        class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
-      >
-        {{ registrationsLockMessage }}
-      </p>
 
       <div
         v-if="hasGroupStage"
@@ -1091,6 +1078,14 @@ const handleEditCompetitionSaved = async () => {
         </summary>
 
         <div class="border-t border-slate-200 px-4 pb-4 pt-3 dark:border-slate-700">
+          <CompetitionContextHint
+            v-if="!competitionStructureEditable && competitionStructureLockReason"
+            :message="competitionStructureLockReason"
+            variant="warning"
+            use-lock-icon
+            class="mb-3"
+          />
+
           <dl class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Nombre</dt>
@@ -1160,6 +1155,7 @@ const handleEditCompetitionSaved = async () => {
         :show="showParticipantsModal"
         :registrations="registrations"
         :registrations-editable="registrationsEditable && canManageRegistrations"
+        :registrations-lock-message="registrationsEditable ? null : registrationsLockMessage"
         :registrations-route="registrationsRoute"
         @close="showParticipantsModal = false"
       />

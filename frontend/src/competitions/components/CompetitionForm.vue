@@ -9,6 +9,7 @@ import {
   DEFAULT_COMPETITION_FORM_VALUES,
 } from '../utils/buildCompetitionPayload'
 import { THIRD_PLACE_MODE_OPTIONS } from '../constants/thirdPlaceMode'
+import CompetitionContextHint from './CompetitionContextHint.vue'
 
 const props = defineProps({
   initialValues: {
@@ -130,12 +131,12 @@ onMounted(loadCategories)
 
 <template>
   <div :class="embedded ? 'space-y-4' : 'max-w-xl space-y-4'">
-    <p
+    <CompetitionContextHint
       v-if="mode === 'edit' && !structureEditable && structureLockReason"
-      class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
-    >
-      {{ structureLockReason }}
-    </p>
+      :message="structureLockReason"
+      variant="warning"
+      use-lock-icon
+    />
 
     <form
       :class="[
