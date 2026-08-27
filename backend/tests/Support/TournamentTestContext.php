@@ -2,6 +2,7 @@
 
 namespace Tests\Support;
 
+use App\Actions\Registration\PersistRegistrationAction;
 use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
 use App\Enums\TournamentStatus;
@@ -86,7 +87,9 @@ final class TournamentTestContext
 
     public function registerPlayer(Competition $competition, Player $player): Registration
     {
-        return Registration::query()->create([
+        $persistRegistration = app(PersistRegistrationAction::class);
+
+        return $persistRegistration([
             'competition_id' => $competition->id,
             'player_id' => $player->id,
         ]);

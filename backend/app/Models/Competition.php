@@ -56,6 +56,11 @@ class Competition extends Model
         return $this->hasMany(Registration::class);
     }
 
+    public function entries(): HasMany
+    {
+        return $this->hasMany(CompetitionEntry::class);
+    }
+
     public function games(): HasMany
     {
         return $this->hasMany(Game::class);

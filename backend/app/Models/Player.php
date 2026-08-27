@@ -48,6 +48,11 @@ class Player extends Model
         return $this->hasMany(Registration::class);
     }
 
+    public function competitionEntryMembers(): HasMany
+    {
+        return $this->hasMany(CompetitionEntryMember::class);
+    }
+
     public function groupPlayers(): HasMany
     {
         return $this->hasMany(GroupPlayer::class);
