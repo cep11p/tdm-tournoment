@@ -39,11 +39,9 @@ final class GroupQualifiersCollector
      */
     private function qualifiersFromGroup(Group $group, int $qualifiersPerGroup): Collection
     {
-        $groupPlayers = $group->groupPlayers()
-            ->with('player:id,first_name,last_name')
-            ->get();
+        $groupEntriesCount = $group->groupEntries()->count();
 
-        if ($groupPlayers->count() < 2) {
+        if ($groupEntriesCount < 2) {
             throw ValidationException::withMessages([
                 'group' => [sprintf('El grupo "%s" necesita al menos 2 jugadores.', $group->name)],
             ]);
@@ -93,6 +91,7 @@ final class GroupQualifiersCollector
                 groupPosition: $index + 1,
                 won: $standing->won,
                 lost: $standing->lost,
+                competitionEntryId: (int) $standing->competitionEntryId,
             ),
         );
     }

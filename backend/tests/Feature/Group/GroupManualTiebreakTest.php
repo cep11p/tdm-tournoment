@@ -2,10 +2,13 @@
 
 namespace Tests\Feature\Group;
 
+use App\Models\Competition;
 use App\Models\Game;
+use App\Models\Group;
 use App\Models\GroupManualTiebreak;
-use App\Models\GroupManualTiebreakPlayer;
+use App\Models\GroupManualTiebreakEntry;
 use App\Models\Player;
+use App\Support\Competition\ResolveSinglesEntryForPlayer;
 use Tests\Support\TournamentTestContext;
 use Tests\TestCase;
 
@@ -36,6 +39,26 @@ class GroupManualTiebreakTest extends TestCase
             ->assertJsonPath('data.player_ids', [$playerB->id, $playerA->id, $playerC->id])
             ->assertJsonPath('data.reason', 'draw')
             ->assertJsonPath('data.notes', 'Sorteo entre empatados');
+
+        $group->loadMissing('competition');
+        $resolveEntry = app(ResolveSinglesEntryForPlayer::class);
+        $entryB = ($resolveEntry)($group->competition, $playerB->id);
+        $entryA = ($resolveEntry)($group->competition, $playerA->id);
+        $entryC = ($resolveEntry)($group->competition, $playerC->id);
+
+        $this->assertDatabaseCount('group_manual_tiebreak_entries', 3);
+        $this->assertDatabaseHas('group_manual_tiebreak_entries', [
+            'competition_entry_id' => $entryB->id,
+            'position' => 1,
+        ]);
+        $this->assertDatabaseHas('group_manual_tiebreak_entries', [
+            'competition_entry_id' => $entryA->id,
+            'position' => 2,
+        ]);
+        $this->assertDatabaseHas('group_manual_tiebreak_entries', [
+            'competition_entry_id' => $entryC->id,
+            'position' => 3,
+        ]);
 
         $standings = $this->getJson($context->apiUrl("groups/{$group->id}/standings"));
 
@@ -210,15 +233,20 @@ class GroupManualTiebreakTest extends TestCase
             'applied_at' => now(),
         ]);
 
-        GroupManualTiebreakPlayer::query()->create([
+        $resolveEntry = app(ResolveSinglesEntryForPlayer::class);
+        $group->loadMissing('competition');
+        $entryA = ($resolveEntry)($group->competition, $playerA->id);
+        $entryB = ($resolveEntry)($group->competition, $playerB->id);
+
+        GroupManualTiebreakEntry::query()->create([
             'group_manual_tiebreak_id' => $staleTiebreak->id,
-            'player_id' => $playerA->id,
+            'competition_entry_id' => $entryA->id,
             'position' => 1,
         ]);
 
-        GroupManualTiebreakPlayer::query()->create([
+        GroupManualTiebreakEntry::query()->create([
             'group_manual_tiebreak_id' => $staleTiebreak->id,
-            'player_id' => $playerB->id,
+            'competition_entry_id' => $entryB->id,
             'position' => 2,
         ]);
 
@@ -233,8 +261,8 @@ class GroupManualTiebreakTest extends TestCase
 
     /**
      * @return array{
-     *     competition: \App\Models\Competition,
-     *     group: \App\Models\Group,
+     *     competition: Competition,
+     *     group: Group,
      *     players: array<int, Player>
      * }
      */

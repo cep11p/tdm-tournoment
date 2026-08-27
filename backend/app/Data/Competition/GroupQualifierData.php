@@ -12,5 +12,6 @@ final class GroupQualifierData
         public int $groupPosition,
         public int $won,
         public int $lost,
+        public int $competitionEntryId = 0,
     ) {}
 }

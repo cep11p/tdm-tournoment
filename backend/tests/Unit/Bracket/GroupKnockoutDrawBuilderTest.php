@@ -283,7 +283,7 @@ class GroupKnockoutDrawBuilderTest extends TestCase
                 $qualifiers->push($this->qualifier(
                     playerId: $playerId,
                     groupId: $groupId,
-                    groupName: 'Grupo ' . $groupName,
+                    groupName: 'Grupo '.$groupName,
                     position: $position,
                 ));
             }
@@ -332,6 +332,7 @@ class GroupKnockoutDrawBuilderTest extends TestCase
             groupPosition: $position,
             won: $won,
             lost: $lost,
+            competitionEntryId: $playerId,
         );
     }
 }

@@ -9,13 +9,13 @@ final class CompetitionStandingData
         public string $playerName,
         public int $won,
         public int $lost,
+        public ?int $competitionEntryId = null,
         public bool $requiresManualTiebreak = false,
         public bool $manualTiebreakApplied = false,
         public ?int $manualPosition = null,
         public bool $eligibleForQualification = true,
         public string $groupPlayerStatus = 'active',
-    ) {
-    }
+    ) {}
 
     public function played(): int
     {

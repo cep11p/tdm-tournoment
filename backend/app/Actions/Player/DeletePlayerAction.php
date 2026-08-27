@@ -4,6 +4,7 @@ namespace App\Actions\Player;
 
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
+use App\Models\GroupManualTiebreakEntry;
 use App\Models\Player;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
@@ -55,6 +56,11 @@ final class DeletePlayerAction
             || $player->gamesAsPlayer1()->exists()
             || $player->gamesAsPlayer2()->exists()
             || $player->wonGames()->exists()
-            || $player->manualTiebreakPlayers()->exists();
+            || GroupManualTiebreakEntry::query()
+                ->whereIn(
+                    'competition_entry_id',
+                    $player->competitionEntryMembers()->select('competition_entry_id')
+                )
+                ->exists();
     }
 }

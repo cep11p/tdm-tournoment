@@ -3,9 +3,12 @@
 namespace Tests\Unit\Bracket;
 
 use App\Data\Competition\GroupQualifierData;
+use App\Models\Competition;
 use App\Models\Game;
+use App\Models\Group;
 use App\Models\Player;
 use App\Support\Bracket\GroupQualifiersCollector;
+use App\Support\Competition\ResolveSinglesEntryForPlayer;
 use Illuminate\Validation\ValidationException;
 use Tests\Support\TournamentTestContext;
 use Tests\TestCase;
@@ -49,6 +52,9 @@ class GroupQualifiersCollectorTest extends TestCase
         $this->assertSame('Jugador1 Test', $groupAFirst->playerName);
         $this->assertSame(1, $groupAFirst->won);
         $this->assertSame(0, $groupAFirst->lost);
+
+        $entryOne = app(ResolveSinglesEntryForPlayer::class)($setup['competition'], $setup['playerOne']->id);
+        $this->assertSame($entryOne->id, $groupAFirst->competitionEntryId);
 
         $groupASecond = $groupAQualifiers[1];
         $this->assertSame($setup['groupA']->id, $groupASecond->groupId);
@@ -186,8 +192,8 @@ class GroupQualifiersCollectorTest extends TestCase
 
     /**
      * @return array{
-     *     competition: \App\Models\Competition,
-     *     group: \App\Models\Group,
+     *     competition: Competition,
+     *     group: Group,
      *     players: array<int, Player>
      * }
      */

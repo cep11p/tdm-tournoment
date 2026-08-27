@@ -2,15 +2,15 @@
 
 namespace App\Actions\Group;
 
-use App\Enums\ManualTiebreakReason;
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
+use App\Enums\ManualTiebreakReason;
 use App\Models\Group;
 use App\Models\GroupManualTiebreak;
-use App\Models\GroupManualTiebreakPlayer;
-use App\Models\Player;
+use App\Models\GroupManualTiebreakEntry;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
+use App\Support\Competition\BuildSinglesEntryIndexForGroup;
 use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Group\GroupStandingsCalculator;
 use App\Support\Tournament\TournamentLifecycleGuard;
@@ -21,6 +21,7 @@ final class ApplyGroupManualTiebreakAction
 {
     public function __construct(
         private readonly GroupStandingsCalculator $groupStandingsCalculator,
+        private readonly BuildSinglesEntryIndexForGroup $buildSinglesEntryIndexForGroup,
         private readonly AuditLogger $auditLogger,
     ) {}
 
@@ -54,21 +55,23 @@ final class ApplyGroupManualTiebreakAction
             ]);
         }
 
-        $groupPlayerIds = $group->groupPlayers()
-            ->pluck('player_id')
-            ->map(fn (int $playerId): int => (int) $playerId)
-            ->all();
+        $index = ($this->buildSinglesEntryIndexForGroup)($group);
+        $entryIds = [];
 
-        $invalidPlayers = array_diff($playerIds, $groupPlayerIds);
+        foreach ($playerIds as $playerId) {
+            $entryId = $index->entryIdForPlayer($playerId);
 
-        if ($invalidPlayers !== []) {
-            throw ValidationException::withMessages([
-                'player_ids' => ['Uno o más jugadores no pertenecen al grupo.'],
-            ]);
+            if ($entryId === null) {
+                throw ValidationException::withMessages([
+                    'player_ids' => ['Uno o más jugadores no pertenecen al grupo.'],
+                ]);
+            }
+
+            $entryIds[] = $entryId;
         }
 
         $automaticResult = $this->groupStandingsCalculator->calculateAutomaticOnly($group);
-        $pendingGroups = $automaticResult->manualTiebreakGroups;
+        $pendingGroups = $automaticResult->pendingManualTieEntryGroups;
 
         if ($pendingGroups === []) {
             throw ValidationException::withMessages([
@@ -76,17 +79,26 @@ final class ApplyGroupManualTiebreakAction
             ]);
         }
 
-        if (! $this->matchesPendingGroup($playerIds, $pendingGroups)) {
+        if (! $this->matchesPendingGroup($entryIds, $pendingGroups)) {
             throw ValidationException::withMessages([
                 'player_ids' => ['Los jugadores enviados no coinciden con un empate pendiente actual.'],
             ]);
         }
 
-        $existingTiebreak = $this->findExistingTiebreak($group, $playerIds);
-        $oldOrderedPlayerIds = $existingTiebreak?->orderedPlayerIds() ?? [];
+        $existingTiebreak = $this->findExistingTiebreak($group, $entryIds);
+        $oldOrderedPlayerIds = $existingTiebreak instanceof GroupManualTiebreak
+            ? $index->playerIdsForEntries($existingTiebreak->orderedCompetitionEntryIds())
+            : [];
 
-        return DB::transaction(function () use ($group, $playerIds, $payload, $oldOrderedPlayerIds): GroupManualTiebreak {
-            $existingTiebreak = $this->findExistingTiebreak($group, $playerIds);
+        return DB::transaction(function () use (
+            $group,
+            $playerIds,
+            $entryIds,
+            $payload,
+            $oldOrderedPlayerIds,
+            $index,
+        ): GroupManualTiebreak {
+            $existingTiebreak = $this->findExistingTiebreak($group, $entryIds);
 
             if ($existingTiebreak instanceof GroupManualTiebreak) {
                 $existingTiebreak->update([
@@ -95,7 +107,7 @@ final class ApplyGroupManualTiebreakAction
                     'applied_at' => now(),
                 ]);
 
-                $existingTiebreak->players()->delete();
+                $existingTiebreak->entries()->delete();
                 $tiebreak = $existingTiebreak;
             } else {
                 $tiebreak = GroupManualTiebreak::query()->create([
@@ -106,15 +118,15 @@ final class ApplyGroupManualTiebreakAction
                 ]);
             }
 
-            foreach ($playerIds as $index => $playerId) {
-                GroupManualTiebreakPlayer::query()->create([
+            foreach ($entryIds as $positionIndex => $entryId) {
+                GroupManualTiebreakEntry::query()->create([
                     'group_manual_tiebreak_id' => $tiebreak->id,
-                    'player_id' => $playerId,
-                    'position' => $index + 1,
+                    'competition_entry_id' => $entryId,
+                    'position' => $positionIndex + 1,
                 ]);
             }
 
-            $tiebreak->load(['players.player:id,first_name,last_name']);
+            $tiebreak->load(['entries.competitionEntry.members.player:id,first_name,last_name']);
 
             $oldPayload = $oldOrderedPlayerIds !== []
                 ? ['ordered_player_ids' => $oldOrderedPlayerIds]
@@ -132,14 +144,13 @@ final class ApplyGroupManualTiebreakAction
                 summary: [
                     'positions_affected' => range(1, count($playerIds)),
                     'players' => collect($playerIds)
-                        ->map(function (int $playerId) use ($tiebreak): array {
-                            $entry = $tiebreak->players->firstWhere('player_id', $playerId);
-                            $player = $entry?->player;
+                        ->map(function (int $playerId) use ($index): array {
+                            $entryId = $index->entryIdForPlayer($playerId);
 
                             return [
                                 'id' => $playerId,
-                                'name' => $player instanceof Player
-                                    ? trim(sprintf('%s %s', $player->first_name, $player->last_name))
+                                'name' => $entryId !== null
+                                    ? $index->playerNameForEntry($entryId)
                                     : '',
                             ];
                         })
@@ -154,15 +165,13 @@ final class ApplyGroupManualTiebreakAction
     }
 
     /**
-     * @param  array<int, int>  $playerIds
-     * @param  array<int, array{player_ids: array<int, int>, player_names: array<int, string>}>  $pendingGroups
+     * @param  array<int, int>  $entryIds
+     * @param  array<int, array<int, int>>  $pendingGroups
      */
-    private function matchesPendingGroup(array $playerIds, array $pendingGroups): bool
+    private function matchesPendingGroup(array $entryIds, array $pendingGroups): bool
     {
         foreach ($pendingGroups as $pendingGroup) {
-            $pendingIds = array_map('intval', $pendingGroup['player_ids'] ?? []);
-
-            if ($this->playerSetsMatch($playerIds, $pendingIds)) {
+            if ($this->entrySetsMatch($entryIds, $pendingGroup)) {
                 return true;
             }
         }
@@ -174,7 +183,7 @@ final class ApplyGroupManualTiebreakAction
      * @param  array<int, int>  $left
      * @param  array<int, int>  $right
      */
-    private function playerSetsMatch(array $left, array $right): bool
+    private function entrySetsMatch(array $left, array $right): bool
     {
         $leftSorted = array_map('intval', $left);
         $rightSorted = array_map('intval', $right);
@@ -185,16 +194,16 @@ final class ApplyGroupManualTiebreakAction
     }
 
     /**
-     * @param  array<int, int>  $playerIds
+     * @param  array<int, int>  $entryIds
      */
-    private function findExistingTiebreak(Group $group, array $playerIds): ?GroupManualTiebreak
+    private function findExistingTiebreak(Group $group, array $entryIds): ?GroupManualTiebreak
     {
         $tiebreaks = $group->manualTiebreaks()
-            ->with('players')
+            ->with('entries')
             ->get();
 
         foreach ($tiebreaks as $tiebreak) {
-            if ($this->playerSetsMatch($tiebreak->orderedPlayerIds(), $playerIds)) {
+            if ($this->entrySetsMatch($tiebreak->orderedCompetitionEntryIds(), $entryIds)) {
                 return $tiebreak;
             }
         }

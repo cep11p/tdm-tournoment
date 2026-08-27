@@ -5,13 +5,16 @@ namespace Tests\Feature\Game;
 use App\Enums\GameStatus;
 use App\Enums\TournamentStatus;
 use App\Models\Bracket;
+use App\Models\Competition;
 use App\Models\Game;
 use App\Models\GameSet;
+use App\Models\Group;
 use App\Models\GroupManualTiebreak;
-use App\Models\GroupManualTiebreakPlayer;
+use App\Models\GroupManualTiebreakEntry;
 use App\Models\Player;
-use App\Models\User;
+use App\Support\Competition\ResolveSinglesEntryForPlayer;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Spatie\Activitylog\Models\Activity;
 use Tests\Support\TournamentTestContext;
 use Tests\TestCase;
@@ -340,15 +343,20 @@ class CorrectFinishedGameResultTest extends TestCase
             'applied_at' => now(),
         ]);
 
-        GroupManualTiebreakPlayer::query()->create([
+        $resolveEntry = app(ResolveSinglesEntryForPlayer::class);
+        $group->loadMissing('competition');
+        $entryA = ($resolveEntry)($group->competition, $playerA->id);
+        $entryB = ($resolveEntry)($group->competition, $playerB->id);
+
+        GroupManualTiebreakEntry::query()->create([
             'group_manual_tiebreak_id' => $staleTiebreak->id,
-            'player_id' => $playerA->id,
+            'competition_entry_id' => $entryA->id,
             'position' => 1,
         ]);
 
-        GroupManualTiebreakPlayer::query()->create([
+        GroupManualTiebreakEntry::query()->create([
             'group_manual_tiebreak_id' => $staleTiebreak->id,
-            'player_id' => $playerB->id,
+            'competition_entry_id' => $entryB->id,
             'position' => 2,
         ]);
 
@@ -789,11 +797,11 @@ class CorrectFinishedGameResultTest extends TestCase
 
     /**
      * @return array{
-     *     competition: \App\Models\Competition,
+     *     competition: Competition,
      *     bracket: Bracket,
      *     players: array<int, Player>,
-     *     quarterfinals: \Illuminate\Support\Collection<int, Game>,
-     *     semifinals: \Illuminate\Support\Collection<int, Game>,
+     *     quarterfinals: Collection<int, Game>,
+     *     semifinals: Collection<int, Game>,
      * }
      */
     private function createQuarterfinalWithSemifinalPending(TournamentTestContext $context): array
@@ -860,7 +868,7 @@ class CorrectFinishedGameResultTest extends TestCase
 
     /**
      * @return array{
-     *     competition: \App\Models\Competition,
+     *     competition: Competition,
      *     playerOne: Player,
      *     playerTwo: Player,
      *     game: Game,
@@ -877,8 +885,8 @@ class CorrectFinishedGameResultTest extends TestCase
 
     /**
      * @return array{
-     *     competition: \App\Models\Competition,
-     *     group: \App\Models\Group,
+     *     competition: Competition,
+     *     group: Group,
      *     players: array<int, Player>
      * }
      */

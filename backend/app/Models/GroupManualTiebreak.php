@@ -24,23 +24,23 @@ class GroupManualTiebreak extends Model
         return $this->belongsTo(Group::class);
     }
 
-    public function players(): HasMany
+    public function entries(): HasMany
     {
-        return $this->hasMany(GroupManualTiebreakPlayer::class)->orderBy('position');
+        return $this->hasMany(GroupManualTiebreakEntry::class)->orderBy('position');
     }
 
     /**
      * @return array<int, int>
      */
-    public function orderedPlayerIds(): array
+    public function orderedCompetitionEntryIds(): array
     {
-        $players = $this->relationLoaded('players')
-            ? $this->players
-            : $this->players()->orderBy('position')->get();
+        $entries = $this->relationLoaded('entries')
+            ? $this->entries
+            : $this->entries()->orderBy('position')->get();
 
-        return $players
-            ->pluck('player_id')
-            ->map(fn (int $playerId): int => (int) $playerId)
+        return $entries
+            ->pluck('competition_entry_id')
+            ->map(fn (int $entryId): int => (int) $entryId)
             ->all();
     }
 }

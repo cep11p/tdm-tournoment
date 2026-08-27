@@ -47,34 +47,34 @@ final class GroupBracketReadiness
 
         return self::manualTieCrossesQualifierCutoff(
             standings: $eligibleStandings,
-            manualTiebreakGroups: $standingsResult->manualTiebreakGroups,
+            pendingManualTieEntryGroups: $standingsResult->pendingManualTieEntryGroups,
             qualifierCutoff: $availableQualifiers,
         );
     }
 
     /**
      * @param  Collection<int, CompetitionStandingData>  $standings
-     * @param  array<int, array{player_ids: array<int, int>, player_names: array<int, string>}>  $manualTiebreakGroups
+     * @param  array<int, array<int, int>>  $pendingManualTieEntryGroups
      */
     public static function manualTieCrossesQualifierCutoff(
         Collection $standings,
-        array $manualTiebreakGroups,
+        array $pendingManualTieEntryGroups,
         int $qualifierCutoff,
     ): bool {
         if ($qualifierCutoff <= 0) {
             return false;
         }
 
-        $positionByPlayerId = $standings
+        $positionByEntryId = $standings
             ->values()
             ->mapWithKeys(fn (CompetitionStandingData $standing, int $index): array => [
-                $standing->playerId => $index,
+                (int) $standing->competitionEntryId => $index,
             ])
             ->all();
 
-        foreach ($manualTiebreakGroups as $manualTiebreakGroup) {
-            $positions = collect($manualTiebreakGroup['player_ids'] ?? [])
-                ->map(fn (int $playerId): ?int => $positionByPlayerId[$playerId] ?? null)
+        foreach ($pendingManualTieEntryGroups as $entryIds) {
+            $positions = collect($entryIds)
+                ->map(fn (int $entryId): ?int => $positionByEntryId[$entryId] ?? null)
                 ->filter(fn (?int $position): bool => $position !== null)
                 ->values();
 

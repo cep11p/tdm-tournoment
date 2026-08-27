@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class GroupManualTiebreakPlayer extends Model
+class GroupManualTiebreakEntry extends Model
 {
     protected $guarded = [];
 
@@ -21,8 +21,8 @@ class GroupManualTiebreakPlayer extends Model
         return $this->belongsTo(GroupManualTiebreak::class, 'group_manual_tiebreak_id');
     }
 
-    public function player(): BelongsTo
+    public function competitionEntry(): BelongsTo
     {
-        return $this->belongsTo(Player::class);
+        return $this->belongsTo(CompetitionEntry::class);
     }
 }

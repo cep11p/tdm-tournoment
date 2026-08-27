@@ -72,9 +72,4 @@ class Player extends Model
     {
         return $this->hasMany(Game::class, 'winner_id');
     }
-
-    public function manualTiebreakPlayers(): HasMany
-    {
-        return $this->hasMany(GroupManualTiebreakPlayer::class);
-    }
 }
