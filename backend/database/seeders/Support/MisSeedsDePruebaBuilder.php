@@ -17,9 +17,9 @@ use App\Enums\TournamentStatus;
 use App\Models\Competition;
 use App\Models\Game;
 use App\Models\Group;
-use App\Models\GroupPlayer;
+use App\Models\CompetitionEntryMember;
+use App\Models\GroupEntry;
 use App\Models\Player;
-use App\Models\Registration;
 use App\Models\Tournament;
 use Illuminate\Console\Command;
 
@@ -517,7 +517,7 @@ final class MisSeedsDePruebaBuilder
         foreach ($playerNames as $fullName) {
             $player = $this->playersByFullName[$fullName];
 
-            $alreadyRegistered = Registration::query()
+            $alreadyRegistered = CompetitionEntryMember::query()
                 ->where('competition_id', $competition->id)
                 ->where('player_id', $player->id)
                 ->exists();
@@ -623,18 +623,27 @@ final class MisSeedsDePruebaBuilder
         Player $player,
         AssignPlayerToGroupAction $assignPlayer,
     ): bool {
-        $alreadyAssignedToThisGroup = GroupPlayer::query()
-            ->where('group_id', $group->id)
+        $entryId = CompetitionEntryMember::query()
+            ->where('competition_id', $competition->id)
             ->where('player_id', $player->id)
+            ->value('competition_entry_id');
+
+        if ($entryId === null) {
+            return false;
+        }
+
+        $alreadyAssignedToThisGroup = GroupEntry::query()
+            ->where('group_id', $group->id)
+            ->where('competition_entry_id', $entryId)
             ->exists();
 
         if ($alreadyAssignedToThisGroup) {
             return false;
         }
 
-        $alreadyAssignedInCompetition = GroupPlayer::query()
-            ->where('player_id', $player->id)
-            ->whereHas('group', fn ($query) => $query->where('competition_id', $competition->id))
+        $alreadyAssignedInCompetition = GroupEntry::query()
+            ->where('competition_id', $competition->id)
+            ->where('competition_entry_id', $entryId)
             ->exists();
 
         if ($alreadyAssignedInCompetition) {

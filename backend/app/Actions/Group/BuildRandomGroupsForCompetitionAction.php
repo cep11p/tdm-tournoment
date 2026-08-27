@@ -86,7 +86,7 @@ final class BuildRandomGroupsForCompetitionAction
         $createdGroups = Group::query()
             ->whereIn('id', $groups->pluck('id'))
             ->with([
-                'groupPlayers.player:id,first_name,last_name,nickname',
+                'groupEntries.competitionEntry.members.player:id,first_name,last_name,nickname',
             ])
             ->orderBy('id')
             ->get();
@@ -95,7 +95,7 @@ final class BuildRandomGroupsForCompetitionAction
 
         foreach ($createdGroups as $group) {
             // Defensa de dominio: no debería alcanzarse tras validar la distribución.
-            if ($group->groupPlayers->count() < 2) {
+            if ($group->groupEntries->count() < 2) {
                 continue;
             }
 

@@ -45,7 +45,7 @@ final class TournamentClosureGuard
 
         /** @var Collection<int, Competition> $competitions */
         $competitions = $tournament->competitions()
-            ->withCount(['registrations', 'games'])
+            ->withCount(['entries as registrations_count', 'games'])
             ->orderBy('id')
             ->get();
 
@@ -147,7 +147,7 @@ final class TournamentClosureGuard
 
         /** @var Collection<int, Competition> $competitions */
         $competitions = $tournament->competitions()
-            ->withCount(['registrations', 'games'])
+            ->withCount(['entries as registrations_count', 'games'])
             ->orderBy('id')
             ->get();
 

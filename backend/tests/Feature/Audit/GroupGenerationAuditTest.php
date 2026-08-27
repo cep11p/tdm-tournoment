@@ -6,7 +6,7 @@ use App\Actions\Group\GenerateRandomGroupsForCompetitionAction;
 use App\Enums\AuditAction;
 use App\Models\Competition;
 use App\Models\Group;
-use App\Models\GroupPlayer;
+use App\Models\GroupEntry;
 use RuntimeException;
 use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Models\Activity;
@@ -86,7 +86,7 @@ class GroupGenerationAuditTest extends TestCase
         $context->registerPlayers($competition, $players);
 
         $groupsBefore = Group::query()->count();
-        $groupPlayersBefore = GroupPlayer::query()->count();
+        $groupPlayersBefore = GroupEntry::query()->count();
         $activityBefore = Activity::query()->count();
 
         try {
@@ -100,7 +100,7 @@ class GroupGenerationAuditTest extends TestCase
         }
 
         $this->assertSame($groupsBefore, Group::query()->count());
-        $this->assertSame($groupPlayersBefore, GroupPlayer::query()->count());
+        $this->assertSame($groupPlayersBefore, GroupEntry::query()->count());
         $this->assertSame($activityBefore, Activity::query()->count());
     }
 }

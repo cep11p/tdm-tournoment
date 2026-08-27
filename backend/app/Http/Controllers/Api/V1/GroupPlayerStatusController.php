@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Actions\Group\SetGroupPlayerStatusAction;
+use App\Actions\Group\SetGroupEntryStatusAction;
 use App\Enums\GroupPlayerStatus;
 use App\Enums\GroupPlayerStatusReason;
 use App\Http\Controllers\Controller;
@@ -17,18 +17,18 @@ class GroupPlayerStatusController extends Controller
     public function store(
         SetGroupPlayerStatusRequest $request,
         Group $group,
-        SetGroupPlayerStatusAction $setGroupPlayerStatus,
+        SetGroupEntryStatusAction $setGroupEntryStatus,
     ): JsonResponse {
         $reason = $request->validated('reason');
 
-        $groupPlayer = $setGroupPlayerStatus($group, [
+        $groupEntry = $setGroupEntryStatus($group, [
             'player_id' => (int) $request->validated('player_id'),
             'status' => GroupPlayerStatus::from($request->validated('status')),
             'reason' => $reason !== null ? GroupPlayerStatusReason::from($reason) : null,
             'notes' => $request->validated('notes'),
         ]);
 
-        return (new GroupPlayerResource($groupPlayer))
+        return (new GroupPlayerResource($groupEntry))
             ->response()
             ->setStatusCode(Response::HTTP_CREATED);
     }

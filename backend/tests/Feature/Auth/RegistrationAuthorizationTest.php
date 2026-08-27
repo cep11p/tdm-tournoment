@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
-use App\Support\Competition\RegistrationGuard;
+use App\Support\Competition\CompetitionEntryGuard;
 use Tests\TestCase;
 
 class RegistrationAuthorizationTest extends TestCase
@@ -107,6 +107,6 @@ class RegistrationAuthorizationTest extends TestCase
         $context->registerPlayerViaApi($competition, $newPlayer)
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['competition'])
-            ->assertJsonPath('errors.competition.0', RegistrationGuard::LOCK_MESSAGE);
+            ->assertJsonPath('errors.competition.0', CompetitionEntryGuard::LOCK_MESSAGE);
     }
 }

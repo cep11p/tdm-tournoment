@@ -3,7 +3,7 @@
 namespace Tests\Feature\Registration;
 
 use App\Support\Competition\CompetitionStructureGuard;
-use App\Support\Competition\RegistrationGuard;
+use App\Support\Competition\CompetitionEntryGuard;
 use App\Models\Game;
 use Tests\TestCase;
 
@@ -31,7 +31,7 @@ class RegistrationConstraintsTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['player_id']);
 
-        $this->assertDatabaseCount('registrations', 1);
+        $this->assertDatabaseCount('competition_entries', 1);
     }
 
     public function test_rejects_manual_game_with_unregistered_player(): void
@@ -71,9 +71,9 @@ class RegistrationConstraintsTest extends TestCase
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['competition'])
-            ->assertJsonPath('errors.competition.0', RegistrationGuard::LOCK_MESSAGE);
+            ->assertJsonPath('errors.competition.0', CompetitionEntryGuard::LOCK_MESSAGE);
 
-        $this->assertDatabaseCount('registrations', 3);
+        $this->assertDatabaseCount('competition_entries', 3);
     }
 
     public function test_allows_registration_before_bracket_is_generated(): void
@@ -88,7 +88,7 @@ class RegistrationConstraintsTest extends TestCase
         );
 
         $response->assertCreated();
-        $this->assertDatabaseCount('registrations', 3);
+        $this->assertDatabaseCount('competition_entries', 3);
     }
 
     public function test_bracket_lock_message_takes_priority_over_structure_lock(): void
@@ -117,7 +117,7 @@ class RegistrationConstraintsTest extends TestCase
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['competition'])
-            ->assertJsonPath('errors.competition.0', RegistrationGuard::LOCK_MESSAGE);
+            ->assertJsonPath('errors.competition.0', CompetitionEntryGuard::LOCK_MESSAGE);
     }
 
     public function test_rejects_registration_when_games_are_in_progress(): void

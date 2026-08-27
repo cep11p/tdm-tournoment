@@ -7,6 +7,7 @@ use App\Enums\GameStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CompetitionStanding\CompetitionStandingResource;
 use App\Models\Competition;
+use App\Models\CompetitionEntry;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Collection;
 
@@ -14,11 +15,11 @@ class CompetitionStandingsController extends Controller
 {
     public function index(Competition $competition): AnonymousResourceCollection
     {
-        $registrations = $competition->registrations()
-            ->with('player:id,first_name,last_name')
+        $entries = $competition->entries()
+            ->with(['members.player:id,first_name,last_name'])
             ->get();
 
-        $statsByPlayer = $this->initializeStats($registrations);
+        $statsByPlayer = $this->initializeStats($entries);
 
         $finishedGames = $competition->games()
             ->select(['entry1_id', 'entry2_id', 'winner_entry_id'])
@@ -47,14 +48,15 @@ class CompetitionStandingsController extends Controller
             }
         }
 
-        $standings = $registrations
-            ->map(function ($registration) use ($statsByPlayer): CompetitionStandingData {
-                $playerId = (int) $registration->player_id;
+        $standings = $entries
+            ->map(function (CompetitionEntry $entry) use ($statsByPlayer): CompetitionStandingData {
+                $playerId = (int) ($entry->singlesPlayerId() ?? 0);
                 $stats = $statsByPlayer[$playerId] ?? ['won' => 0, 'lost' => 0];
+                $player = $entry->singlesPlayer();
                 $playerName = trim(sprintf(
                     '%s %s',
-                    (string) $registration->player?->first_name,
-                    (string) $registration->player?->last_name
+                    (string) $player?->first_name,
+                    (string) $player?->last_name
                 ));
 
                 return new CompetitionStandingData(
@@ -75,14 +77,21 @@ class CompetitionStandingsController extends Controller
     }
 
     /**
+     * @param  Collection<int, CompetitionEntry>  $entries
      * @return array<int, array{won: int, lost: int}>
      */
-    private function initializeStats(Collection $registrations): array
+    private function initializeStats(Collection $entries): array
     {
         $stats = [];
 
-        foreach ($registrations as $registration) {
-            $stats[(int) $registration->player_id] = [
+        foreach ($entries as $entry) {
+            $playerId = (int) ($entry->singlesPlayerId() ?? 0);
+
+            if ($playerId <= 0) {
+                continue;
+            }
+
+            $stats[$playerId] = [
                 'won' => 0,
                 'lost' => 0,
             ];

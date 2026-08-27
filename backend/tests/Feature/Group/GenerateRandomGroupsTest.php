@@ -6,7 +6,7 @@ use App\Enums\GameStatus;
 use App\Models\Bracket;
 use App\Models\Game;
 use App\Models\Group;
-use App\Models\GroupPlayer;
+use App\Models\GroupEntry;
 use App\Support\Group\RandomGroupDistributionGuard;
 use Tests\TestCase;
 
@@ -31,9 +31,9 @@ class GenerateRandomGroupsTest extends TestCase
             ->assertJsonCount(5, 'groups');
 
         $this->assertDatabaseCount('groups', 5);
-        $this->assertDatabaseCount('group_players', 20);
+        $this->assertDatabaseCount('group_entries', 20);
 
-        $playersPerGroup = GroupPlayer::query()
+        $playersPerGroup = GroupEntry::query()
             ->selectRaw('group_id, count(*) as total')
             ->groupBy('group_id')
             ->pluck('total')
@@ -60,7 +60,7 @@ class GenerateRandomGroupsTest extends TestCase
                 'players_assigned' => 14,
             ]);
 
-        $playersPerGroup = GroupPlayer::query()
+        $playersPerGroup = GroupEntry::query()
             ->selectRaw('group_id, count(*) as total')
             ->groupBy('group_id')
             ->pluck('total')
@@ -204,7 +204,7 @@ class GenerateRandomGroupsTest extends TestCase
             );
 
         $this->assertDatabaseCount('groups', 0);
-        $this->assertDatabaseCount('group_players', 0);
+        $this->assertDatabaseCount('group_entries', 0);
         $this->assertDatabaseCount('games', 0);
     }
 
@@ -239,7 +239,7 @@ class GenerateRandomGroupsTest extends TestCase
                 'games_created' => 5,
             ]);
 
-        $playersPerGroup = GroupPlayer::query()
+        $playersPerGroup = GroupEntry::query()
             ->selectRaw('group_id, count(*) as total')
             ->groupBy('group_id')
             ->pluck('total')
@@ -261,7 +261,7 @@ class GenerateRandomGroupsTest extends TestCase
 
         $response->assertCreated();
 
-        $singlePlayerGroups = GroupPlayer::query()
+        $singlePlayerGroups = GroupEntry::query()
             ->selectRaw('group_id, count(*) as total')
             ->groupBy('group_id')
             ->having('total', '<', 2)
@@ -309,9 +309,13 @@ class GenerateRandomGroupsTest extends TestCase
 
         $context->generateRandomGroups($competition, groupsCount: 2)->assertCreated();
 
-        $assignedPlayerIds = GroupPlayer::query()
+        $assignedPlayerIds = GroupEntry::query()
             ->whereHas('group', fn ($query) => $query->where('competition_id', $competition->id))
-            ->pluck('player_id')
+            ->with('competitionEntry.members')
+            ->get()
+            ->map(fn (GroupEntry $groupEntry) => $groupEntry->competitionEntry?->singlesPlayerId())
+            ->filter()
+            ->map(fn ($playerId) => (int) $playerId)
             ->sort()
             ->values()
             ->all();

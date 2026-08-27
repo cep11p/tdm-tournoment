@@ -3,6 +3,7 @@
 namespace Tests\Feature\Bracket;
 
 use App\Models\Game;
+use App\Models\GroupEntry;
 use App\Models\Player;
 use Tests\TestCase;
 
@@ -49,7 +50,13 @@ class BracketByeFlowTest extends TestCase
 
         foreach ($groups as $group) {
             $context->generateRoundRobin($group)->assertCreated();
-            $groupPlayers = $group->groupPlayers()->with('player')->get()->pluck('player')->all();
+            $groupPlayers = $group->groupEntries()
+                ->with('competitionEntry.members.player')
+                ->get()
+                ->map(fn (GroupEntry $groupEntry) => $groupEntry->competitionEntry?->singlesPlayer())
+                ->filter()
+                ->values()
+                ->all();
             $this->finishGroupRoundRobinWithRankOrder($group->id, $groupPlayers);
         }
 
@@ -125,7 +132,13 @@ class BracketByeFlowTest extends TestCase
 
         foreach ($groups as $group) {
             $context->generateRoundRobin($group)->assertCreated();
-            $groupPlayers = $group->groupPlayers()->with('player')->get()->pluck('player')->all();
+            $groupPlayers = $group->groupEntries()
+                ->with('competitionEntry.members.player')
+                ->get()
+                ->map(fn (GroupEntry $groupEntry) => $groupEntry->competitionEntry?->singlesPlayer())
+                ->filter()
+                ->values()
+                ->all();
             $this->finishGroupRoundRobinWithRankOrder($group->id, $groupPlayers);
         }
 

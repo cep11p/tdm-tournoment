@@ -3,6 +3,7 @@
 namespace App\Http\Resources\GroupPlayer;
 
 use App\Enums\GroupPlayerStatus;
+use App\Models\GroupEntry;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -10,13 +11,15 @@ class GroupPlayerResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $player = $this->whenLoaded('player');
-        $status = $this->status ?? GroupPlayerStatus::Active;
+        /** @var GroupEntry $groupEntry */
+        $groupEntry = $this->resource;
+        $player = $groupEntry->competitionEntry?->singlesPlayer();
+        $status = $groupEntry->status ?? GroupPlayerStatus::Active;
 
         return [
-            'id' => $this->id,
-            'group_id' => $this->group_id,
-            'player_id' => $this->player_id,
+            'id' => $groupEntry->id,
+            'group_id' => $groupEntry->group_id,
+            'player_id' => $player?->id,
             'player_name' => trim(sprintf(
                 '%s %s',
                 (string) $player?->first_name,
@@ -29,11 +32,11 @@ class GroupPlayerResource extends JsonResource
                 'nickname' => $player?->nickname,
             ],
             'status' => $status->value,
-            'status_reason' => $this->status_reason?->value,
-            'status_notes' => $this->status_notes,
-            'status_changed_at' => $this->status_changed_at?->toIso8601String(),
-            'created_at' => optional($this->created_at)->toISOString(),
-            'updated_at' => optional($this->updated_at)->toISOString(),
+            'status_reason' => $groupEntry->status_reason?->value,
+            'status_notes' => $groupEntry->status_notes,
+            'status_changed_at' => $groupEntry->status_changed_at?->toIso8601String(),
+            'created_at' => optional($groupEntry->created_at)->toISOString(),
+            'updated_at' => optional($groupEntry->updated_at)->toISOString(),
         ];
     }
 }

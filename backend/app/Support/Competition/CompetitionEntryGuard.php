@@ -5,7 +5,7 @@ namespace App\Support\Competition;
 use App\Models\Competition;
 use Illuminate\Validation\ValidationException;
 
-final class RegistrationGuard
+final class CompetitionEntryGuard
 {
     public const LOCK_MESSAGE = 'No se pueden modificar las inscripciones porque la llave eliminatoria ya fue generada.';
 

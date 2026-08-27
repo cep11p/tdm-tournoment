@@ -51,11 +51,6 @@ class Competition extends Model
         return $this->belongsTo(Category::class, 'category_id');
     }
 
-    public function registrations(): HasMany
-    {
-        return $this->hasMany(Registration::class);
-    }
-
     public function entries(): HasMany
     {
         return $this->hasMany(CompetitionEntry::class);

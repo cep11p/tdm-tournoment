@@ -51,9 +51,7 @@ final class DeletePlayerAction
 
     private function hasAssociatedHistory(Player $player): bool
     {
-        return $player->registrations()->exists()
-            || $player->groupPlayers()->exists()
-            || $player->competitionEntryMembers()->exists()
+        return $player->competitionEntryMembers()->exists()
             || GroupManualTiebreakEntry::query()
                 ->whereIn(
                     'competition_entry_id',

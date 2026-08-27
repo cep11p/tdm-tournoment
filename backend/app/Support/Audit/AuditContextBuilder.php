@@ -7,7 +7,7 @@ use App\Models\Competition;
 use App\Models\Game;
 use App\Models\Group;
 use App\Models\Player;
-use App\Models\Registration;
+use App\Models\CompetitionEntry;
 use App\Models\Tournament;
 
 final class AuditContextBuilder
@@ -40,14 +40,15 @@ final class AuditContextBuilder
     public static function fromRegistrationContext(
         Competition $competition,
         Player $player,
-        ?Registration $registration = null,
+        ?CompetitionEntry $entry = null,
     ): array {
         $competition->loadMissing('tournament');
 
         $context = self::fromCompetition($competition);
 
         return array_merge($context, [
-            'registration_id' => $registration?->id,
+            'registration_id' => $entry?->id,
+            'competition_entry_id' => $entry?->id,
             'player_id' => $player->id,
             'player_name' => self::playerDisplayName($player),
         ]);

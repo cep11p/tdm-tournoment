@@ -19,9 +19,9 @@ use App\Enums\TournamentStatus;
 use App\Models\Competition;
 use App\Models\Game;
 use App\Models\Group;
-use App\Models\GroupPlayer;
+use App\Models\CompetitionEntryMember;
+use App\Models\GroupEntry;
 use App\Models\Player;
-use App\Models\Registration;
 use App\Models\Tournament;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Collection;
@@ -272,7 +272,7 @@ class CompletedTournamentSeeder extends Seeder
         RegisterPlayerToCompetitionAction $registerPlayer
     ): void {
         foreach ($playersByName as $player) {
-            $alreadyRegistered = Registration::query()
+            $alreadyRegistered = CompetitionEntryMember::query()
                 ->where('competition_id', $competition->id)
                 ->where('player_id', $player->id)
                 ->exists();
@@ -322,18 +322,27 @@ class CompletedTournamentSeeder extends Seeder
         AssignPlayerToGroupAction $assignPlayer
     ): void {
         foreach ($players as $player) {
-            $alreadyAssignedToThisGroup = GroupPlayer::query()
-                ->where('group_id', $group->id)
+            $entryId = CompetitionEntryMember::query()
+                ->where('competition_id', $competition->id)
                 ->where('player_id', $player->id)
+                ->value('competition_entry_id');
+
+            if ($entryId === null) {
+                continue;
+            }
+
+            $alreadyAssignedToThisGroup = GroupEntry::query()
+                ->where('group_id', $group->id)
+                ->where('competition_entry_id', $entryId)
                 ->exists();
 
             if ($alreadyAssignedToThisGroup) {
                 continue;
             }
 
-            $alreadyAssignedInCompetition = GroupPlayer::query()
-                ->where('player_id', $player->id)
-                ->whereHas('group', fn ($query) => $query->where('competition_id', $competition->id))
+            $alreadyAssignedInCompetition = GroupEntry::query()
+                ->where('competition_id', $competition->id)
+                ->where('competition_entry_id', $entryId)
                 ->exists();
 
             if (! $alreadyAssignedInCompetition) {

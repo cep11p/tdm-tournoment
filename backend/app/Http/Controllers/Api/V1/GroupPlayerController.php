@@ -15,12 +15,12 @@ class GroupPlayerController extends Controller
 {
     public function index(Group $group): AnonymousResourceCollection
     {
-        $groupPlayers = $group->groupPlayers()
-            ->with('player:id,first_name,last_name,nickname')
+        $groupEntries = $group->groupEntries()
+            ->with(['competitionEntry.members.player:id,first_name,last_name,nickname'])
             ->latest('id')
             ->get();
 
-        return GroupPlayerResource::collection($groupPlayers);
+        return GroupPlayerResource::collection($groupEntries);
     }
 
     public function store(
@@ -28,12 +28,14 @@ class GroupPlayerController extends Controller
         Group $group,
         AssignPlayerToGroupAction $assignPlayer
     ): JsonResponse {
-        $groupPlayer = $assignPlayer([
+        $groupEntry = $assignPlayer([
             'group_id' => $group->id,
             'player_id' => $request->validated('player_id'),
-        ])->load('player:id,first_name,last_name,nickname');
+        ])->load([
+            'competitionEntry.members.player:id,first_name,last_name,nickname',
+        ]);
 
-        return (new GroupPlayerResource($groupPlayer))
+        return (new GroupPlayerResource($groupEntry))
             ->response()
             ->setStatusCode(Response::HTTP_CREATED);
     }

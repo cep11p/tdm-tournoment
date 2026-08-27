@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\GroupPlayer;
 
-use App\Rules\Registration\PlayerIsRegisteredInCompetitionRule;
+use App\Rules\CompetitionEntry\PlayerHasCompetitionEntryRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreGroupPlayerRequest extends FormRequest
@@ -22,7 +22,7 @@ class StoreGroupPlayerRequest extends FormRequest
                 'required',
                 'integer',
                 'exists:players,id',
-                new PlayerIsRegisteredInCompetitionRule($group?->competition),
+                new PlayerHasCompetitionEntryRule($group?->competition),
             ],
         ];
     }

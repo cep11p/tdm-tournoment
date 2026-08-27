@@ -18,11 +18,6 @@ class Group extends Model
         return $this->belongsTo(Competition::class);
     }
 
-    public function groupPlayers(): HasMany
-    {
-        return $this->hasMany(GroupPlayer::class);
-    }
-
     public function groupEntries(): HasMany
     {
         return $this->hasMany(GroupEntry::class);

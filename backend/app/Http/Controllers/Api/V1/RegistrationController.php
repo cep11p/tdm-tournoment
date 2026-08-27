@@ -17,12 +17,12 @@ class RegistrationController extends Controller
 {
     public function index(Competition $competition): AnonymousResourceCollection
     {
-        $registrations = $competition->registrations()
-            ->with('player:id,first_name,last_name,nickname')
+        $entries = $competition->entries()
+            ->with(['members.player:id,first_name,last_name,nickname'])
             ->latest('id')
             ->get();
 
-        return RegistrationResource::collection($registrations);
+        return RegistrationResource::collection($entries);
     }
 
     public function store(
@@ -30,12 +30,12 @@ class RegistrationController extends Controller
         Competition $competition,
         RegisterPlayerToCompetitionAction $registerPlayer
     ): JsonResponse {
-        $registration = $registerPlayer([
+        $entry = $registerPlayer([
             ...$request->validated(),
             'competition_id' => $competition->id,
-        ])->load('player:id,first_name,last_name,nickname');
+        ])->load(['members.player:id,first_name,last_name,nickname']);
 
-        return (new RegistrationResource($registration))
+        return (new RegistrationResource($entry))
             ->response()
             ->setStatusCode(Response::HTTP_CREATED);
     }

@@ -4,7 +4,7 @@ namespace Tests\Support;
 
 use App\Actions\Game\CreateGameAction;
 use App\Actions\Group\PersistGroupEntryAction;
-use App\Actions\Registration\PersistRegistrationAction;
+use App\Actions\CompetitionEntry\PersistCompetitionEntryAction;
 use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
 use App\Enums\TournamentStatus;
@@ -15,7 +15,7 @@ use App\Models\Game;
 use App\Models\Group;
 use App\Support\Competition\ResolveSinglesEntryForPlayer;
 use App\Models\Player;
-use App\Models\Registration;
+use App\Models\CompetitionEntry;
 use App\Models\Tournament;
 use Illuminate\Foundation\Testing\TestCase;
 use Illuminate\Support\Carbon;
@@ -87,11 +87,11 @@ final class TournamentTestContext
         return $players;
     }
 
-    public function registerPlayer(Competition $competition, Player $player): Registration
+    public function registerPlayer(Competition $competition, Player $player): CompetitionEntry
     {
-        $persistRegistration = app(PersistRegistrationAction::class);
+        $persistCompetitionEntry = app(PersistCompetitionEntryAction::class);
 
-        return $persistRegistration([
+        return $persistCompetitionEntry([
             'competition_id' => $competition->id,
             'player_id' => $player->id,
         ]);

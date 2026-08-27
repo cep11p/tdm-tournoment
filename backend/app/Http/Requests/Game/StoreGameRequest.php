@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests\Game;
 
-use App\Rules\Registration\PlayerIsRegisteredInCompetitionRule;
+use App\Rules\CompetitionEntry\PlayerHasCompetitionEntryRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreGameRequest extends FormRequest
@@ -24,13 +24,13 @@ class StoreGameRequest extends FormRequest
                 'integer',
                 'exists:players,id',
                 'different:player2_id',
-                new PlayerIsRegisteredInCompetitionRule($competition),
+                new PlayerHasCompetitionEntryRule($competition),
             ],
             'player2_id' => [
                 'required',
                 'integer',
                 'exists:players,id',
-                new PlayerIsRegisteredInCompetitionRule($competition),
+                new PlayerHasCompetitionEntryRule($competition),
             ],
             'round' => ['nullable', 'string', 'max:255'],
             'table_number' => ['nullable', 'integer', 'min:1'],

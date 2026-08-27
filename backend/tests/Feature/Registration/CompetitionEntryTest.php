@@ -196,7 +196,7 @@ class CompetitionEntryTest extends TestCase
 
         $this->assertDatabaseCount('competition_entries', 1);
         $this->assertDatabaseCount('competition_entry_members', 1);
-        $this->assertDatabaseCount('registrations', 1);
+        $this->assertDatabaseCount('competition_entries', 1);
     }
 
     public function test_deleting_competition_cascades_entries_and_members(): void
@@ -222,7 +222,7 @@ class CompetitionEntryTest extends TestCase
 
         $this->assertDatabaseCount('competition_entries', 1);
         $this->assertDatabaseCount('competition_entry_members', 1);
-        $this->assertDatabaseCount('registrations', 1);
+        $this->assertDatabaseCount('competition_entries', 1);
 
         $member = CompetitionEntryMember::query()->sole();
 
@@ -255,6 +255,6 @@ class CompetitionEntryTest extends TestCase
         $this->assertTrue($threw);
         $this->assertDatabaseCount('competition_entries', 0);
         $this->assertDatabaseCount('competition_entry_members', 0);
-        $this->assertDatabaseCount('registrations', 0);
+        $this->assertDatabaseCount('competition_entries', 0);
     }
 }

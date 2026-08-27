@@ -182,7 +182,7 @@ class RegistrationAuditTest extends TestCase
         $competition = $context->createCompetition();
         [$player] = $context->createPlayers(1);
 
-        $registrationCountBefore = $competition->registrations()->count();
+        $entryCountBefore = $competition->entries()->count();
         $activityCountBefore = Activity::query()->count();
 
         try {
@@ -198,7 +198,7 @@ class RegistrationAuditTest extends TestCase
             // expected
         }
 
-        $this->assertSame($registrationCountBefore, $competition->fresh()->registrations()->count());
+        $this->assertSame($entryCountBefore, $competition->fresh()->entries()->count());
         $this->assertSame($activityCountBefore, Activity::query()->count());
     }
 }

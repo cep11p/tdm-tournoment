@@ -6,7 +6,8 @@ use App\Enums\GameStatus;
 use App\Enums\GroupPlayerStatus;
 use App\Models\Bracket;
 use App\Models\Game;
-use App\Models\GroupPlayer;
+use App\Models\CompetitionEntryMember;
+use App\Models\GroupEntry;
 use App\Models\Player;
 use Tests\Support\TournamentTestContext;
 use Tests\TestCase;
@@ -40,18 +41,23 @@ class GroupPlayerStatusTest extends TestCase
             ->assertJsonPath('data.status_reason', 'no_show')
             ->assertJsonPath('data.status_notes', 'No se presentó el sábado');
 
-        $this->assertDatabaseHas('group_players', [
+        $entryId = CompetitionEntryMember::query()
+            ->where('player_id', $player->id)
+            ->where('competition_id', $group->competition_id)
+            ->value('competition_entry_id');
+
+        $this->assertDatabaseHas('group_entries', [
             'group_id' => $group->id,
-            'player_id' => $player->id,
+            'competition_entry_id' => $entryId,
             'status' => GroupPlayerStatus::Withdrawn->value,
             'status_reason' => 'no_show',
             'status_notes' => 'No se presentó el sábado',
         ]);
 
         $this->assertNotNull(
-            GroupPlayer::query()
+            GroupEntry::query()
                 ->where('group_id', $group->id)
-                ->where('player_id', $player->id)
+                ->where('competition_entry_id', $entryId)
                 ->value('status_changed_at')
         );
     }
@@ -76,9 +82,14 @@ class GroupPlayerStatusTest extends TestCase
             ->assertJsonPath('data.status_reason', 'organizer_decision')
             ->assertJsonPath('data.status_notes', 'Conducta antideportiva');
 
-        $this->assertDatabaseHas('group_players', [
+        $entryId = CompetitionEntryMember::query()
+            ->where('player_id', $player->id)
+            ->where('competition_id', $group->competition_id)
+            ->value('competition_entry_id');
+
+        $this->assertDatabaseHas('group_entries', [
             'group_id' => $group->id,
-            'player_id' => $player->id,
+            'competition_entry_id' => $entryId,
             'status' => GroupPlayerStatus::Disqualified->value,
             'status_reason' => 'organizer_decision',
         ]);

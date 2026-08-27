@@ -14,7 +14,7 @@ class GroupResource extends JsonResource
             'id' => $this->id,
             'competition_id' => $this->competition_id,
             'name' => $this->name,
-            'group_players' => GroupPlayerResource::collection($this->whenLoaded('groupPlayers')),
+            'group_players' => GroupPlayerResource::collection($this->whenLoaded('groupEntries')),
             'created_at' => optional($this->created_at)->toISOString(),
             'updated_at' => optional($this->updated_at)->toISOString(),
         ];

@@ -3,7 +3,7 @@
 namespace Tests\Feature\Player;
 
 use App\Models\Player;
-use App\Models\Registration;
+
 use Tests\TestCase;
 
 class PlayerManagementTest extends TestCase
@@ -248,7 +248,7 @@ class PlayerManagementTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['player_id']);
 
-        $this->assertDatabaseCount('registrations', 0);
+        $this->assertDatabaseCount('competition_entries', 0);
     }
 
     public function test_rejects_bulk_registration_of_inactive_player(): void
@@ -274,7 +274,7 @@ class PlayerManagementTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['player_ids.1']);
 
-        $this->assertDatabaseCount('registrations', 0);
+        $this->assertDatabaseCount('competition_entries', 0);
     }
 
     public function test_cannot_delete_player_with_relationships(): void

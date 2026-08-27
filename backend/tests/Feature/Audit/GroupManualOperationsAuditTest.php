@@ -6,7 +6,7 @@ use App\Actions\Group\CreateGroupAction;
 use App\Actions\GroupPlayer\AssignPlayerToGroupAction;
 use App\Enums\AuditAction;
 use App\Models\Group;
-use App\Models\GroupPlayer;
+use App\Models\GroupEntry;
 use RuntimeException;
 use Illuminate\Support\Facades\DB;
 use Spatie\Activitylog\Models\Activity;
@@ -144,7 +144,7 @@ class GroupManualOperationsAuditTest extends TestCase
         $context->registerPlayers($competition, $players);
         $group = $context->createGroup($competition, 'Grupo A');
 
-        $groupPlayersBefore = GroupPlayer::query()->count();
+        $groupPlayersBefore = GroupEntry::query()->count();
         $activityBefore = Activity::query()->count();
 
         try {
@@ -160,7 +160,7 @@ class GroupManualOperationsAuditTest extends TestCase
             // expected
         }
 
-        $this->assertSame($groupPlayersBefore, GroupPlayer::query()->count());
+        $this->assertSame($groupPlayersBefore, GroupEntry::query()->count());
         $this->assertSame($activityBefore, Activity::query()->count());
     }
 }

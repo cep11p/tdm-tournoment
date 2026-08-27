@@ -7,7 +7,7 @@ use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
 use App\Enums\GroupPlayerStatus;
 use App\Models\Group;
-use App\Models\GroupPlayer;
+use App\Models\GroupEntry;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
@@ -24,7 +24,7 @@ final class AssignPlayerToGroupAction
         private readonly PersistGroupEntryAction $persistGroupEntry,
     ) {}
 
-    public function __invoke(array $payload): GroupPlayer
+    public function __invoke(array $payload): GroupEntry
     {
         $group = Group::query()->findOrFail($payload['group_id']);
         $group->loadMissing('competition.tournament');
@@ -35,14 +35,16 @@ final class AssignPlayerToGroupAction
 
         $entry = ($this->resolveSinglesEntryForPlayer)($group->competition, $playerId);
 
-        return DB::transaction(function () use ($group, $entry, $playerId): GroupPlayer {
-            $result = ($this->persistGroupEntry)($group, $entry);
-            $groupPlayer = $result['group_player'];
-            $groupPlayer->load('player:id,first_name,last_name,nickname');
+        return DB::transaction(function () use ($group, $entry, $playerId): GroupEntry {
+            $groupEntry = ($this->persistGroupEntry)($group, $entry);
+            $groupEntry->load([
+                'competitionEntry.members.player:id,first_name,last_name,nickname',
+            ]);
 
-            $status = $groupPlayer->status ?? GroupPlayerStatus::Active;
-            $playerName = $groupPlayer->player !== null
-                ? trim(sprintf('%s %s', $groupPlayer->player->first_name, $groupPlayer->player->last_name))
+            $status = $groupEntry->status ?? GroupPlayerStatus::Active;
+            $player = $groupEntry->competitionEntry?->singlesPlayer();
+            $playerName = $player !== null
+                ? trim(sprintf('%s %s', $player->first_name, $player->last_name))
                 : null;
 
             $context = array_merge(
@@ -71,7 +73,7 @@ final class AssignPlayerToGroupAction
                 ],
             ));
 
-            return $groupPlayer;
+            return $groupEntry;
         });
     }
 }

@@ -2,11 +2,12 @@
 
 namespace App\Actions\Registration;
 
+use App\Actions\CompetitionEntry\PersistCompetitionEntryAction;
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
 use App\Models\Competition;
+use App\Models\CompetitionEntryMember;
 use App\Models\Player;
-use App\Models\Registration;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Tournament\TournamentLifecycleGuard;
@@ -20,7 +21,7 @@ final class BulkRegisterPlayersToCompetitionAction
     private const NAME_SAMPLE_LIMIT = 5;
 
     public function __construct(
-        private readonly PersistRegistrationAction $persistRegistration,
+        private readonly PersistCompetitionEntryAction $persistCompetitionEntry,
         private readonly AuditLogger $auditLogger,
     ) {}
 
@@ -37,7 +38,7 @@ final class BulkRegisterPlayersToCompetitionAction
             $competition->loadMissing('tournament');
             TournamentLifecycleGuard::ensureMutableForCompetition($competition);
 
-            $existingPlayerIds = Registration::query()
+            $existingPlayerIds = CompetitionEntryMember::query()
                 ->where('competition_id', $competitionId)
                 ->whereIn('player_id', $uniqueIds)
                 ->pluck('player_id')
@@ -59,7 +60,7 @@ final class BulkRegisterPlayersToCompetitionAction
                 }
 
                 try {
-                    ($this->persistRegistration)([
+                    ($this->persistCompetitionEntry)([
                         'competition_id' => $competitionId,
                         'player_id' => $playerId,
                     ]);

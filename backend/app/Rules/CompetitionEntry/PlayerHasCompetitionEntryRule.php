@@ -1,12 +1,13 @@
 <?php
 
-namespace App\Rules\Registration;
+namespace App\Rules\CompetitionEntry;
 
 use App\Models\Competition;
+use App\Models\CompetitionEntryMember;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 
-final class PlayerIsRegisteredInCompetitionRule implements ValidationRule
+final class PlayerHasCompetitionEntryRule implements ValidationRule
 {
     public function __construct(
         private readonly ?Competition $competition
@@ -18,11 +19,12 @@ final class PlayerIsRegisteredInCompetitionRule implements ValidationRule
             return;
         }
 
-        $isRegistered = $this->competition->registrations()
+        $hasEntry = CompetitionEntryMember::query()
+            ->where('competition_id', $this->competition->id)
             ->where('player_id', $value)
             ->exists();
 
-        if (! $isRegistered) {
+        if (! $hasEntry) {
             $fail('El jugador debe estar inscripto en la competencia.');
         }
     }

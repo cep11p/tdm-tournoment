@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Registration;
 
-use App\Support\Competition\RegistrationGuard;
+use App\Support\Competition\CompetitionEntryGuard;
 use Tests\TestCase;
 
 class RegistrationBulkTest extends TestCase
@@ -35,7 +35,7 @@ class RegistrationBulkTest extends TestCase
                 'total' => 3,
             ]);
 
-        $this->assertDatabaseCount('registrations', 3);
+        $this->assertDatabaseCount('competition_entries', 3);
     }
 
     public function test_skips_players_already_registered_and_registers_new_ones(): void
@@ -66,7 +66,7 @@ class RegistrationBulkTest extends TestCase
                 'total' => 3,
             ]);
 
-        $this->assertDatabaseCount('registrations', 3);
+        $this->assertDatabaseCount('competition_entries', 3);
     }
 
     public function test_identical_second_call_is_idempotent(): void
@@ -95,7 +95,7 @@ class RegistrationBulkTest extends TestCase
                 'total' => 2,
             ]);
 
-        $this->assertDatabaseCount('registrations', 2);
+        $this->assertDatabaseCount('competition_entries', 2);
     }
 
     public function test_rejects_missing_player_ids(): void
@@ -179,9 +179,9 @@ class RegistrationBulkTest extends TestCase
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['competition'])
-            ->assertJsonPath('errors.competition.0', RegistrationGuard::LOCK_MESSAGE);
+            ->assertJsonPath('errors.competition.0', CompetitionEntryGuard::LOCK_MESSAGE);
 
-        $this->assertDatabaseCount('registrations', 3);
+        $this->assertDatabaseCount('competition_entries', 3);
     }
 
     public function test_allows_bulk_registration_with_different_player_category(): void
@@ -212,7 +212,7 @@ class RegistrationBulkTest extends TestCase
                 'total' => 1,
             ]);
 
-        $this->assertDatabaseHas('registrations', [
+        $this->assertDatabaseHas('competition_entry_members', [
             'competition_id' => $competition->id,
             'player_id' => $player->id,
         ]);

@@ -6,8 +6,8 @@ use App\Enums\GameStatus;
 use App\Models\Bracket;
 use App\Models\Game;
 use App\Models\Group;
-use App\Models\GroupPlayer;
-use App\Models\Registration;
+use App\Models\GroupEntry;
+
 use App\Support\Competition\CompetitionStructureGuard;
 use App\Support\Group\RandomGroupDistributionGuard;
 use Tests\TestCase;
@@ -50,7 +50,7 @@ class RegenerateRandomGroupsTest extends TestCase
 
         $this->assertNotEquals($originalGroupIds, $newGroupIds);
         $this->assertDatabaseCount('groups', 2);
-        $this->assertDatabaseCount('group_players', 6);
+        $this->assertDatabaseCount('group_entries', 6);
         $this->assertSame(6, Game::query()->where('competition_id', $competition->id)->count());
     }
 
@@ -72,9 +72,13 @@ class RegenerateRandomGroupsTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('players_assigned', 5);
 
-        $assignedPlayerIds = GroupPlayer::query()
+        $assignedPlayerIds = GroupEntry::query()
             ->whereHas('group', fn ($query) => $query->where('competition_id', $competition->id))
-            ->pluck('player_id')
+            ->with('competitionEntry.members')
+            ->get()
+            ->map(fn (GroupEntry $groupEntry) => $groupEntry->competitionEntry?->singlesPlayerId())
+            ->filter()
+            ->map(fn ($playerId) => (int) $playerId)
             ->sort()
             ->values()
             ->all();
@@ -227,7 +231,7 @@ class RegenerateRandomGroupsTest extends TestCase
         );
     }
 
-    public function test_does_not_delete_registrations(): void
+    public function test_does_not_delete_competition_entries(): void
     {
         $context = $this->tournamentContext();
         $competition = $context->createCompetition();
@@ -236,16 +240,11 @@ class RegenerateRandomGroupsTest extends TestCase
 
         $context->generateRandomGroups($competition, groupsCount: 2)->assertCreated();
 
-        $registrationCountBefore = Registration::query()
-            ->where('competition_id', $competition->id)
-            ->count();
+        $entryCountBefore = $competition->entries()->count();
 
         $context->regenerateRandomGroups($competition, groupsCount: 2)->assertCreated();
 
-        $this->assertSame(
-            $registrationCountBefore,
-            Registration::query()->where('competition_id', $competition->id)->count(),
-        );
+        $this->assertSame($entryCountBefore, $competition->fresh()->entries()->count());
     }
 
     public function test_response_includes_expected_summary_fields(): void
@@ -332,7 +331,7 @@ class RegenerateRandomGroupsTest extends TestCase
             ->pluck('id')
             ->all();
 
-        $originalGroupPlayerIds = GroupPlayer::query()
+        $originalGroupPlayerIds = GroupEntry::query()
             ->whereHas('group', fn ($query) => $query->where('competition_id', $competition->id))
             ->orderBy('id')
             ->pluck('id')
@@ -360,7 +359,7 @@ class RegenerateRandomGroupsTest extends TestCase
             ->all();
 
         $groupsCountBefore = Group::query()->where('competition_id', $competition->id)->count();
-        $groupPlayersCountBefore = GroupPlayer::query()
+        $groupPlayersCountBefore = GroupEntry::query()
             ->whereHas('group', fn ($query) => $query->where('competition_id', $competition->id))
             ->count();
         $gamesCountBefore = Game::query()->where('competition_id', $competition->id)->count();
@@ -376,7 +375,7 @@ class RegenerateRandomGroupsTest extends TestCase
             ->pluck('id')
             ->all());
 
-        $this->assertSame($originalGroupPlayerIds, GroupPlayer::query()
+        $this->assertSame($originalGroupPlayerIds, GroupEntry::query()
             ->whereHas('group', fn ($query) => $query->where('competition_id', $competition->id))
             ->orderBy('id')
             ->pluck('id')
@@ -389,7 +388,7 @@ class RegenerateRandomGroupsTest extends TestCase
             ->all());
 
         $this->assertSame($groupsCountBefore, Group::query()->where('competition_id', $competition->id)->count());
-        $this->assertSame($groupPlayersCountBefore, GroupPlayer::query()
+        $this->assertSame($groupPlayersCountBefore, GroupEntry::query()
             ->whereHas('group', fn ($query) => $query->where('competition_id', $competition->id))
             ->count());
         $this->assertSame($gamesCountBefore, Game::query()->where('competition_id', $competition->id)->count());

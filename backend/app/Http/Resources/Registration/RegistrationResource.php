@@ -9,7 +9,7 @@ class RegistrationResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $player = $this->whenLoaded('player');
+        $player = $this->resource->singlesPlayer();
 
         return [
             'id' => $this->id,

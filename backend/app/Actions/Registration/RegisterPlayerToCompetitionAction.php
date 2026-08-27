@@ -2,11 +2,12 @@
 
 namespace App\Actions\Registration;
 
+use App\Actions\CompetitionEntry\PersistCompetitionEntryAction;
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
 use App\Models\Competition;
+use App\Models\CompetitionEntry;
 use App\Models\Player;
-use App\Models\Registration;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use Illuminate\Support\Facades\DB;
@@ -14,22 +15,23 @@ use Illuminate\Support\Facades\DB;
 final class RegisterPlayerToCompetitionAction
 {
     public function __construct(
-        private readonly PersistRegistrationAction $persistRegistration,
+        private readonly PersistCompetitionEntryAction $persistCompetitionEntry,
         private readonly AuditLogger $auditLogger,
     ) {}
 
-    public function __invoke(array $payload): Registration
+    public function __invoke(array $payload): CompetitionEntry
     {
-        return DB::transaction(function () use ($payload): Registration {
-            $registration = ($this->persistRegistration)($payload);
+        return DB::transaction(function () use ($payload): CompetitionEntry {
+            $entry = ($this->persistCompetitionEntry)($payload);
 
-            $competition = Competition::query()->findOrFail($registration->competition_id);
-            $player = Player::query()->findOrFail($registration->player_id);
+            $competition = Competition::query()->findOrFail($entry->competition_id);
+            $playerId = (int) $payload['player_id'];
+            $player = Player::query()->findOrFail($playerId);
 
             $context = AuditContextBuilder::fromRegistrationContext(
                 $competition,
                 $player,
-                $registration,
+                $entry,
             );
 
             $this->auditLogger->log(new AuditEntry(
@@ -38,17 +40,19 @@ final class RegisterPlayerToCompetitionAction
                 subject: $competition,
                 context: $context,
                 new: [
-                    'competition_id' => $registration->competition_id,
-                    'player_id' => $registration->player_id,
+                    'competition_id' => $entry->competition_id,
+                    'player_id' => $playerId,
+                    'competition_entry_id' => $entry->id,
                 ],
                 summary: [
-                    'registration_id' => $registration->id,
+                    'registration_id' => $entry->id,
+                    'competition_entry_id' => $entry->id,
                     'player_id' => $player->id,
                     'player_name' => $context['player_name'],
                 ],
             ));
 
-            return $registration;
+            return $entry;
         });
     }
 }

@@ -2,14 +2,14 @@
 
 namespace App\Actions\Group;
 
+use App\Data\Audit\AuditEntry;
+use App\Enums\AuditAction;
 use App\Enums\GameStatus;
 use App\Enums\GroupPlayerStatus;
 use App\Enums\GroupPlayerStatusReason;
-use App\Data\Audit\AuditEntry;
-use App\Enums\AuditAction;
 use App\Models\Group;
 use App\Models\GroupEntry;
-use App\Models\GroupPlayer;
+use App\Models\Player;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
@@ -18,7 +18,7 @@ use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-final class SetGroupPlayerStatusAction
+final class SetGroupEntryStatusAction
 {
     public function __construct(
         private readonly AuditLogger $auditLogger,
@@ -33,7 +33,7 @@ final class SetGroupPlayerStatusAction
      *     notes?: ?string
      * }  $payload
      */
-    public function __invoke(Group $group, array $payload): GroupPlayer
+    public function __invoke(Group $group, array $payload): GroupEntry
     {
         $group->loadMissing('competition.tournament');
         TournamentLifecycleGuard::ensureMutableForGroup($group);
@@ -60,17 +60,6 @@ final class SetGroupPlayerStatusAction
             ]);
         }
 
-        $groupPlayer = GroupPlayer::query()
-            ->where('group_id', $group->id)
-            ->where('player_id', $playerId)
-            ->first();
-
-        if ($groupPlayer === null) {
-            throw ValidationException::withMessages([
-                'player_id' => ['El jugador no pertenece al grupo.'],
-            ]);
-        }
-
         if (! $groupEntry->isActive()) {
             throw ValidationException::withMessages([
                 'player_id' => ['El jugador ya no está activo en el grupo.'],
@@ -88,11 +77,10 @@ final class SetGroupPlayerStatusAction
         return DB::transaction(function () use (
             $group,
             $groupEntry,
-            $groupPlayer,
             $payload,
             $newStatus,
             $playerId,
-        ): GroupPlayer {
+        ): GroupEntry {
             $oldStatus = $groupEntry->status;
             $changedAt = now();
             $statusPayload = [
@@ -103,15 +91,14 @@ final class SetGroupPlayerStatusAction
             ];
 
             $groupEntry->update($statusPayload);
-            $groupPlayer->update($statusPayload);
 
             $gamesClosed = $this->closePendingGroupGamesForEntry($group, (int) $groupEntry->competition_entry_id);
 
-            $groupPlayer = $groupPlayer->fresh([
-                'player:id,first_name,last_name,nickname',
+            $groupEntry = $groupEntry->fresh([
+                'competitionEntry.members.player:id,first_name,last_name,nickname',
             ]);
 
-            $player = $groupPlayer->player;
+            $player = Player::query()->find($playerId);
             $playerName = $player !== null
                 ? trim(sprintf('%s %s', $player->first_name, $player->last_name))
                 : '';
@@ -139,7 +126,7 @@ final class SetGroupPlayerStatusAction
                 reason: $payload['notes'] ?? null,
             ));
 
-            return $groupPlayer;
+            return $groupEntry;
         });
     }
 

@@ -10,8 +10,8 @@ use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
 use App\Enums\TournamentStatus;
 use App\Models\Competition;
+use App\Models\CompetitionEntryMember;
 use App\Models\Player;
-use App\Models\Registration;
 use App\Models\Tournament;
 use Database\Seeders\Support\CleanTechnicalPlayerNicknames;
 use Database\Seeders\Support\FriendlyTournamentRoster;
@@ -219,7 +219,7 @@ class FriendlyTournamentSeeder extends Seeder
         foreach ($playerNames as $fullName) {
             $player = $playersByFullName[$fullName];
 
-            $alreadyRegistered = Registration::query()
+            $alreadyRegistered = CompetitionEntryMember::query()
                 ->where('competition_id', $competition->id)
                 ->where('player_id', $player->id)
                 ->exists();

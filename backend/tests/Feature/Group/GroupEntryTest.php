@@ -9,7 +9,6 @@ use App\Models\CompetitionEntry;
 use App\Models\CompetitionEntryMember;
 use App\Models\Group;
 use App\Models\GroupEntry;
-use App\Models\GroupPlayer;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\TournamentTestContext;
 use Tests\TestCase;
@@ -36,7 +35,7 @@ class GroupEntryTest extends TestCase
         $this->assertDatabaseCount('group_entries', 1);
     }
 
-    public function test_manual_assignment_creates_consistent_legacy_group_player(): void
+    public function test_group_entry_links_player_via_competition_entry(): void
     {
         $context = $this->tournamentContext();
         $competition = $context->createCompetition();
@@ -48,12 +47,11 @@ class GroupEntryTest extends TestCase
 
         $entry = CompetitionEntry::query()->sole();
         $groupEntry = GroupEntry::query()->sole();
-        $groupPlayer = GroupPlayer::query()->sole();
+        $member = CompetitionEntryMember::query()->sole();
 
         $this->assertSame($entry->id, $groupEntry->competition_entry_id);
-        $this->assertSame($player->id, $groupPlayer->player_id);
+        $this->assertSame($player->id, $member->player_id);
         $this->assertSame($group->id, $groupEntry->group_id);
-        $this->assertSame($group->id, $groupPlayer->group_id);
     }
 
     public function test_group_entry_points_to_correct_competition_entry(): void
@@ -91,7 +89,6 @@ class GroupEntryTest extends TestCase
             ->assertJsonValidationErrors(['player_id']);
 
         $this->assertDatabaseCount('group_entries', 0);
-        $this->assertDatabaseCount('group_players', 0);
     }
 
     public function test_same_entry_cannot_be_in_two_groups_of_same_competition(): void
@@ -112,7 +109,6 @@ class GroupEntryTest extends TestCase
             ->assertJsonValidationErrors(['player_id']);
 
         $this->assertDatabaseCount('group_entries', 1);
-        $this->assertDatabaseCount('group_players', 1);
     }
 
     public function test_same_entry_cannot_be_duplicated_in_same_group(): void
@@ -132,7 +128,6 @@ class GroupEntryTest extends TestCase
             ->assertJsonValidationErrors(['player_id']);
 
         $this->assertDatabaseCount('group_entries', 1);
-        $this->assertDatabaseCount('group_players', 1);
     }
 
     public function test_random_generation_creates_one_group_entry_per_entry(): void
@@ -146,36 +141,6 @@ class GroupEntryTest extends TestCase
 
         $this->assertDatabaseCount('competition_entries', 8);
         $this->assertDatabaseCount('group_entries', 8);
-    }
-
-    public function test_random_generation_maintains_group_entry_and_group_player_parity(): void
-    {
-        $context = $this->tournamentContext();
-        $competition = $context->createCompetition();
-        $players = $context->createPlayers(6);
-        $context->registerPlayers($competition, $players);
-
-        $context->generateRandomGroups($competition, groupsCount: 2)->assertCreated();
-
-        $this->assertSame(
-            GroupEntry::query()->count(),
-            GroupPlayer::query()->count(),
-        );
-
-        $membersByEntryId = CompetitionEntryMember::query()
-            ->where('competition_id', $competition->id)
-            ->pluck('player_id', 'competition_entry_id');
-
-        foreach (GroupEntry::query()->get() as $groupEntry) {
-            $expectedPlayerId = (int) $membersByEntryId[$groupEntry->competition_entry_id];
-            $groupPlayer = GroupPlayer::query()
-                ->where('group_id', $groupEntry->group_id)
-                ->where('player_id', $expectedPlayerId)
-                ->first();
-
-            $this->assertNotNull($groupPlayer);
-            $this->assertSame($groupEntry->group_id, $groupPlayer->group_id);
-        }
     }
 
     public function test_regeneration_rebuilds_group_entries(): void
@@ -195,15 +160,18 @@ class GroupEntryTest extends TestCase
             $originalEntryIds,
             GroupEntry::query()->pluck('competition_entry_id')->sort()->values()->all(),
         );
-        $this->assertSame(6, GroupPlayer::query()->count());
     }
 
-    public function test_withdrawn_updates_group_entry_and_group_player(): void
+    public function test_withdrawn_updates_group_entry(): void
     {
         $context = $this->tournamentContext();
         $setup = $this->createGroupWithRoundRobin($context, playerCount: 3);
         $group = $setup['group'];
         $player = $setup['players'][0];
+        $entry = CompetitionEntryMember::query()
+            ->where('player_id', $player->id)
+            ->where('competition_id', $group->competition_id)
+            ->value('competition_entry_id');
 
         $this->postJson($context->apiUrl("groups/{$group->id}/player-status"), [
             'player_id' => $player->id,
@@ -214,26 +182,23 @@ class GroupEntryTest extends TestCase
 
         $this->assertDatabaseHas('group_entries', [
             'group_id' => $group->id,
-            'status' => GroupPlayerStatus::Withdrawn->value,
-            'status_reason' => 'no_show',
-            'status_notes' => 'No se presentó',
-        ]);
-
-        $this->assertDatabaseHas('group_players', [
-            'group_id' => $group->id,
-            'player_id' => $player->id,
+            'competition_entry_id' => $entry,
             'status' => GroupPlayerStatus::Withdrawn->value,
             'status_reason' => 'no_show',
             'status_notes' => 'No se presentó',
         ]);
     }
 
-    public function test_disqualified_updates_both_projections(): void
+    public function test_disqualified_updates_group_entry(): void
     {
         $context = $this->tournamentContext();
         $setup = $this->createGroupWithRoundRobin($context, playerCount: 3);
         $group = $setup['group'];
         $player = $setup['players'][1];
+        $entry = CompetitionEntryMember::query()
+            ->where('player_id', $player->id)
+            ->where('competition_id', $group->competition_id)
+            ->value('competition_entry_id');
 
         $this->postJson($context->apiUrl("groups/{$group->id}/player-status"), [
             'player_id' => $player->id,
@@ -244,19 +209,13 @@ class GroupEntryTest extends TestCase
 
         $this->assertDatabaseHas('group_entries', [
             'group_id' => $group->id,
-            'status' => GroupPlayerStatus::Disqualified->value,
-            'status_reason' => 'organizer_decision',
-        ]);
-
-        $this->assertDatabaseHas('group_players', [
-            'group_id' => $group->id,
-            'player_id' => $player->id,
+            'competition_entry_id' => $entry,
             'status' => GroupPlayerStatus::Disqualified->value,
             'status_reason' => 'organizer_decision',
         ]);
     }
 
-    public function test_rollback_does_not_leave_partial_projections_on_persist_failure(): void
+    public function test_rollback_does_not_leave_partial_group_entries_on_persist_failure(): void
     {
         $context = $this->tournamentContext();
         $competition = $context->createCompetition();
@@ -279,7 +238,6 @@ class GroupEntryTest extends TestCase
 
         $this->assertTrue($threw);
         $this->assertDatabaseCount('group_entries', 0);
-        $this->assertDatabaseCount('group_players', 0);
     }
 
     public function test_tournament_test_context_assign_players_to_group_produces_valid_state(): void
@@ -291,9 +249,7 @@ class GroupEntryTest extends TestCase
         $group = $context->createGroupWithPlayers($competition, $players);
 
         $this->assertDatabaseCount('group_entries', 3);
-        $this->assertDatabaseCount('group_players', 3);
         $this->assertSame(3, $group->groupEntries()->count());
-        $this->assertSame(3, $group->groupPlayers()->count());
     }
 
     public function test_assign_without_competition_entry_fails(): void
@@ -310,10 +266,9 @@ class GroupEntryTest extends TestCase
             ->assertJsonValidationErrors(['player_id']);
 
         $this->assertDatabaseCount('group_entries', 0);
-        $this->assertDatabaseCount('group_players', 0);
     }
 
-    public function test_persist_group_entry_action_is_atomic_when_invoked_directly(): void
+    public function test_persist_group_entry_action_returns_group_entry(): void
     {
         $context = $this->tournamentContext();
         $competition = $context->createCompetition();
@@ -322,12 +277,11 @@ class GroupEntryTest extends TestCase
         $group = $context->createGroup($competition);
         $entry = CompetitionEntry::query()->sole();
 
-        $result = app(PersistGroupEntryAction::class)($group, $entry);
+        $groupEntry = app(PersistGroupEntryAction::class)($group, $entry);
 
-        $this->assertInstanceOf(GroupEntry::class, $result['group_entry']);
-        $this->assertInstanceOf(GroupPlayer::class, $result['group_player']);
-        $this->assertSame($entry->id, $result['group_entry']->competition_entry_id);
-        $this->assertSame($player->id, $result['group_player']->player_id);
+        $this->assertInstanceOf(GroupEntry::class, $groupEntry);
+        $this->assertSame($entry->id, $groupEntry->competition_entry_id);
+        $this->assertSame($player->id, $entry->fresh()->singlesPlayerId());
     }
 
     public function test_inactive_competition_entries_are_excluded_from_random_generation(): void
@@ -347,7 +301,6 @@ class GroupEntryTest extends TestCase
 
         $response->assertCreated();
         $this->assertDatabaseCount('group_entries', 2);
-        $this->assertDatabaseCount('group_players', 2);
     }
 
     /**

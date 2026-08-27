@@ -9,7 +9,6 @@ use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupEntry;
 use App\Models\GroupManualTiebreakEntry;
-use App\Models\GroupPlayer;
 use App\Models\Player;
 use App\Support\Bracket\GroupBracketReadiness;
 use App\Support\Bracket\GroupQualifiersCollector;
@@ -46,29 +45,7 @@ class GroupStandingsEntryIdentityTest extends TestCase
         $this->assertSame(2, $first->won);
     }
 
-    public function test_desynced_group_player_status_does_not_change_standings(): void
-    {
-        $context = $this->tournamentContext();
-        $setup = $this->createFinishedThreePlayerGroup($context);
-        $group = $setup['group'];
-        [$playerOne] = $setup['players'];
-        $entryOne = $this->entryFor($group->competition, $playerOne);
-
-        GroupPlayer::query()
-            ->where('group_id', $group->id)
-            ->where('player_id', $playerOne->id)
-            ->update(['status' => GroupPlayerStatus::Withdrawn->value]);
-
-        $result = app(GroupStandingsCalculator::class)->calculate($group->fresh());
-        $standing = $result->standings->firstWhere('competitionEntryId', $entryOne->id);
-
-        $this->assertNotNull($standing);
-        $this->assertSame('active', $standing->groupPlayerStatus);
-        $this->assertTrue($standing->eligibleForQualification);
-        $this->assertSame($playerOne->id, $result->standings->first()->playerId);
-    }
-
-    public function test_group_entry_status_controls_eligibility_when_group_player_stays_active(): void
+    public function test_group_entry_status_controls_eligibility(): void
     {
         $context = $this->tournamentContext();
         $setup = $this->createFinishedThreePlayerGroup($context);

@@ -6,7 +6,6 @@ use App\Enums\GroupPlayerStatus;
 use App\Models\CompetitionEntry;
 use App\Models\Group;
 use App\Models\GroupEntry;
-use App\Models\GroupPlayer;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -14,27 +13,18 @@ use Illuminate\Validation\ValidationException;
 
 final class PersistGroupEntryAction
 {
-    /**
-     * @return array{group_entry: GroupEntry, group_player: GroupPlayer}
-     */
-    public function __invoke(Group $group, CompetitionEntry $entry): array
+    public function __invoke(Group $group, CompetitionEntry $entry): GroupEntry
     {
         $group->loadMissing('competition');
 
-        return DB::transaction(function () use ($group, $entry): array {
+        return DB::transaction(function () use ($group, $entry): GroupEntry {
             $this->ensureEntryAssignable($group, $entry);
 
             try {
-                $groupEntry = GroupEntry::query()->create([
+                return GroupEntry::query()->create([
                     'group_id' => $group->id,
                     'competition_id' => $group->competition_id,
                     'competition_entry_id' => $entry->id,
-                    'status' => GroupPlayerStatus::Active,
-                ]);
-
-                $groupPlayer = GroupPlayer::query()->create([
-                    'group_id' => $group->id,
-                    'player_id' => $this->resolveSinglesPlayerId($entry),
                     'status' => GroupPlayerStatus::Active,
                 ]);
             } catch (QueryException $exception) {
@@ -44,11 +34,6 @@ final class PersistGroupEntryAction
 
                 throw $exception;
             }
-
-            return [
-                'group_entry' => $groupEntry,
-                'group_player' => $groupPlayer,
-            ];
         });
     }
 
@@ -85,7 +70,6 @@ final class PersistGroupEntryAction
 
             $now = now();
             $groupEntriesPayload = [];
-            $groupPlayersPayload = [];
 
             foreach ($assignments as $assignment) {
                 /** @var Group $group */
@@ -93,7 +77,6 @@ final class PersistGroupEntryAction
                 /** @var CompetitionEntry $assignmentEntry */
                 $assignmentEntry = $assignment['entry'];
                 $entry = $entries->get($assignmentEntry->id) ?? $assignmentEntry;
-                $playerId = $this->resolveSinglesPlayerId($entry);
 
                 $groupEntriesPayload[] = [
                     'group_id' => $group->id,
@@ -103,19 +86,10 @@ final class PersistGroupEntryAction
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
-
-                $groupPlayersPayload[] = [
-                    'group_id' => $group->id,
-                    'player_id' => $playerId,
-                    'status' => GroupPlayerStatus::Active->value,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
             }
 
             try {
                 GroupEntry::query()->insert($groupEntriesPayload);
-                GroupPlayer::query()->insert($groupPlayersPayload);
             } catch (QueryException $exception) {
                 if ((string) $exception->getCode() === '23000') {
                     throw ValidationException::withMessages([
@@ -155,22 +129,6 @@ final class PersistGroupEntryAction
                 ],
             ]);
         }
-    }
-
-    private function resolveSinglesPlayerId(CompetitionEntry $entry): int
-    {
-        $entry->loadMissing('members');
-
-        $member = $entry->members->firstWhere('member_order', 1)
-            ?? $entry->members->first();
-
-        if ($member === null) {
-            throw ValidationException::withMessages([
-                'competition_entry_id' => ['La participación no tiene miembros asignados.'],
-            ]);
-        }
-
-        return (int) $member->player_id;
     }
 
     private function translateUniqueViolation(Group $group, CompetitionEntry $entry): ValidationException

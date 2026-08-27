@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Player extends Model
 {
@@ -43,19 +44,21 @@ class Player extends Model
         return $this->belongsTo(Club::class);
     }
 
-    public function registrations(): HasMany
-    {
-        return $this->hasMany(Registration::class);
-    }
-
     public function competitionEntryMembers(): HasMany
     {
         return $this->hasMany(CompetitionEntryMember::class);
     }
 
-    public function groupPlayers(): HasMany
+    public function groupEntries(): HasManyThrough
     {
-        return $this->hasMany(GroupPlayer::class);
+        return $this->hasManyThrough(
+            GroupEntry::class,
+            CompetitionEntryMember::class,
+            'player_id',
+            'competition_entry_id',
+            'id',
+            'competition_entry_id',
+        );
     }
 
     public function gamesCount(): int

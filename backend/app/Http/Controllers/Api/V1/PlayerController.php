@@ -66,8 +66,8 @@ class PlayerController extends Controller
     {
         $player->load(['category:id,name,slug', 'club:id,name']);
         $player->loadCount([
-            'registrations',
-            'groupPlayers',
+            'competitionEntryMembers as registrations_count',
+            'groupEntries as group_players_count',
         ]);
         $player->setAttribute('games_count', $player->gamesCount());
 

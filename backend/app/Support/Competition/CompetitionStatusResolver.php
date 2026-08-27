@@ -58,7 +58,7 @@ final class CompetitionStatusResolver
             );
         }
 
-        $registeredCount = $competition->registrations()->count();
+        $registeredCount = $competition->entries()->count();
 
         if ($registeredCount < 2) {
             return self::summary(
