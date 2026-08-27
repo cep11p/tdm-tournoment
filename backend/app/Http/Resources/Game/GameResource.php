@@ -4,6 +4,7 @@ namespace App\Http\Resources\Game;
 
 use App\Enums\BracketGamePurpose;
 use App\Enums\GameStatus;
+use App\Models\Player;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -19,8 +20,8 @@ class GameResource extends JsonResource
             ? $this->bracket_purpose
             : BracketGamePurpose::from((string) ($this->bracket_purpose ?? BracketGamePurpose::Main->value));
 
-        $player1 = $this->whenLoaded('player1');
-        $player2 = $this->whenLoaded('player2');
+        $player1 = $this->singlesPlayer1();
+        $player2 = $this->singlesPlayer2();
         $setsWon = $this->setsWonCount(
             $this->relationLoaded('sets') ? $this->sets : null
         );
@@ -36,19 +37,9 @@ class GameResource extends JsonResource
             'bracket_purpose_label' => $bracketPurpose->label(),
             'group_round' => $this->group_round,
             'group_match' => $this->group_match,
-            'player1' => [
-                'id' => $player1?->id,
-                'first_name' => $player1?->first_name,
-                'last_name' => $player1?->last_name,
-                'nickname' => $player1?->nickname,
-            ],
-            'player2' => [
-                'id' => $player2?->id,
-                'first_name' => $player2?->first_name,
-                'last_name' => $player2?->last_name,
-                'nickname' => $player2?->nickname,
-            ],
-            'winner_id' => $this->winner_id,
+            'player1' => $this->presentPlayer($player1),
+            'player2' => $this->presentPlayer($player2),
+            'winner_id' => $this->singlesWinnerId(),
             'status' => $status,
             'is_bye' => (bool) $this->is_bye,
             'best_of' => $this->best_of,
@@ -62,6 +53,19 @@ class GameResource extends JsonResource
             ),
             'created_at' => optional($this->created_at)->toISOString(),
             'updated_at' => optional($this->updated_at)->toISOString(),
+        ];
+    }
+
+    /**
+     * @return array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}
+     */
+    private function presentPlayer(?Player $player): array
+    {
+        return [
+            'id' => $player?->id,
+            'first_name' => $player?->first_name,
+            'last_name' => $player?->last_name,
+            'nickname' => $player?->nickname,
         ];
     }
 }

@@ -28,10 +28,7 @@ final class DeleteManualGameAction
                     'competition.tournament',
                     'group',
                     'bracket',
-                    'player1:id,first_name,last_name,nickname',
-                    'player2:id,first_name,last_name,nickname',
-                    'winner:id,first_name,last_name,nickname',
-                    'sets',
+                    ...Game::DISPLAY_RELATIONS,
                 ])
                 ->lockForUpdate()
                 ->findOrFail($game->id);
@@ -95,12 +92,12 @@ final class DeleteManualGameAction
                 ? $game->status->value
                 : (string) $game->status,
             'round' => $game->round,
-            'player1_id' => $game->player1_id,
-            'player1_name' => self::playerDisplayName($game->player1),
-            'player2_id' => $game->player2_id,
-            'player2_name' => self::playerDisplayName($game->player2),
-            'winner_id' => $game->winner_id,
-            'winner_name' => self::playerDisplayName($game->winner),
+            'player1_id' => $game->singlesPlayer1Id(),
+            'player1_name' => self::playerDisplayName($game->singlesPlayer1()),
+            'player2_id' => $game->singlesPlayer2Id(),
+            'player2_name' => self::playerDisplayName($game->singlesPlayer2()),
+            'winner_id' => $game->singlesWinnerId(),
+            'winner_name' => self::playerDisplayName($game->singlesWinner()),
             'best_of' => $game->best_of,
             'sets_to_win' => $game->sets_to_win,
             'points_per_set' => $game->competition?->points_per_set,

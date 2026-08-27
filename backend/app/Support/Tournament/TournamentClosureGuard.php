@@ -244,12 +244,12 @@ final class TournamentClosureGuard
                     ->mainBracket()
                     ->where('round', 'Final')
                     ->where('status', GameStatus::Finished)
-                    ->whereNotNull('winner_id')
+                    ->whereNotNull('winner_entry_id')
                     ->exists();
 
                 $thirdPlaceGame = BracketPodiumSupport::findThirdPlaceGame($bracket);
                 $thirdPlacePending = $thirdPlaceGame !== null
-                    && ($thirdPlaceGame->status !== GameStatus::Finished || $thirdPlaceGame->winner_id === null);
+                    && ($thirdPlaceGame->status !== GameStatus::Finished || $thirdPlaceGame->winner_entry_id === null);
 
                 if ($finalFinished && $thirdPlacePending) {
                     return sprintf(

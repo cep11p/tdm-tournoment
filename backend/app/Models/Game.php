@@ -11,9 +11,25 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
+/**
+ * Competitive identity of each side is always a CompetitionEntry of this
+ * competition (singles player, doubles pair, or team). Concrete athletes in a
+ * future TeamTie lineup do not change entry1/entry2/winnerEntry.
+ *
+ * @property int $entry1_id
+ * @property int|null $entry2_id
+ * @property int|null $winner_entry_id
+ */
 class Game extends Model
 {
     use HasFactory;
+
+    public const DISPLAY_RELATIONS = [
+        'entry1.members.player:id,first_name,last_name,nickname',
+        'entry2.members.player:id,first_name,last_name,nickname',
+        'winnerEntry.members.player:id,first_name,last_name,nickname',
+        'sets',
+    ];
 
     protected $guarded = [];
 
@@ -57,24 +73,71 @@ class Game extends Model
         return $this->belongsTo(Bracket::class);
     }
 
-    public function player1(): BelongsTo
+    public function entry1(): BelongsTo
     {
-        return $this->belongsTo(Player::class, 'player1_id');
+        return $this->belongsTo(CompetitionEntry::class, 'entry1_id');
     }
 
-    public function player2(): BelongsTo
+    public function entry2(): BelongsTo
     {
-        return $this->belongsTo(Player::class, 'player2_id');
+        return $this->belongsTo(CompetitionEntry::class, 'entry2_id');
     }
 
-    public function winner(): BelongsTo
+    public function winnerEntry(): BelongsTo
     {
-        return $this->belongsTo(Player::class, 'winner_id');
+        return $this->belongsTo(CompetitionEntry::class, 'winner_entry_id');
     }
 
     public function sets(): HasMany
     {
         return $this->hasMany(GameSet::class)->orderBy('set_number');
+    }
+
+    public function singlesPlayer1(): ?Player
+    {
+        return $this->entry1?->singlesPlayer();
+    }
+
+    public function singlesPlayer2(): ?Player
+    {
+        return $this->entry2?->singlesPlayer();
+    }
+
+    public function singlesWinner(): ?Player
+    {
+        return $this->winnerEntry?->singlesPlayer();
+    }
+
+    public function singlesPlayer1Id(): ?int
+    {
+        return $this->entry1?->singlesPlayerId();
+    }
+
+    public function singlesPlayer2Id(): ?int
+    {
+        return $this->entry2?->singlesPlayerId();
+    }
+
+    public function singlesWinnerId(): ?int
+    {
+        return $this->winnerEntry?->singlesPlayerId();
+    }
+
+    public function loserEntryId(): ?int
+    {
+        if ($this->winner_entry_id === null) {
+            return null;
+        }
+
+        if ((int) $this->winner_entry_id === (int) $this->entry1_id) {
+            return $this->entry2_id !== null ? (int) $this->entry2_id : null;
+        }
+
+        if ((int) $this->winner_entry_id === (int) $this->entry2_id) {
+            return (int) $this->entry1_id;
+        }
+
+        return null;
     }
 
     /**

@@ -110,8 +110,8 @@ class GroupKnockoutDrawBuilderTest extends TestCase
             ->all();
 
         foreach ($byeMatches as $byeMatch) {
-            $this->assertContains($byeMatch->player1Id, $firstPlayerIds);
-            $this->assertNull($byeMatch->player2Id);
+            $this->assertContains($byeMatch->entry1Id, $firstPlayerIds);
+            $this->assertNull($byeMatch->entry2Id);
         }
     }
 
@@ -133,18 +133,18 @@ class GroupKnockoutDrawBuilderTest extends TestCase
         ];
 
         $actualPlayIns = $playInMatches
-            ->map(fn ($match) => [$match->player1Id, $match->player2Id])
+            ->map(fn ($match) => [$match->entry1Id, $match->entry2Id])
             ->values()
             ->all();
 
         $this->assertEqualsCanonicalizing($expectedPlayIns, $actualPlayIns);
 
         foreach ($playInMatches as $playInMatch) {
-            $this->assertSame(2, $groupByPlayer[$playInMatch->player1Id]->groupPosition);
-            $this->assertSame(3, $groupByPlayer[$playInMatch->player2Id]->groupPosition);
+            $this->assertSame(2, $groupByPlayer[$playInMatch->entry1Id]->groupPosition);
+            $this->assertSame(3, $groupByPlayer[$playInMatch->entry2Id]->groupPosition);
             $this->assertNotSame(
-                $groupByPlayer[$playInMatch->player1Id]->groupId,
-                $groupByPlayer[$playInMatch->player2Id]->groupId,
+                $groupByPlayer[$playInMatch->entry1Id]->groupId,
+                $groupByPlayer[$playInMatch->entry2Id]->groupId,
             );
         }
     }
@@ -222,13 +222,13 @@ class GroupKnockoutDrawBuilderTest extends TestCase
         );
     }
 
-    public function test_builds_direct_player_ids_for_two_groups_with_q3(): void
+    public function test_builds_direct_entry_ids_for_two_groups_with_q3(): void
     {
         $qualifiers = $this->qualifiersForNamedGroups(['A', 'B'], qualifiedPerGroup: 3);
 
-        $playerIds = app(GroupKnockoutDrawBuilder::class)->buildDirectPlayerIds($qualifiers, 3);
+        $entryIds = app(GroupKnockoutDrawBuilder::class)->buildDirectEntryIds($qualifiers, 3);
 
-        $this->assertSame([101, 201, 102, 202, 103, 203], $playerIds);
+        $this->assertSame([101, 201, 102, 202, 103, 203], $entryIds);
     }
 
     public function test_build_draw_still_rejects_q3_when_compatible_assignment_does_not_exist(): void
@@ -306,10 +306,10 @@ class GroupKnockoutDrawBuilderTest extends TestCase
             $byeMatch = $matchesByNumber[$byeMatchNumber];
             $playInMatch = $matchesByNumber[$playInMatchNumber];
 
-            $firstGroupId = $groupByPlayer[$byeMatch->player1Id]->groupId;
+            $firstGroupId = $groupByPlayer[$byeMatch->entry1Id]->groupId;
             $playInGroupIds = [
-                $groupByPlayer[$playInMatch->player1Id]->groupId,
-                $groupByPlayer[$playInMatch->player2Id]->groupId,
+                $groupByPlayer[$playInMatch->entry1Id]->groupId,
+                $groupByPlayer[$playInMatch->entry2Id]->groupId,
             ];
 
             $this->assertNotContains($firstGroupId, $playInGroupIds);

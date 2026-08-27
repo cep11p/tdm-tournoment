@@ -17,7 +17,12 @@ class GroupRoundRobinScheduleTest extends TestCase
 
         $context->generateRoundRobin($group)->assertCreated();
 
-        $this->assertSame(6, Game::query()->where('group_id', $group->id)->count());
+        $games = Game::query()->where('group_id', $group->id)->get();
+
+        $this->assertSame(6, $games->count());
+        $this->assertTrue($games->every(
+            fn (Game $game): bool => $game->entry1_id !== null && $game->entry2_id !== null && $game->entry1_id !== $game->entry2_id,
+        ));
     }
 
     public function test_odd_group_generates_correct_game_count_without_bye_games(): void
@@ -58,8 +63,8 @@ class GroupRoundRobinScheduleTest extends TestCase
             $playersInRound = [];
 
             foreach ($roundGames as $game) {
-                $playersInRound[] = (int) $game->player1_id;
-                $playersInRound[] = (int) $game->player2_id;
+                $playersInRound[] = (int) $game->singlesPlayer1Id();
+                $playersInRound[] = (int) $game->singlesPlayer2Id();
             }
 
             $this->assertSame(
@@ -102,7 +107,7 @@ class GroupRoundRobinScheduleTest extends TestCase
 
         $games = Game::query()->where('group_id', $group->id)->get();
         $pairings = $games->map(function (Game $game): string {
-            $playerIds = [(int) $game->player1_id, (int) $game->player2_id];
+            $playerIds = [(int) $game->singlesPlayer1Id(), (int) $game->singlesPlayer2Id()];
             sort($playerIds);
 
             return implode('-', $playerIds);

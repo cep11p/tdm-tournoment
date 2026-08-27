@@ -51,8 +51,8 @@ class PlayerResource extends JsonResource
             $data['group_players_count'] = $this->group_players_count;
         }
 
-        if ($this->games_as_player1_count !== null && $this->games_as_player2_count !== null) {
-            $data['games_count'] = $this->games_as_player1_count + $this->games_as_player2_count;
+        if ($this->games_count !== null) {
+            $data['games_count'] = (int) $this->games_count;
         }
 
         return $data;

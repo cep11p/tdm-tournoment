@@ -27,10 +27,10 @@ class GroupKnockoutDrawTest extends TestCase
         $this->assertCount(2, $semifinals);
         $this->assertSame('Semifinal', $semifinals[0]->round);
 
-        $this->assertSame($setup['playerOne']->id, $semifinals[0]->player1_id);
-        $this->assertSame($setup['playerFour']->id, $semifinals[0]->player2_id);
-        $this->assertSame($setup['playerThree']->id, $semifinals[1]->player1_id);
-        $this->assertSame($setup['playerTwo']->id, $semifinals[1]->player2_id);
+        $this->assertSame($setup['playerOne']->id, $semifinals[0]->singlesPlayer1Id());
+        $this->assertSame($setup['playerFour']->id, $semifinals[0]->singlesPlayer2Id());
+        $this->assertSame($setup['playerThree']->id, $semifinals[1]->singlesPlayer1Id());
+        $this->assertSame($setup['playerTwo']->id, $semifinals[1]->singlesPlayer2Id());
     }
 
     public function test_builds_four_group_draw_without_same_group_first_round_matches(): void
@@ -64,19 +64,19 @@ class GroupKnockoutDrawTest extends TestCase
 
         foreach ($quarterfinals as $game) {
             $this->assertNotSame(
-                $groupByPlayerId[$game->player1_id],
-                $groupByPlayerId[$game->player2_id],
+                $groupByPlayerId[$game->singlesPlayer1Id()],
+                $groupByPlayerId[$game->singlesPlayer2Id()],
             );
         }
 
-        $this->assertSame($setup['groupAFirst']->id, $quarterfinals[0]->player1_id);
-        $this->assertSame($setup['groupDSecond']->id, $quarterfinals[0]->player2_id);
-        $this->assertSame($setup['groupBFirst']->id, $quarterfinals[1]->player1_id);
-        $this->assertSame($setup['groupCSecond']->id, $quarterfinals[1]->player2_id);
-        $this->assertSame($setup['groupCFirst']->id, $quarterfinals[2]->player1_id);
-        $this->assertSame($setup['groupBSecond']->id, $quarterfinals[2]->player2_id);
-        $this->assertSame($setup['groupDFirst']->id, $quarterfinals[3]->player1_id);
-        $this->assertSame($setup['groupASecond']->id, $quarterfinals[3]->player2_id);
+        $this->assertSame($setup['groupAFirst']->id, $quarterfinals[0]->singlesPlayer1Id());
+        $this->assertSame($setup['groupDSecond']->id, $quarterfinals[0]->singlesPlayer2Id());
+        $this->assertSame($setup['groupBFirst']->id, $quarterfinals[1]->singlesPlayer1Id());
+        $this->assertSame($setup['groupCSecond']->id, $quarterfinals[1]->singlesPlayer2Id());
+        $this->assertSame($setup['groupCFirst']->id, $quarterfinals[2]->singlesPlayer1Id());
+        $this->assertSame($setup['groupBSecond']->id, $quarterfinals[2]->singlesPlayer2Id());
+        $this->assertSame($setup['groupDFirst']->id, $quarterfinals[3]->singlesPlayer1Id());
+        $this->assertSame($setup['groupASecond']->id, $quarterfinals[3]->singlesPlayer2Id());
     }
 
     public function test_group_knockout_q2_does_not_use_global_record_for_byes_or_seeding(): void
@@ -118,10 +118,10 @@ class GroupKnockoutDrawTest extends TestCase
         $bracket = Bracket::query()->where('competition_id', $competition->id)->sole();
         $semifinals = $context->bracketGamesForRound($bracket, 1);
 
-        $this->assertSame($groupAFirst->id, $semifinals[0]->player1_id);
-        $this->assertSame($groupBFirst->id, $semifinals[0]->player2_id);
-        $this->assertSame($groupBSecond->id, $semifinals[1]->player1_id);
-        $this->assertSame($groupASecond->id, $semifinals[1]->player2_id);
+        $this->assertSame($groupAFirst->id, $semifinals[0]->singlesPlayer1Id());
+        $this->assertSame($groupBFirst->id, $semifinals[0]->singlesPlayer2Id());
+        $this->assertSame($groupBSecond->id, $semifinals[1]->singlesPlayer1Id());
+        $this->assertSame($groupASecond->id, $semifinals[1]->singlesPlayer2Id());
     }
 
     public function test_rejects_q2_draw_when_total_qualifiers_is_not_power_of_two(): void
@@ -165,10 +165,10 @@ class GroupKnockoutDrawTest extends TestCase
         $bracket = Bracket::query()->where('competition_id', $competition->id)->sole();
         $semifinals = $context->bracketGamesForRound($bracket, 1)->sortBy('bracket_match')->values();
 
-        $this->assertSame($players[0]->id, $semifinals[0]->player1_id);
-        $this->assertSame($players[3]->id, $semifinals[0]->player2_id);
-        $this->assertSame($players[1]->id, $semifinals[1]->player1_id);
-        $this->assertSame($players[2]->id, $semifinals[1]->player2_id);
+        $this->assertSame($players[0]->id, $semifinals[0]->singlesPlayer1Id());
+        $this->assertSame($players[3]->id, $semifinals[0]->singlesPlayer2Id());
+        $this->assertSame($players[1]->id, $semifinals[1]->singlesPlayer1Id());
+        $this->assertSame($players[2]->id, $semifinals[1]->singlesPlayer2Id());
     }
 
     public function test_can_advance_round_after_group_aware_q2_draw(): void
@@ -192,8 +192,8 @@ class GroupKnockoutDrawTest extends TestCase
 
         $this->assertCount(1, $final);
         $this->assertSame('Final', $final[0]->round);
-        $this->assertSame($setup['playerOne']->id, $final[0]->player1_id);
-        $this->assertSame($setup['playerThree']->id, $final[0]->player2_id);
+        $this->assertSame($setup['playerOne']->id, $final[0]->singlesPlayer1Id());
+        $this->assertSame($setup['playerThree']->id, $final[0]->singlesPlayer2Id());
     }
 
     public function test_creates_two_group_q3_bracket_with_padding_byes_for_six_qualifiers(): void
@@ -259,8 +259,8 @@ class GroupKnockoutDrawTest extends TestCase
         $byeGames = $firstRound->filter(fn (Game $game): bool => $game->is_bye)->values();
 
         $this->assertCount(2, $byeGames);
-        $this->assertContains($groupAFirst->id, $byeGames->pluck('player1_id')->all());
-        $this->assertContains($groupBFirst->id, $byeGames->pluck('player1_id')->all());
+        $this->assertContains($groupAFirst->id, $byeGames->map(fn ($game) => $game->singlesPlayer1Id())->all());
+        $this->assertContains($groupBFirst->id, $byeGames->map(fn ($game) => $game->singlesPlayer1Id())->all());
     }
 
     public function test_two_group_q3_generates_semifinals_after_real_games_finished(): void
@@ -330,34 +330,34 @@ class GroupKnockoutDrawTest extends TestCase
 
         foreach ($byeGames as $byeGame) {
             $this->assertSame(GameStatus::Finished, $byeGame->status);
-            $this->assertSame($byeGame->player1_id, $byeGame->winner_id);
-            $this->assertNull($byeGame->player2_id);
+            $this->assertSame($byeGame->singlesPlayer1Id(), $byeGame->singlesWinnerId());
+            $this->assertNull($byeGame->singlesPlayer2Id());
         }
 
-        $this->assertContains($groupAFirst->id, $byeGames->pluck('player1_id')->all());
-        $this->assertContains($groupBFirst->id, $byeGames->pluck('player1_id')->all());
+        $this->assertContains($groupAFirst->id, $byeGames->map(fn ($game) => $game->singlesPlayer1Id())->all());
+        $this->assertContains($groupBFirst->id, $byeGames->map(fn ($game) => $game->singlesPlayer1Id())->all());
 
         foreach ($realGames as $realGame) {
             $this->assertSame(GameStatus::Pending, $realGame->status);
-            $this->assertNull($realGame->winner_id);
+            $this->assertNull($realGame->singlesWinnerId());
         }
 
         $a2VsB3 = $realGames->first(
             fn (Game $game): bool => (
-                (int) $game->player1_id === $groupASecond->id
-                && (int) $game->player2_id === $groupBThird->id
+                (int) $game->singlesPlayer1Id() === $groupASecond->id
+                && (int) $game->singlesPlayer2Id() === $groupBThird->id
             ) || (
-                (int) $game->player1_id === $groupBThird->id
-                && (int) $game->player2_id === $groupASecond->id
+                (int) $game->singlesPlayer1Id() === $groupBThird->id
+                && (int) $game->singlesPlayer2Id() === $groupASecond->id
             ),
         );
         $b2VsA3 = $realGames->first(
             fn (Game $game): bool => (
-                (int) $game->player1_id === $groupBSecond->id
-                && (int) $game->player2_id === $groupAThird->id
+                (int) $game->singlesPlayer1Id() === $groupBSecond->id
+                && (int) $game->singlesPlayer2Id() === $groupAThird->id
             ) || (
-                (int) $game->player1_id === $groupAThird->id
-                && (int) $game->player2_id === $groupBSecond->id
+                (int) $game->singlesPlayer1Id() === $groupAThird->id
+                && (int) $game->singlesPlayer2Id() === $groupBSecond->id
             ),
         );
 
@@ -378,7 +378,7 @@ class GroupKnockoutDrawTest extends TestCase
         $this->assertSame('Semifinal', $semifinals[1]->round);
 
         $semifinalPlayerIds = $semifinals
-            ->flatMap(fn (Game $game): array => [(int) $game->player1_id, (int) $game->player2_id])
+            ->flatMap(fn (Game $game): array => [(int) $game->singlesPlayer1Id(), (int) $game->singlesPlayer2Id()])
             ->all();
 
         $this->assertContains($groupAFirst->id, $semifinalPlayerIds);
@@ -389,13 +389,13 @@ class GroupKnockoutDrawTest extends TestCase
         foreach ($semifinals as $semifinal) {
             $this->assertFalse($semifinal->is_bye);
             $this->assertSame(GameStatus::Pending, $semifinal->status);
-            $this->assertNull($semifinal->winner_id);
+            $this->assertNull($semifinal->singlesWinnerId());
         }
 
-        $this->assertSame($groupAFirst->id, $semifinals[0]->player1_id);
-        $this->assertSame($groupBFirst->id, $semifinals[0]->player2_id);
-        $this->assertSame($groupASecond->id, $semifinals[1]->player1_id);
-        $this->assertSame($groupBSecond->id, $semifinals[1]->player2_id);
+        $this->assertSame($groupAFirst->id, $semifinals[0]->singlesPlayer1Id());
+        $this->assertSame($groupBFirst->id, $semifinals[0]->singlesPlayer2Id());
+        $this->assertSame($groupASecond->id, $semifinals[1]->singlesPlayer1Id());
+        $this->assertSame($groupBSecond->id, $semifinals[1]->singlesPlayer2Id());
     }
 
     public function test_creates_group_knockout_q3_bracket_with_play_in_and_byes(): void
@@ -431,19 +431,19 @@ class GroupKnockoutDrawTest extends TestCase
         ];
 
         foreach ($byeGames as $byeGame) {
-            $this->assertContains($byeGame->player1_id, $firstPlaceIds);
-            $this->assertNull($byeGame->player2_id);
-            $this->assertSame($byeGame->player1_id, $byeGame->winner_id);
+            $this->assertContains($byeGame->singlesPlayer1Id(), $firstPlaceIds);
+            $this->assertNull($byeGame->singlesPlayer2Id());
+            $this->assertSame($byeGame->singlesPlayer1Id(), $byeGame->singlesWinnerId());
         }
 
         $groupByPlayerId = $this->groupByPlayerIdFromSetup($setup);
 
         foreach ($playInGames as $playInGame) {
-            $this->assertSame(2, $groupByPlayerId[$playInGame->player1_id]['position']);
-            $this->assertSame(3, $groupByPlayerId[$playInGame->player2_id]['position']);
+            $this->assertSame(2, $groupByPlayerId[$playInGame->singlesPlayer1Id()]['position']);
+            $this->assertSame(3, $groupByPlayerId[$playInGame->singlesPlayer2Id()]['position']);
             $this->assertNotSame(
-                $groupByPlayerId[$playInGame->player1_id]['groupId'],
-                $groupByPlayerId[$playInGame->player2_id]['groupId'],
+                $groupByPlayerId[$playInGame->singlesPlayer1Id()]['groupId'],
+                $groupByPlayerId[$playInGame->singlesPlayer2Id()]['groupId'],
             );
         }
 
@@ -454,10 +454,10 @@ class GroupKnockoutDrawTest extends TestCase
             $this->assertNotNull($byeGame);
             $this->assertNotNull($playInGame);
 
-            $firstGroupId = $groupByPlayerId[$byeGame->player1_id]['groupId'];
+            $firstGroupId = $groupByPlayerId[$byeGame->singlesPlayer1Id()]['groupId'];
             $playInGroupIds = [
-                $groupByPlayerId[$playInGame->player1_id]['groupId'],
-                $groupByPlayerId[$playInGame->player2_id]['groupId'],
+                $groupByPlayerId[$playInGame->singlesPlayer1Id()]['groupId'],
+                $groupByPlayerId[$playInGame->singlesPlayer2Id()]['groupId'],
             ];
 
             $this->assertNotContains($firstGroupId, $playInGroupIds);
@@ -476,7 +476,7 @@ class GroupKnockoutDrawTest extends TestCase
         $groupByPlayerId = $this->groupByPlayerIdFromSetup($setup);
 
         foreach ($firstRound->reject(fn (Game $game): bool => $game->is_bye) as $playInGame) {
-            $context->finishGame($playInGame, $playInGame->player1)->assertOk();
+            $context->finishGame($playInGame, $playInGame->singlesPlayer1())->assertOk();
         }
 
         $response = $context->generateBracketNextRound($bracket);
@@ -489,8 +489,8 @@ class GroupKnockoutDrawTest extends TestCase
 
         foreach ($secondRound as $game) {
             $this->assertNotSame(
-                $groupByPlayerId[$game->player1_id]['groupId'],
-                $groupByPlayerId[$game->player2_id]['groupId'],
+                $groupByPlayerId[$game->singlesPlayer1Id()]['groupId'],
+                $groupByPlayerId[$game->singlesPlayer2Id()]['groupId'],
             );
         }
 
@@ -503,8 +503,8 @@ class GroupKnockoutDrawTest extends TestCase
 
         foreach ($secondRound as $game) {
             $this->assertTrue(
-                in_array($game->player1_id, $firstPlaceIds, true)
-                || in_array($game->player2_id, $firstPlaceIds, true),
+                in_array($game->singlesPlayer1Id(), $firstPlaceIds, true)
+                || in_array($game->singlesPlayer2Id(), $firstPlaceIds, true),
             );
         }
     }
@@ -530,8 +530,8 @@ class GroupKnockoutDrawTest extends TestCase
         ];
 
         foreach ($byeGames as $byeGame) {
-            $this->assertNotContains($byeGame->player1_id, $secondPlaceIds);
-            $this->assertNotContains($byeGame->winner_id, $secondPlaceIds);
+            $this->assertNotContains($byeGame->singlesPlayer1Id(), $secondPlaceIds);
+            $this->assertNotContains($byeGame->singlesWinnerId(), $secondPlaceIds);
         }
     }
 
@@ -547,10 +547,10 @@ class GroupKnockoutDrawTest extends TestCase
         $bracket = Bracket::query()->where('competition_id', $competition->id)->sole();
         $semifinals = $context->bracketGamesForRound($bracket, 1)->sortBy('bracket_match')->values();
 
-        $this->assertSame($players[0]->id, $semifinals[0]->player1_id);
-        $this->assertSame($players[3]->id, $semifinals[0]->player2_id);
-        $this->assertSame($players[1]->id, $semifinals[1]->player1_id);
-        $this->assertSame($players[2]->id, $semifinals[1]->player2_id);
+        $this->assertSame($players[0]->id, $semifinals[0]->singlesPlayer1Id());
+        $this->assertSame($players[3]->id, $semifinals[0]->singlesPlayer2Id());
+        $this->assertSame($players[1]->id, $semifinals[1]->singlesPlayer1Id());
+        $this->assertSame($players[2]->id, $semifinals[1]->singlesPlayer2Id());
     }
 
     /**
@@ -733,9 +733,9 @@ class GroupKnockoutDrawTest extends TestCase
 
                 $game = $games->first(
                     fn (Game $candidate): bool => (
-                        (int) $candidate->player1_id === $left->id && (int) $candidate->player2_id === $right->id
+                        (int) $candidate->singlesPlayer1Id() === $left->id && (int) $candidate->singlesPlayer2Id() === $right->id
                     ) || (
-                        (int) $candidate->player1_id === $right->id && (int) $candidate->player2_id === $left->id
+                        (int) $candidate->singlesPlayer1Id() === $right->id && (int) $candidate->singlesPlayer2Id() === $left->id
                     )
                 );
 

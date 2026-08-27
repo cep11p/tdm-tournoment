@@ -6,8 +6,8 @@ final class BracketDrawMatchData
 {
     public function __construct(
         public int $bracketMatch,
-        public int $player1Id,
-        public ?int $player2Id,
+        public int $entry1Id,
+        public ?int $entry2Id,
         public bool $isBye,
     ) {}
 }

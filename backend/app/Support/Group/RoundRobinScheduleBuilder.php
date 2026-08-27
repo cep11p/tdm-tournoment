@@ -7,12 +7,12 @@ final class RoundRobinScheduleBuilder
     /**
      * Build round-robin pairings using the circle (Berger) method.
      *
-     * @param  array<int>  $playerIds
-     * @return array<int, array<int, array{player1_id: int, player2_id: int}>>
+     * @param  array<int>  $entryIds
+     * @return array<int, array<int, array{entry1_id: int, entry2_id: int}>>
      */
-    public function build(array $playerIds): array
+    public function build(array $entryIds): array
     {
-        $participants = array_values($playerIds);
+        $participants = array_values($entryIds);
 
         if (count($participants) % 2 !== 0) {
             $participants[] = null;
@@ -36,8 +36,8 @@ final class RoundRobinScheduleBuilder
                 }
 
                 $roundPairings[] = [
-                    'player1_id' => (int) $homeId,
-                    'player2_id' => (int) $awayId,
+                    'entry1_id' => (int) $homeId,
+                    'entry2_id' => (int) $awayId,
                 ];
             }
 

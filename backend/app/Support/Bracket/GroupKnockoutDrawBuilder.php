@@ -69,14 +69,14 @@ final class GroupKnockoutDrawBuilder
             ]);
         }
 
-        $playerIds = array_fill(0, $total, 0);
+        $entryIds = array_fill(0, $total, 0);
 
         for ($index = 0; $index < $groupCount; $index++) {
-            $playerIds[$index] = $firsts[$index]->playerId;
-            $playerIds[$total - 1 - $index] = $seconds[$groupCount - 1 - $index]->playerId;
+            $entryIds[$index] = $firsts[$index]->competitionEntryId;
+            $entryIds[$total - 1 - $index] = $seconds[$groupCount - 1 - $index]->competitionEntryId;
         }
 
-        return $playerIds;
+        return $entryIds;
     }
 
     /**
@@ -128,10 +128,10 @@ final class GroupKnockoutDrawBuilder
      * @param  Collection<int, GroupQualifierData>  $qualifiers
      * @return array<int, int>
      */
-    public function buildDirectPlayerIds(Collection $qualifiers, int $qualifiedPerGroup): array
+    public function buildDirectEntryIds(Collection $qualifiers, int $qualifiedPerGroup): array
     {
         $groups = $this->orderedGroups($qualifiers);
-        $playerIds = [];
+        $entryIds = [];
 
         for ($position = 1; $position <= $qualifiedPerGroup; $position++) {
             foreach ($groups as $groupQualifiers) {
@@ -149,11 +149,11 @@ final class GroupKnockoutDrawBuilder
                     ]);
                 }
 
-                $playerIds[] = $byPosition[$position]->playerId;
+                $entryIds[] = $byPosition[$position]->competitionEntryId;
             }
         }
 
-        return $playerIds;
+        return $entryIds;
     }
 
     /**
@@ -225,15 +225,15 @@ final class GroupKnockoutDrawBuilder
 
             $matches[] = new BracketDrawMatchData(
                 bracketMatch: $byeMatchNumber,
-                player1Id: $first->playerId,
-                player2Id: null,
+                entry1Id: $first->competitionEntryId,
+                entry2Id: null,
                 isBye: true,
             );
 
             $matches[] = new BracketDrawMatchData(
                 bracketMatch: $playInMatchNumber,
-                player1Id: $playIn['second']->playerId,
-                player2Id: $playIn['third']->playerId,
+                entry1Id: $playIn['second']->competitionEntryId,
+                entry2Id: $playIn['third']->competitionEntryId,
                 isBye: false,
             );
         }

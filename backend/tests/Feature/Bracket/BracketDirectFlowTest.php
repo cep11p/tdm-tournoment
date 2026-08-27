@@ -40,10 +40,10 @@ class BracketDirectFlowTest extends TestCase
         $bracket = Bracket::query()->where('competition_id', $competition->id)->sole();
         $semifinals = $context->bracketGamesForRound($bracket, 1)->sortBy('bracket_match')->values();
 
-        $this->assertSame($players[0]->id, $semifinals[0]->player1_id);
-        $this->assertSame($players[3]->id, $semifinals[0]->player2_id);
-        $this->assertSame($players[1]->id, $semifinals[1]->player1_id);
-        $this->assertSame($players[2]->id, $semifinals[1]->player2_id);
+        $this->assertSame($players[0]->id, $semifinals[0]->singlesPlayer1Id());
+        $this->assertSame($players[3]->id, $semifinals[0]->singlesPlayer2Id());
+        $this->assertSame($players[1]->id, $semifinals[1]->singlesPlayer1Id());
+        $this->assertSame($players[2]->id, $semifinals[1]->singlesPlayer2Id());
     }
 
     public function test_rejects_bracket_with_fewer_than_two_registrations(): void

@@ -135,7 +135,7 @@ class BracketByeFlowTest extends TestCase
         $firstRoundGames = $context->bracketGamesForRound($bracket, 1);
 
         foreach ($firstRoundGames->reject(fn (Game $game): bool => $game->is_bye) as $playInGame) {
-            $context->finishGame($playInGame, $playInGame->player1)->assertOk();
+            $context->finishGame($playInGame, $playInGame->singlesPlayer1())->assertOk();
         }
 
         $response = $context->generateBracketNextRound($bracket);
@@ -145,7 +145,7 @@ class BracketByeFlowTest extends TestCase
         $secondRoundGames = $context->bracketGamesForRound($bracket->fresh(), 2);
         $this->assertCount(4, $secondRoundGames);
         $this->assertSame('Cuartos de final', $secondRoundGames[0]->round);
-        $this->assertSame($players[0]->id, $secondRoundGames[0]->player1_id);
+        $this->assertSame($players[0]->id, $secondRoundGames[0]->singlesPlayer1Id());
     }
 
     public function test_rejects_bracket_when_fewer_than_two_qualifiers(): void
@@ -188,9 +188,9 @@ class BracketByeFlowTest extends TestCase
 
                 $game = $games->first(
                     fn (Game $candidate): bool => (
-                        (int) $candidate->player1_id === $left->id && (int) $candidate->player2_id === $right->id
+                        (int) $candidate->singlesPlayer1Id() === $left->id && (int) $candidate->singlesPlayer2Id() === $right->id
                     ) || (
-                        (int) $candidate->player1_id === $right->id && (int) $candidate->player2_id === $left->id
+                        (int) $candidate->singlesPlayer1Id() === $right->id && (int) $candidate->singlesPlayer2Id() === $left->id
                     )
                 );
 

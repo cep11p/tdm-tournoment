@@ -2,6 +2,7 @@
 
 namespace Tests\Support;
 
+use App\Actions\Game\CreateGameAction;
 use App\Actions\Group\PersistGroupEntryAction;
 use App\Actions\Registration\PersistRegistrationAction;
 use App\Enums\CompetitionFormat;
@@ -240,14 +241,16 @@ final class TournamentTestContext
         $game->loadMissing('competition');
         $pointsPerSet ??= (int) $game->competition->points_per_set;
         $setsToWin = (int) ($game->sets_to_win ?? $game->competition->sets_to_win);
+        $game->loadMissing(['entry1.members', 'entry2.members']);
 
         $response = null;
 
         for ($setNumber = 1; $setNumber <= $setsToWin; $setNumber++) {
             $game->refresh();
+            $game->loadMissing(['entry1.members', 'entry2.members']);
 
-            $player1Score = (int) $game->player1_id === $winner->id ? $pointsPerSet : 0;
-            $player2Score = (int) $game->player2_id === $winner->id ? $pointsPerSet : 0;
+            $player1Score = (int) $game->singlesPlayer1Id() === $winner->id ? $pointsPerSet : 0;
+            $player2Score = (int) $game->singlesPlayer2Id() === $winner->id ? $pointsPerSet : 0;
 
             $response = $this->test->postJson($this->apiUrl("games/{$game->id}/sets"), [
                 'set_number' => $setNumber,
@@ -392,15 +395,56 @@ final class TournamentTestContext
             ->get();
     }
 
+    public function entryIdFor(Competition $competition, Player|int $player): int
+    {
+        $playerId = $player instanceof Player ? (int) $player->id : $player;
+
+        return app(ResolveSinglesEntryForPlayer::class)($competition, $playerId)->id;
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     */
+    public function persistGame(Competition $competition, Player $playerOne, Player $playerTwo, array $overrides = []): Game
+    {
+        return app(CreateGameAction::class)([
+            'competition_id' => $competition->id,
+            'entry1_id' => $this->entryIdFor($competition, $playerOne),
+            'entry2_id' => $this->entryIdFor($competition, $playerTwo),
+            ...$overrides,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $overrides
+     */
+    public function persistByeGame(Competition $competition, Player $player, array $overrides = []): Game
+    {
+        $entryId = $this->entryIdFor($competition, $player);
+
+        return app(CreateGameAction::class)([
+            'competition_id' => $competition->id,
+            'entry1_id' => $entryId,
+            'entry2_id' => null,
+            'winner_entry_id' => $entryId,
+            'is_bye' => true,
+            ...$overrides,
+        ]);
+    }
+
     /**
      * @param  iterable<int, Game>  $games
      */
     public function findGameBetween(iterable $games, Player $left, Player $right): Game
     {
         foreach ($games as $game) {
+            $game->loadMissing(['entry1.members', 'entry2.members']);
+            $sideOne = $game->singlesPlayer1Id();
+            $sideTwo = $game->singlesPlayer2Id();
+
             if (
-                ((int) $game->player1_id === $left->id && (int) $game->player2_id === $right->id)
-                || ((int) $game->player1_id === $right->id && (int) $game->player2_id === $left->id)
+                ($sideOne === $left->id && $sideTwo === $right->id)
+                || ($sideOne === $right->id && $sideTwo === $left->id)
             ) {
                 return $game;
             }
@@ -490,19 +534,19 @@ final class TournamentTestContext
                     continue;
                 }
 
-                $this->finishGame($game, $game->player1)->assertOk();
+                $this->finishGame($game, $game->singlesPlayer1())->assertOk();
             }
 
             $final = $currentGames->first(fn (Game $game): bool => $game->round === 'Final');
 
             if ($final !== null) {
-                $final = $final->fresh(['player1', 'player2', 'winner']);
+                $final = $final->fresh(Game::DISPLAY_RELATIONS);
 
                 return [
-                    'champion' => $final->winner ?? $final->player1,
-                    'runner_up' => (int) $final->winner_id === (int) $final->player1_id
-                        ? $final->player2
-                        : $final->player1,
+                    'champion' => $final->singlesWinner() ?? $final->singlesPlayer1(),
+                    'runner_up' => (int) $final->winner_entry_id === (int) $final->entry1_id
+                        ? $final->singlesPlayer2()
+                        : $final->singlesPlayer1(),
                     'final' => $final,
                 ];
             }

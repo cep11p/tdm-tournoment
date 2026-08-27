@@ -426,7 +426,7 @@ class CompletedTournamentSeeder extends Seeder
                     continue;
                 }
 
-                $this->finishGame($game, $game->player1, $recordGameSet, 0);
+                $this->finishGame($game, $game->singlesPlayer1(), $recordGameSet, 0);
             }
 
             $final = $currentGames->first(fn (Game $game): bool => $game->round === 'Final');
@@ -454,9 +454,9 @@ class CompletedTournamentSeeder extends Seeder
     {
         $game = $games->first(
             fn (Game $candidate): bool => (
-                (int) $candidate->player1_id === $left->id && (int) $candidate->player2_id === $right->id
+                (int) $candidate->singlesPlayer1Id() === $left->id && (int) $candidate->singlesPlayer2Id() === $right->id
             ) || (
-                (int) $candidate->player1_id === $right->id && (int) $candidate->player2_id === $left->id
+                (int) $candidate->singlesPlayer1Id() === $right->id && (int) $candidate->singlesPlayer2Id() === $left->id
             )
         );
 
@@ -484,7 +484,7 @@ class CompletedTournamentSeeder extends Seeder
         }
 
         $setScores = self::SET_SCORES[$scoreVariantIndex % count(self::SET_SCORES)];
-        $isWinnerPlayer1 = (int) $game->player1_id === $winner->id;
+        $isWinnerPlayer1 = (int) $game->singlesPlayer1Id() === $winner->id;
 
         foreach ($setScores as $setIndex => [$winnerScore, $loserScore]) {
             $game = ($recordGameSet)($game, [

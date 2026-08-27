@@ -82,8 +82,8 @@ class ThirdPlacePlayoffTest extends TestCase
         $this->assertNull($thirdPlace->bracket_round);
         $this->assertSame(1, $thirdPlace->bracket_match);
         $this->assertSame(GameStatus::Pending, $thirdPlace->status);
-        $this->assertSame($losers[0]->id, $thirdPlace->player1_id);
-        $this->assertSame($losers[1]->id, $thirdPlace->player2_id);
+        $this->assertSame($losers[0]->id, $thirdPlace->singlesPlayer1Id());
+        $this->assertSame($losers[1]->id, $thirdPlace->singlesPlayer2Id());
         $this->assertSame(3, $thirdPlace->best_of);
         $this->assertSame(2, $thirdPlace->sets_to_win);
         $this->assertFalse((bool) $thirdPlace->is_bye);
@@ -229,7 +229,7 @@ class ThirdPlacePlayoffTest extends TestCase
         $playIn = $context->bracketGamesForRound($bracket, 1)
             ->first(fn (Game $game): bool => ! $game->is_bye);
         $this->assertNotNull($playIn);
-        $context->finishGame($playIn, $playIn->player1)->assertOk();
+        $context->finishGame($playIn, $playIn->singlesPlayer1())->assertOk();
         $context->generateBracketNextRound($bracket)->assertCreated();
 
         while (! Game::query()
@@ -244,7 +244,7 @@ class ThirdPlacePlayoffTest extends TestCase
 
             foreach ($context->bracketGamesForRound($bracket->fresh(), $currentRound) as $game) {
                 if (! $game->is_bye && $game->status !== GameStatus::Finished) {
-                    $context->finishGame($game, $game->player1)->assertOk();
+                    $context->finishGame($game, $game->singlesPlayer1())->assertOk();
                 }
             }
 
@@ -264,7 +264,7 @@ class ThirdPlacePlayoffTest extends TestCase
             ->mainBracket()
             ->where('round', 'Final')
             ->sole();
-        $context->finishGame($final, $final->player1)->assertOk();
+        $context->finishGame($final, $final->singlesPlayer1())->assertOk();
 
         $this->assertSame(
             0,
@@ -366,10 +366,10 @@ class ThirdPlacePlayoffTest extends TestCase
         $context = $setup['context'];
         $this->finishSemifinalsAndAdvance($setup);
 
-        $semifinal = $setup['semifinals'][0]->fresh(['player1', 'player2', 'competition', 'sets']);
-        $newWinner = (int) $semifinal->winner_id === (int) $semifinal->player1_id
-            ? $semifinal->player2
-            : $semifinal->player1;
+        $semifinal = $setup['semifinals'][0]->fresh([...Game::DISPLAY_RELATIONS, 'competition', 'sets']);
+        $newWinner = (int) $semifinal->singlesWinnerId() === (int) $semifinal->singlesPlayer1Id()
+            ? $semifinal->singlesPlayer2()
+            : $semifinal->singlesPlayer1();
 
         $pointsPerSet = (int) $semifinal->competition->points_per_set;
         $setsToWin = (int) $semifinal->sets_to_win;
@@ -377,8 +377,8 @@ class ThirdPlacePlayoffTest extends TestCase
 
         for ($setNumber = 1; $setNumber <= $setsToWin; $setNumber++) {
             $sets[] = [
-                'player1_score' => (int) $semifinal->player1_id === $newWinner->id ? $pointsPerSet : 0,
-                'player2_score' => (int) $semifinal->player2_id === $newWinner->id ? $pointsPerSet : 0,
+                'player1_score' => (int) $semifinal->singlesPlayer1Id() === $newWinner->id ? $pointsPerSet : 0,
+                'player2_score' => (int) $semifinal->singlesPlayer2Id() === $newWinner->id ? $pointsPerSet : 0,
             ];
         }
 

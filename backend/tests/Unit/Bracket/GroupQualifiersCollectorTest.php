@@ -242,9 +242,9 @@ class GroupQualifiersCollectorTest extends TestCase
 
                 $game = $games->first(
                     fn (Game $candidate): bool => (
-                        (int) $candidate->player1_id === $left->id && (int) $candidate->player2_id === $right->id
+                        (int) $candidate->singlesPlayer1Id() === $left->id && (int) $candidate->singlesPlayer2Id() === $right->id
                     ) || (
-                        (int) $candidate->player1_id === $right->id && (int) $candidate->player2_id === $left->id
+                        (int) $candidate->singlesPlayer1Id() === $right->id && (int) $candidate->singlesPlayer2Id() === $left->id
                     )
                 );
 
@@ -265,7 +265,7 @@ class GroupQualifiersCollectorTest extends TestCase
         array $sets,
     ): void {
         foreach ($sets as $index => [$leftScore, $rightScore]) {
-            $player1IsLeft = (int) $game->player1_id === $leftPlayer->id;
+            $player1IsLeft = (int) $game->singlesPlayer1Id() === $leftPlayer->id;
             $player1Score = $player1IsLeft ? $leftScore : $rightScore;
             $player2Score = $player1IsLeft ? $rightScore : $leftScore;
 

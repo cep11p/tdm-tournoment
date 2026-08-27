@@ -7,8 +7,8 @@ use App\Enums\GameStatus;
 use App\Enums\ThirdPlaceMode;
 use App\Models\Bracket;
 use App\Models\Competition;
+use App\Models\CompetitionEntry;
 use App\Models\Game;
-use App\Models\Player;
 use Illuminate\Support\Collection;
 
 final class BracketPodiumSupport
@@ -49,7 +49,7 @@ final class BracketPodiumSupport
             ->where('bracket_id', $bracket->id)
             ->mainBracket()
             ->where('bracket_round', $semifinalRound)
-            ->with(['player1:id,first_name,last_name', 'player2:id,first_name,last_name'])
+            ->with(Game::DISPLAY_RELATIONS)
             ->orderBy('bracket_match')
             ->get();
     }
@@ -78,7 +78,7 @@ final class BracketPodiumSupport
     }
 
     /**
-     * @return array<int, Player>
+     * @return array<int, CompetitionEntry>
      */
     public static function thirdPlaceParticipants(Bracket $bracket): array
     {
@@ -86,7 +86,7 @@ final class BracketPodiumSupport
     }
 
     /**
-     * @return array<int, Player>
+     * @return array<int, CompetitionEntry>
      */
     public static function semifinalLosers(Bracket $bracket): array
     {
@@ -116,7 +116,7 @@ final class BracketPodiumSupport
             $losers[] = $loser;
         }
 
-        if (count(array_unique(array_map(fn (Player $player): int => $player->id, $losers))) !== 2) {
+        if (count(array_unique(array_map(fn (CompetitionEntry $entry): int => $entry->id, $losers))) !== 2) {
             return [];
         }
 
@@ -129,25 +129,25 @@ final class BracketPodiumSupport
             return false;
         }
 
-        if ($game->player1_id === null || $game->player2_id === null) {
+        if ($game->entry1_id === null || $game->entry2_id === null) {
             return false;
         }
 
-        if ($game->status !== GameStatus::Finished || $game->winner_id === null) {
+        if ($game->status !== GameStatus::Finished || $game->winner_entry_id === null) {
             return false;
         }
 
         return true;
     }
 
-    private static function loserOf(Game $game): ?Player
+    private static function loserOf(Game $game): ?CompetitionEntry
     {
-        if ((int) $game->winner_id === (int) $game->player1_id) {
-            return $game->player2;
+        if ((int) $game->winner_entry_id === (int) $game->entry1_id) {
+            return $game->entry2;
         }
 
-        if ((int) $game->winner_id === (int) $game->player2_id) {
-            return $game->player1;
+        if ((int) $game->winner_entry_id === (int) $game->entry2_id) {
+            return $game->entry1;
         }
 
         return null;

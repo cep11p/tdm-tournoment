@@ -105,7 +105,7 @@ final class SetGroupPlayerStatusAction
             $groupEntry->update($statusPayload);
             $groupPlayer->update($statusPayload);
 
-            $gamesClosed = $this->closePendingGroupGamesForPlayer($group, $playerId);
+            $gamesClosed = $this->closePendingGroupGamesForEntry($group, (int) $groupEntry->competition_entry_id);
 
             $groupPlayer = $groupPlayer->fresh([
                 'player:id,first_name,last_name,nickname',
@@ -143,28 +143,28 @@ final class SetGroupPlayerStatusAction
         });
     }
 
-    private function closePendingGroupGamesForPlayer(Group $group, int $playerId): int
+    private function closePendingGroupGamesForEntry(Group $group, int $entryId): int
     {
         $openGames = $group->games()
             ->whereIn('status', [GameStatus::Pending, GameStatus::InProgress])
-            ->where(function ($query) use ($playerId): void {
-                $query->where('player1_id', $playerId)
-                    ->orWhere('player2_id', $playerId);
+            ->where(function ($query) use ($entryId): void {
+                $query->where('entry1_id', $entryId)
+                    ->orWhere('entry2_id', $entryId);
             })
             ->get();
 
         foreach ($openGames as $game) {
-            $opponentId = (int) $game->player1_id === $playerId
-                ? (int) $game->player2_id
-                : (int) $game->player1_id;
+            $opponentEntryId = (int) $game->entry1_id === $entryId
+                ? (int) $game->entry2_id
+                : (int) $game->entry1_id;
 
-            if ($opponentId <= 0) {
+            if ($opponentEntryId <= 0) {
                 continue;
             }
 
             $game->update([
                 'status' => GameStatus::Finished,
-                'winner_id' => $opponentId,
+                'winner_entry_id' => $opponentEntryId,
                 'finished_at' => now(),
             ]);
         }

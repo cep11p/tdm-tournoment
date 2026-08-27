@@ -32,10 +32,10 @@ class GameDependencyResolverTest extends TestCase
 
     public function test_winner_slot_formula(): void
     {
-        $this->assertSame('player1_id', $this->resolver->winnerSlot(1));
-        $this->assertSame('player2_id', $this->resolver->winnerSlot(2));
-        $this->assertSame('player1_id', $this->resolver->winnerSlot(3));
-        $this->assertSame('player2_id', $this->resolver->winnerSlot(4));
+        $this->assertSame('entry1_id', $this->resolver->winnerSlot(1));
+        $this->assertSame('entry2_id', $this->resolver->winnerSlot(2));
+        $this->assertSame('entry1_id', $this->resolver->winnerSlot(3));
+        $this->assertSame('entry2_id', $this->resolver->winnerSlot(4));
     }
 
     public function test_resolve_maps_quarterfinals_to_semifinals(): void
@@ -43,10 +43,10 @@ class GameDependencyResolverTest extends TestCase
         $fixture = $this->createBracketFixture(roundOneMatches: 4, roundTwoMatches: 2);
 
         $expected = [
-            1 => ['match' => 1, 'slot' => 'player1_id'],
-            2 => ['match' => 1, 'slot' => 'player2_id'],
-            3 => ['match' => 2, 'slot' => 'player1_id'],
-            4 => ['match' => 2, 'slot' => 'player2_id'],
+            1 => ['match' => 1, 'slot' => 'entry1_id'],
+            2 => ['match' => 1, 'slot' => 'entry2_id'],
+            3 => ['match' => 2, 'slot' => 'entry1_id'],
+            4 => ['match' => 2, 'slot' => 'entry2_id'],
         ];
 
         foreach ($expected as $sourceMatch => $expectation) {
@@ -56,7 +56,7 @@ class GameDependencyResolverTest extends TestCase
             $this->assertNotNull($dependency);
             $this->assertSame($expectation['match'], $dependency['destination_match']);
             $this->assertSame($expectation['slot'], $dependency['slot']);
-            $this->assertSame($source->winner_id, $dependency['expected_player_id']);
+            $this->assertSame($source->winner_entry_id, $dependency['expected_entry_id']);
             $this->assertSame(
                 $fixture['roundTwoGames'][$expectation['match'] - 1]->id,
                 $dependency['game']->id,
@@ -102,7 +102,7 @@ class GameDependencyResolverTest extends TestCase
 
         $this->assertNotNull($dependency);
         $this->assertSame(1, $dependency['destination_match']);
-        $this->assertSame('player2_id', $dependency['slot']);
+        $this->assertSame('entry2_id', $dependency['slot']);
         $this->assertSame('Cuartos de final', $dependency['game']->round);
     }
 
@@ -129,11 +129,11 @@ class GameDependencyResolverTest extends TestCase
 
         $this->assertNotNull($loserOne);
         $this->assertNotNull($loserTwo);
-        $this->assertSame('player1_id', $loserOne['slot']);
-        $this->assertSame('player2_id', $loserTwo['slot']);
+        $this->assertSame('entry1_id', $loserOne['slot']);
+        $this->assertSame('entry2_id', $loserTwo['slot']);
         $this->assertSame($fixture['thirdPlace']->id, $loserOne['game']->id);
-        $this->assertSame((int) $sf1->player2_id, $loserOne['expected_player_id']);
-        $this->assertSame((int) $sf2->player2_id, $loserTwo['expected_player_id']);
+        $this->assertSame((int) $sf1->entry2_id, $loserOne['expected_entry_id']);
+        $this->assertSame((int) $sf2->entry2_id, $loserTwo['expected_entry_id']);
     }
 
     public function test_loser_dependency_is_null_for_shared_and_none(): void
@@ -177,7 +177,7 @@ class GameDependencyResolverTest extends TestCase
 
         foreach ($semifinals as $index => $semifinal) {
             $semifinal->update([
-                'winner_id' => $semifinal->player1_id,
+                'winner_entry_id' => $semifinal->entry1_id,
                 'status' => GameStatus::Finished,
                 'finished_at' => now(),
             ]);
@@ -187,13 +187,10 @@ class GameDependencyResolverTest extends TestCase
         $thirdPlace = null;
 
         if ($createThirdPlace && $mode === ThirdPlaceMode::Playoff) {
-            $thirdPlace = Game::query()->create([
-                'competition_id' => $competition->id,
+            $thirdPlace = $context->persistGame($competition, $players[1], $players[3], [
                 'bracket_id' => $bracket->id,
                 'bracket_purpose' => BracketGamePurpose::ThirdPlace,
-                'player1_id' => $players[1]->id,
-                'player2_id' => $players[3]->id,
-                'winner_id' => null,
+                'winner_entry_id' => null,
                 'status' => GameStatus::Pending,
                 'round' => 'Tercer puesto',
                 'bracket_round' => null,
@@ -244,12 +241,9 @@ class GameDependencyResolverTest extends TestCase
             $playerOne = $players[($match - 1) * 2];
             $playerTwo = $players[($match - 1) * 2 + 1];
 
-            $roundOneGames[] = Game::query()->create([
-                'competition_id' => $competition->id,
+            $roundOneGames[] = $context->persistGame($competition, $playerOne, $playerTwo, [
                 'bracket_id' => $bracket->id,
-                'player1_id' => $playerOne->id,
-                'player2_id' => $playerTwo->id,
-                'winner_id' => $playerOne->id,
+                'winner_entry_id' => $context->entryIdFor($competition, $playerOne),
                 'status' => GameStatus::Finished,
                 'finished_at' => now(),
                 'round' => $roundOneLabel,
@@ -264,12 +258,12 @@ class GameDependencyResolverTest extends TestCase
         $roundTwoGames = [];
 
         for ($match = 1; $match <= $roundTwoMatches; $match++) {
-            $roundTwoGames[] = Game::query()->create([
+            $roundTwoGames[] = app(\App\Actions\Game\CreateGameAction::class)([
                 'competition_id' => $competition->id,
                 'bracket_id' => $bracket->id,
-                'player1_id' => $roundOneGames[($match - 1) * 2]->winner_id,
-                'player2_id' => $roundOneGames[($match - 1) * 2 + 1]->winner_id,
-                'winner_id' => null,
+                'entry1_id' => $roundOneGames[($match - 1) * 2]->winner_entry_id,
+                'entry2_id' => $roundOneGames[($match - 1) * 2 + 1]->winner_entry_id,
+                'winner_entry_id' => null,
                 'status' => GameStatus::Pending,
                 'round' => $roundTwoLabel,
                 'bracket_round' => 2,
@@ -281,12 +275,9 @@ class GameDependencyResolverTest extends TestCase
         }
 
         for ($match = 1; $match <= $roundThreeMatches; $match++) {
-            Game::query()->create([
-                'competition_id' => $competition->id,
+            $context->persistGame($competition, $players[0], $players[1], [
                 'bracket_id' => $bracket->id,
-                'player1_id' => $players[0]->id,
-                'player2_id' => $players[1]->id,
-                'winner_id' => null,
+                'winner_entry_id' => null,
                 'status' => GameStatus::Pending,
                 'round' => 'Final',
                 'bracket_round' => 3,

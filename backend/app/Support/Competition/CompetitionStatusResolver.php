@@ -168,7 +168,7 @@ final class CompetitionStatusResolver
             ->mainBracket()
             ->where('round', 'Final')
             ->where('status', GameStatus::Finished)
-            ->whereNotNull('winner_id')
+            ->whereNotNull('winner_entry_id')
             ->exists();
 
         if (! $finalFinished) {
@@ -193,7 +193,7 @@ final class CompetitionStatusResolver
 
         return $thirdPlaceGame !== null
             && $thirdPlaceGame->status === GameStatus::Finished
-            && $thirdPlaceGame->winner_id !== null;
+            && $thirdPlaceGame->winner_entry_id !== null;
     }
 
     private static function resolveKnockoutNextAction(Competition $competition): string
@@ -228,10 +228,10 @@ final class CompetitionStatusResolver
             $thirdPlaceGame = BracketPodiumSupport::findThirdPlaceGame($bracket);
             $finalFinished = $finalGame !== null
                 && $finalGame->status === GameStatus::Finished
-                && $finalGame->winner_id !== null;
+                && $finalGame->winner_entry_id !== null;
             $thirdPlaceFinished = $thirdPlaceGame !== null
                 && $thirdPlaceGame->status === GameStatus::Finished
-                && $thirdPlaceGame->winner_id !== null;
+                && $thirdPlaceGame->winner_entry_id !== null;
 
             if ($finalFinished && ! $thirdPlaceFinished) {
                 return 'Completar partido por tercer puesto';

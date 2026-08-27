@@ -8,6 +8,7 @@ use App\Enums\AuditAction;
 use App\Enums\BracketGamePurpose;
 use App\Enums\GameStatus;
 use App\Models\Bracket;
+use App\Models\Game;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Bracket\BracketPodiumSupport;
@@ -55,7 +56,7 @@ final class GenerateBracketNextRoundAction
             if (
                 $finalGame !== null
                 && $finalGame->status === GameStatus::Finished
-                && $finalGame->winner_id !== null
+                && $finalGame->winner_entry_id !== null
             ) {
                 throw ValidationException::withMessages([
                     'bracket' => ['El cuadro eliminatorio ya finalizó.'],
@@ -64,7 +65,7 @@ final class GenerateBracketNextRoundAction
         }
 
         $hasUnfinishedGames = $currentRoundGames
-            ->contains(fn ($game) => $game->status !== GameStatus::Finished || $game->winner_id === null);
+            ->contains(fn ($game) => $game->status !== GameStatus::Finished || $game->winner_entry_id === null);
 
         if ($hasUnfinishedGames) {
             throw ValidationException::withMessages([
@@ -82,8 +83,8 @@ final class GenerateBracketNextRoundAction
 
         $winners = $currentRoundGames
             ->sortBy('bracket_match')
-            ->pluck('winner_id')
-            ->map(fn ($winnerId) => (int) $winnerId)
+            ->pluck('winner_entry_id')
+            ->map(fn ($winnerEntryId) => (int) $winnerEntryId)
             ->values()
             ->all();
 
@@ -112,8 +113,8 @@ final class GenerateBracketNextRoundAction
                     'competition_id' => $competitionId,
                     'bracket_id' => $bracket->id,
                     'bracket_purpose' => BracketGamePurpose::Main,
-                    'player1_id' => $winners[$matchIndex * 2],
-                    'player2_id' => $winners[($matchIndex * 2) + 1],
+                    'entry1_id' => $winners[$matchIndex * 2],
+                    'entry2_id' => $winners[($matchIndex * 2) + 1],
                     'round' => $roundLabel,
                     'bracket_round' => $nextRound,
                     'bracket_match' => $matchIndex + 1,
@@ -142,8 +143,8 @@ final class GenerateBracketNextRoundAction
                             'competition_id' => $competitionId,
                             'bracket_id' => $bracket->id,
                             'bracket_purpose' => BracketGamePurpose::ThirdPlace,
-                            'player1_id' => $participants[0]->id,
-                            'player2_id' => $participants[1]->id,
+                            'entry1_id' => $participants[0]->id,
+                            'entry2_id' => $participants[1]->id,
                             'round' => 'Tercer puesto',
                             'bracket_round' => null,
                             'bracket_match' => 1,
@@ -184,12 +185,10 @@ final class GenerateBracketNextRoundAction
                 summary: $auditSummary,
             ));
 
-            return $bracket->load([
-                'games.player1:id,first_name,last_name,nickname',
-                'games.player2:id,first_name,last_name,nickname',
-                'games.winner:id,first_name,last_name,nickname',
-                'games.sets',
-            ]);
+            return $bracket->load(array_map(
+                fn (string $relation): string => 'games.'.$relation,
+                Game::DISPLAY_RELATIONS,
+            ));
         });
     }
 }

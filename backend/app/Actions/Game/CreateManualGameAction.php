@@ -9,21 +9,15 @@ use App\Models\Competition;
 use App\Models\Game;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
+use App\Support\Competition\ResolveSinglesEntryForPlayer;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
 
 final class CreateManualGameAction
 {
-    private const GAME_RELATIONS = [
-        'competition',
-        'group',
-        'bracket',
-        'player1:id,first_name,last_name,nickname',
-        'player2:id,first_name,last_name,nickname',
-    ];
-
     public function __construct(
         private readonly CreateGameAction $createGame,
+        private readonly ResolveSinglesEntryForPlayer $resolveSinglesEntryForPlayer,
         private readonly AuditLogger $auditLogger,
     ) {}
 
@@ -32,9 +26,17 @@ final class CreateManualGameAction
         $competition = Competition::query()->findOrFail($payload['competition_id']);
         TournamentLifecycleGuard::ensureMutableForCompetition($competition);
 
-        return DB::transaction(function () use ($payload): Game {
-            $game = ($this->createGame)($payload);
-            $game->load(self::GAME_RELATIONS);
+        $entry1 = ($this->resolveSinglesEntryForPlayer)($competition, (int) $payload['player1_id']);
+        $entry2 = ($this->resolveSinglesEntryForPlayer)($competition, (int) $payload['player2_id']);
+
+        return DB::transaction(function () use ($payload, $entry1, $entry2): Game {
+            $game = ($this->createGame)([
+                ...$payload,
+                'entry1_id' => $entry1->id,
+                'entry2_id' => $entry2->id,
+            ]);
+
+            $game->load(Game::DISPLAY_RELATIONS);
             $game->loadMissing('competition');
 
             $context = AuditContextBuilder::fromGame($game);
@@ -46,8 +48,8 @@ final class CreateManualGameAction
                 subject: $game,
                 context: $context,
                 new: [
-                    'player1_id' => $game->player1_id,
-                    'player2_id' => $game->player2_id,
+                    'player1_id' => $game->singlesPlayer1Id(),
+                    'player2_id' => $game->singlesPlayer2Id(),
                     'round' => $game->round,
                     'group_id' => $game->group_id,
                     'bracket_id' => $game->bracket_id,

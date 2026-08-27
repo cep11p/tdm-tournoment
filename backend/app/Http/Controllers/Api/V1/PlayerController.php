@@ -68,9 +68,8 @@ class PlayerController extends Controller
         $player->loadCount([
             'registrations',
             'groupPlayers',
-            'gamesAsPlayer1',
-            'gamesAsPlayer2',
         ]);
+        $player->setAttribute('games_count', $player->gamesCount());
 
         return new PlayerResource($player);
     }

@@ -36,10 +36,8 @@ final class CorrectFinishedGameResultAction
                 ->with([
                     'competition.tournament',
                     'sets',
-                    'player1:id,first_name,last_name,nickname',
-                    'player2:id,first_name,last_name,nickname',
-                    'winner:id,first_name,last_name,nickname',
                     'bracket',
+                    ...Game::DISPLAY_RELATIONS,
                 ])
                 ->lockForUpdate()
                 ->findOrFail($game->id);
@@ -50,8 +48,9 @@ final class CorrectFinishedGameResultAction
 
             $oldSnapshot = $this->snapshot($game);
             $setsCountBefore = $game->sets->count();
-            $oldWinnerId = (int) $game->winner_id;
-            $oldLoserId = self::loserIdForWinner($game, $oldWinnerId);
+            $oldWinnerEntryId = (int) $game->winner_entry_id;
+            $oldLoserEntryId = self::loserEntryIdForWinner($game, $oldWinnerEntryId);
+            $oldWinnerPlayerId = $game->singlesWinnerId();
 
             $competition = $game->competition;
             $setsToWin = (int) ($game->sets_to_win ?? $competition->sets_to_win);
@@ -59,8 +58,8 @@ final class CorrectFinishedGameResultAction
             $newSets = $payload['sets'];
 
             $validatedResult = $this->validateFullResult($game, $newSets, $setsToWin, $pointsPerSet);
-            $newWinnerId = $validatedResult['winner_id'];
-            $newLoserId = self::loserIdForWinner($game, $newWinnerId);
+            $newWinnerEntryId = $validatedResult['winner_entry_id'];
+            $newLoserEntryId = self::loserEntryIdForWinner($game, $newWinnerEntryId);
 
             $this->correctionGuard->assertNoRoundBeyondImmediate($game);
 
@@ -97,8 +96,8 @@ final class CorrectFinishedGameResultAction
                 $propagations[] = [
                     'destination' => $destination,
                     'slot' => $winnerDependency['slot'],
-                    'oldParticipantId' => $oldWinnerId,
-                    'newParticipantId' => $newWinnerId,
+                    'oldParticipantId' => $oldWinnerEntryId,
+                    'newParticipantId' => $newWinnerEntryId,
                     'context' => $this->winnerPropagationContext($game, $winnerDependency),
                     'kind' => 'winner',
                 ];
@@ -110,8 +109,8 @@ final class CorrectFinishedGameResultAction
                 $propagations[] = [
                     'destination' => $destination,
                     'slot' => $loserDependency['slot'],
-                    'oldParticipantId' => $oldLoserId,
-                    'newParticipantId' => $newLoserId,
+                    'oldParticipantId' => $oldLoserEntryId,
+                    'newParticipantId' => $newLoserEntryId,
                     'context' => 'third_place',
                     'kind' => 'loser',
                 ];
@@ -129,7 +128,7 @@ final class CorrectFinishedGameResultAction
                 ]);
             }
 
-            $game->winner_id = $newWinnerId;
+            $game->winner_entry_id = $newWinnerEntryId;
             $game->status = GameStatus::Finished;
             $game->finished_at = now();
             $game->save();
@@ -146,13 +145,11 @@ final class CorrectFinishedGameResultAction
 
             $game->load([
                 'competition',
-                'player1:id,first_name,last_name,nickname',
-                'player2:id,first_name,last_name,nickname',
-                'winner:id,first_name,last_name,nickname',
-                'sets',
+                ...Game::DISPLAY_RELATIONS,
             ]);
 
             $newSnapshot = $this->snapshot($game);
+            $newWinnerPlayerId = $game->singlesWinnerId();
 
             $this->auditLogger->log(new AuditEntry(
                 action: AuditAction::GAME_RESULT_CORRECTED,
@@ -162,19 +159,19 @@ final class CorrectFinishedGameResultAction
                 old: $oldSnapshot,
                 new: $newSnapshot,
                 summary: [
-                    'winner_changed' => $oldWinnerId !== $newWinnerId,
-                    'old_winner_id' => $oldWinnerId,
-                    'new_winner_id' => $newWinnerId,
+                    'winner_changed' => $oldWinnerEntryId !== $newWinnerEntryId,
+                    'old_winner_id' => $oldWinnerPlayerId,
+                    'new_winner_id' => $newWinnerPlayerId,
                     'sets_count_before' => $setsCountBefore,
                     'sets_count_after' => count($newSets),
                     'propagation' => $this->buildPropagationSummary(
                         winnerDependency: $winnerDependency,
                         loserDependency: $loserDependency,
                         lockedDestinations: $lockedDestinations,
-                        oldWinnerId: $oldWinnerId,
-                        newWinnerId: $newWinnerId,
-                        oldLoserId: $oldLoserId,
-                        newLoserId: $newLoserId,
+                        oldWinnerId: $oldWinnerEntryId,
+                        newWinnerId: $newWinnerEntryId,
+                        oldLoserId: $oldLoserEntryId,
+                        newLoserId: $newLoserEntryId,
                     ),
                 ],
                 reason: $payload['reason'],
@@ -187,15 +184,15 @@ final class CorrectFinishedGameResultAction
     /**
      * @param  array{
      *     game: Game,
-     *     slot: 'player1_id'|'player2_id',
+     *     slot: 'entry1_id'|'entry2_id',
      *     destination_round: int,
      *     destination_match: int,
-     *     expected_player_id: int,
+     *     expected_entry_id: int,
      * }|null  $winnerDependency
      * @param  array{
      *     game: Game,
-     *     slot: 'player1_id'|'player2_id',
-     *     expected_player_id: int,
+     *     slot: 'entry1_id'|'entry2_id',
+     *     expected_entry_id: int,
      * }|null  $loserDependency
      * @param  array<int, Game>  $lockedDestinations
      * @return array<string, mixed>
@@ -230,10 +227,10 @@ final class CorrectFinishedGameResultAction
     /**
      * @param  array{
      *     game: Game,
-     *     slot: 'player1_id'|'player2_id',
+     *     slot: 'entry1_id'|'entry2_id',
      *     destination_round?: int,
      *     destination_match?: int,
-     *     expected_player_id: int,
+     *     expected_entry_id: int,
      * }|null  $dependency
      * @param  array<int, Game>  $lockedDestinations
      * @return array<string, mixed>
@@ -281,10 +278,10 @@ final class CorrectFinishedGameResultAction
     /**
      * @param  array{
      *     game: Game,
-     *     slot: 'player1_id'|'player2_id',
+     *     slot: 'entry1_id'|'entry2_id',
      *     destination_round: int,
      *     destination_match: int,
-     *     expected_player_id: int,
+     *     expected_entry_id: int,
      * }  $winnerDependency
      * @return 'final'|'next_round'
      */
@@ -306,17 +303,17 @@ final class CorrectFinishedGameResultAction
         return 'next_round';
     }
 
-    private static function loserIdForWinner(Game $game, int $winnerId): int
+    private static function loserEntryIdForWinner(Game $game, int $winnerEntryId): int
     {
-        return (int) $game->player1_id === $winnerId
-            ? (int) $game->player2_id
-            : (int) $game->player1_id;
+        return (int) $game->entry1_id === $winnerEntryId
+            ? (int) $game->entry2_id
+            : (int) $game->entry1_id;
     }
 
     /**
      * @param  array<int, array{player1_score: int, player2_score: int}>  $setsPayload
      * @return array{
-     *     winner_id: int,
+     *     winner_entry_id: int,
      *     sets_won: array{player1: int, player2: int},
      * }
      */
@@ -388,13 +385,13 @@ final class CorrectFinishedGameResultAction
 
         if ($player1Wins >= $setsToWin) {
             return [
-                'winner_id' => (int) $game->player1_id,
+                'winner_entry_id' => (int) $game->entry1_id,
                 'sets_won' => ['player1' => $player1Wins, 'player2' => $player2Wins],
             ];
         }
 
         return [
-            'winner_id' => (int) $game->player2_id,
+            'winner_entry_id' => (int) $game->entry2_id,
             'sets_won' => ['player1' => $player1Wins, 'player2' => $player2Wins],
         ];
     }
@@ -421,8 +418,8 @@ final class CorrectFinishedGameResultAction
             'status' => $game->status instanceof GameStatus
                 ? $game->status->value
                 : (string) $game->status,
-            'winner_id' => $game->winner_id,
-            'winner_name' => self::playerDisplayName($game->winner),
+            'winner_id' => $game->singlesWinnerId(),
+            'winner_name' => self::playerDisplayName($game->singlesWinner()),
             'finished_at' => $game->finished_at?->toIso8601String(),
             'sets' => $sets
                 ->map(fn ($set): array => [

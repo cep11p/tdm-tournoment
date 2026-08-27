@@ -53,9 +53,7 @@ final class DeletePlayerAction
     {
         return $player->registrations()->exists()
             || $player->groupPlayers()->exists()
-            || $player->gamesAsPlayer1()->exists()
-            || $player->gamesAsPlayer2()->exists()
-            || $player->wonGames()->exists()
+            || $player->competitionEntryMembers()->exists()
             || GroupManualTiebreakEntry::query()
                 ->whereIn(
                     'competition_entry_id',

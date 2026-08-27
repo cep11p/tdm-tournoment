@@ -151,8 +151,8 @@ class GameResultCorrectionAuditTest extends TestCase
 
         $quarterfinalOne = $setup['quarterfinal'];
         $semifinalOne = $setup['semifinal'];
-        $oldWinnerId = $quarterfinalOne->fresh()->winner_id;
-        $newWinner = $quarterfinalOne->player2;
+        $oldWinnerId = $quarterfinalOne->fresh()->singlesWinnerId();
+        $newWinner = $quarterfinalOne->singlesPlayer2();
 
         $context->correctResult(
             $quarterfinalOne->fresh(),
@@ -168,7 +168,7 @@ class GameResultCorrectionAuditTest extends TestCase
         $this->assertTrue(data_get($activity->properties, 'summary.winner_changed'));
         $this->assertTrue(data_get($activity->properties, 'summary.propagation.winner.applied'));
         $this->assertSame($semifinalOne->id, data_get($activity->properties, 'summary.propagation.winner.destination_game_id'));
-        $this->assertSame('player1_id', data_get($activity->properties, 'summary.propagation.winner.slot'));
+        $this->assertSame('entry1_id', data_get($activity->properties, 'summary.propagation.winner.slot'));
         $this->assertSame($oldWinnerId, data_get($activity->properties, 'summary.propagation.winner.before'));
         $this->assertSame($newWinner->id, data_get($activity->properties, 'summary.propagation.winner.after'));
         $this->assertFalse(data_get($activity->properties, 'summary.propagation.loser.applied'));
@@ -204,7 +204,7 @@ class GameResultCorrectionAuditTest extends TestCase
         $setup = $this->createQuarterfinalWithSemifinalPropagation($context);
 
         $context->recordSet($setup['semifinal'], setNumber: 1, player1Score: 11, player2Score: 9)->assertOk();
-        $setup['semifinal']->update(['status' => GameStatus::Pending, 'winner_id' => null, 'finished_at' => null]);
+        $setup['semifinal']->update(['status' => GameStatus::Pending, 'winner_entry_id' => null, 'finished_at' => null]);
 
         $correctionCountBefore = Activity::query()
             ->where('description', AuditAction::GAME_RESULT_CORRECTED->value)
@@ -213,7 +213,7 @@ class GameResultCorrectionAuditTest extends TestCase
         $context->correctResult(
             $setup['quarterfinal']->fresh(),
             self::REASON,
-            $this->correctedSetsForGame($setup['quarterfinal']->fresh(), $setup['quarterfinal']->player2),
+            $this->correctedSetsForGame($setup['quarterfinal']->fresh(), $setup['quarterfinal']->singlesPlayer2()),
         )->assertUnprocessable();
 
         $this->assertSame(
@@ -330,7 +330,7 @@ class GameResultCorrectionAuditTest extends TestCase
         foreach ($quarterfinals as $quarterfinal) {
             $context->finishGame(
                 $quarterfinal,
-                Player::query()->findOrFail($quarterfinal->player1_id),
+                Player::query()->findOrFail($quarterfinal->singlesPlayer1Id()),
             )->assertOk();
         }
 
@@ -353,8 +353,8 @@ class GameResultCorrectionAuditTest extends TestCase
         $sets = [];
 
         for ($setNumber = 1; $setNumber <= $setsToWin; $setNumber++) {
-            $player1Score = (int) $game->player1_id === $winner->id ? $pointsPerSet : 0;
-            $player2Score = (int) $game->player2_id === $winner->id ? $pointsPerSet : 0;
+            $player1Score = (int) $game->singlesPlayer1Id() === $winner->id ? $pointsPerSet : 0;
+            $player2Score = (int) $game->singlesPlayer2Id() === $winner->id ? $pointsPerSet : 0;
 
             $sets[] = [
                 'player1_score' => $player1Score,

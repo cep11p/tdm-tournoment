@@ -107,7 +107,7 @@ class GroupPlayerStatusTest extends TestCase
         $pendingGame->refresh();
 
         $this->assertSame(GameStatus::Finished, $pendingGame->status);
-        $this->assertSame($playerThree->id, $pendingGame->winner_id);
+        $this->assertSame($playerThree->id, $pendingGame->singlesWinnerId());
         $this->assertCount(0, $pendingGame->sets);
     }
 
@@ -123,7 +123,7 @@ class GroupPlayerStatusTest extends TestCase
         $context->finishGame($finishedGame, $playerOne)->assertOk();
         $finishedGame->refresh();
 
-        $originalWinnerId = $finishedGame->winner_id;
+        $originalWinnerId = $finishedGame->singlesWinnerId();
         $originalFinishedAt = $finishedGame->finished_at?->toIso8601String();
         $originalSetCount = $finishedGame->sets()->count();
 
@@ -134,7 +134,7 @@ class GroupPlayerStatusTest extends TestCase
 
         $finishedGame->refresh();
 
-        $this->assertSame($originalWinnerId, $finishedGame->winner_id);
+        $this->assertSame($originalWinnerId, $finishedGame->singlesWinnerId());
         $this->assertSame($originalFinishedAt, $finishedGame->finished_at?->toIso8601String());
         $this->assertSame($originalSetCount, $finishedGame->sets()->count());
     }
@@ -224,7 +224,7 @@ class GroupPlayerStatusTest extends TestCase
         $qualifierIds = Game::query()
             ->where('bracket_id', $bracket->id)
             ->get()
-            ->flatMap(fn (Game $game): array => [(int) $game->player1_id, (int) $game->player2_id])
+            ->flatMap(fn (Game $game): array => [(int) $game->singlesPlayer1Id(), (int) $game->singlesPlayer2Id()])
             ->filter(fn (int $playerId): bool => $playerId > 0)
             ->unique()
             ->values()
@@ -451,7 +451,7 @@ class GroupPlayerStatusTest extends TestCase
         array $sets,
     ): void {
         foreach ($sets as $index => [$leftScore, $rightScore]) {
-            $player1IsLeft = (int) $game->player1_id === $leftPlayer->id;
+            $player1IsLeft = (int) $game->singlesPlayer1Id() === $leftPlayer->id;
             $player1Score = $player1IsLeft ? $leftScore : $rightScore;
             $player2Score = $player1IsLeft ? $rightScore : $leftScore;
 

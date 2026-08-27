@@ -146,7 +146,7 @@ class GameFormatFlowTest extends TestCase
 
         foreach ($semifinals as $game) {
             if (! $game->is_bye) {
-                $context->finishGame($game, $game->player1)->assertOk();
+                $context->finishGame($game, $game->singlesPlayer1())->assertOk();
             }
         }
 

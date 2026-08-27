@@ -127,7 +127,7 @@ class RegenerateRandomGroupsTest extends TestCase
             ->whereNotNull('group_id')
             ->firstOrFail();
 
-        $winner = $game->player1;
+        $winner = $game->singlesPlayer1();
         $context->finishGame($game, $winner)->assertOk();
 
         $response = $context->regenerateRandomGroups($competition, groupsCount: 2);
@@ -155,25 +155,15 @@ class RegenerateRandomGroupsTest extends TestCase
             'byes_count' => 1,
         ]);
 
-        Game::query()->create([
-            'competition_id' => $competition->id,
+        $context->persistByeGame($competition, $players[0], [
             'bracket_id' => $bracket->id,
-            'player1_id' => $players[0]->id,
-            'player2_id' => null,
             'round' => 'Ronda clasificatoria',
-            'status' => GameStatus::Finished,
-            'is_bye' => true,
             'bracket_round' => 1,
             'bracket_match' => 1,
-            'best_of' => 5,
-            'sets_to_win' => 3,
         ]);
 
-        Game::query()->create([
-            'competition_id' => $competition->id,
+        $context->persistGame($competition, $players[1], $players[2], [
             'bracket_id' => $bracket->id,
-            'player1_id' => $players[1]->id,
-            'player2_id' => $players[2]->id,
             'round' => 'Ronda clasificatoria',
             'status' => GameStatus::Pending,
             'is_bye' => false,
@@ -211,16 +201,9 @@ class RegenerateRandomGroupsTest extends TestCase
             'qualifiers_per_group' => 2,
         ]);
 
-        Game::query()->create([
-            'competition_id' => $competition->id,
+        $context->persistByeGame($competition, $players[0], [
             'bracket_id' => $bracket->id,
-            'player1_id' => $players[0]->id,
-            'player2_id' => null,
             'round' => 'Ronda clasificatoria',
-            'status' => GameStatus::Finished,
-            'is_bye' => true,
-            'best_of' => 5,
-            'sets_to_win' => 3,
         ]);
 
         $context->regenerateRandomGroups($competition, groupsCount: 2)->assertCreated();
@@ -363,18 +346,11 @@ class RegenerateRandomGroupsTest extends TestCase
             'byes_count' => 1,
         ]);
 
-        $bracketGame = Game::query()->create([
-            'competition_id' => $competition->id,
+        $bracketGame = $context->persistByeGame($competition, $players[0], [
             'bracket_id' => $bracket->id,
-            'player1_id' => $players[0]->id,
-            'player2_id' => null,
             'round' => 'Ronda clasificatoria',
-            'status' => GameStatus::Finished,
-            'is_bye' => true,
             'bracket_round' => 1,
             'bracket_match' => 1,
-            'best_of' => 5,
-            'sets_to_win' => 3,
         ]);
 
         $originalGameIds = Game::query()

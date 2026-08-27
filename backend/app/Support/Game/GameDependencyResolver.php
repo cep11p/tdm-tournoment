@@ -14,11 +14,11 @@ final class GameDependencyResolver
     }
 
     /**
-     * @return 'player1_id'|'player2_id'
+     * @return 'entry1_id'|'entry2_id'
      */
     public function winnerSlot(int $sourceMatch): string
     {
-        return $sourceMatch % 2 === 1 ? 'player1_id' : 'player2_id';
+        return $sourceMatch % 2 === 1 ? 'entry1_id' : 'entry2_id';
     }
 
     public function hasRoundBeyondImmediate(Game $source): bool
@@ -39,10 +39,10 @@ final class GameDependencyResolver
     /**
      * @return array{
      *     game: Game,
-     *     slot: 'player1_id'|'player2_id',
+     *     slot: 'entry1_id'|'entry2_id',
      *     destination_round: int,
      *     destination_match: int,
-     *     expected_player_id: int,
+     *     expected_entry_id: int,
      * }|null
      */
     public function resolveWinnerDependency(Game $source): ?array
@@ -51,7 +51,7 @@ final class GameDependencyResolver
             return null;
         }
 
-        if ($source->winner_id === null) {
+        if ($source->winner_entry_id === null) {
             return null;
         }
 
@@ -75,15 +75,15 @@ final class GameDependencyResolver
             'slot' => $slot,
             'destination_round' => $destinationRound,
             'destination_match' => $destinationMatch,
-            'expected_player_id' => (int) $source->winner_id,
+            'expected_entry_id' => (int) $source->winner_entry_id,
         ];
     }
 
     /**
      * @return array{
      *     game: Game,
-     *     slot: 'player1_id'|'player2_id',
-     *     expected_player_id: int,
+     *     slot: 'entry1_id'|'entry2_id',
+     *     expected_entry_id: int,
      * }|null
      */
     public function resolveLoserThirdPlaceDependency(Game $source): ?array
@@ -92,7 +92,7 @@ final class GameDependencyResolver
             return null;
         }
 
-        if ($source->winner_id === null || $source->player1_id === null || $source->player2_id === null) {
+        if ($source->winner_entry_id === null || $source->entry1_id === null || $source->entry2_id === null) {
             return null;
         }
 
@@ -123,25 +123,26 @@ final class GameDependencyResolver
             return null;
         }
 
-        $winnerId = (int) $source->winner_id;
-        $loserId = $winnerId === (int) $source->player1_id
-            ? (int) $source->player2_id
-            : (int) $source->player1_id;
+        $loserEntryId = $source->loserEntryId();
+
+        if ($loserEntryId === null) {
+            return null;
+        }
 
         return [
             'game' => $thirdPlaceGame,
             'slot' => $this->winnerSlot((int) $source->bracket_match),
-            'expected_player_id' => $loserId,
+            'expected_entry_id' => $loserEntryId,
         ];
     }
 
     /**
      * @return array{
      *     game: Game,
-     *     slot: 'player1_id'|'player2_id',
+     *     slot: 'entry1_id'|'entry2_id',
      *     destination_round: int,
      *     destination_match: int,
-     *     expected_player_id: int,
+     *     expected_entry_id: int,
      * }|null
      */
     public function resolveNextRoundDependency(Game $source): ?array

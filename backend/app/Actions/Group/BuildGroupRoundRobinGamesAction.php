@@ -23,35 +23,35 @@ final class BuildGroupRoundRobinGamesAction
     {
         $group->loadMissing('competition');
 
-        $playerIds = $group->groupPlayers()
-            ->orderBy('player_id')
-            ->pluck('player_id')
-            ->map(fn ($playerId) => (int) $playerId)
+        $entryIds = $group->groupEntries()
+            ->orderBy('competition_entry_id')
+            ->pluck('competition_entry_id')
+            ->map(fn ($entryId) => (int) $entryId)
             ->values()
             ->all();
 
         $round = sprintf('Round Robin - %s', $group->name);
         $competitionId = (int) $group->competition_id;
         $matchFormat = GameFormatResolver::resolveForGroup($group->competition);
-        $schedule = $this->scheduleBuilder->build($playerIds);
+        $schedule = $this->scheduleBuilder->build($entryIds);
         $created = collect();
 
         foreach ($schedule as $roundIndex => $roundPairings) {
             $groupRound = $roundIndex + 1;
 
             foreach ($roundPairings as $matchIndex => $pairing) {
-                $player1Id = $pairing['player1_id'];
-                $player2Id = $pairing['player2_id'];
+                $entry1Id = $pairing['entry1_id'];
+                $entry2Id = $pairing['entry2_id'];
 
-                if ($this->gameExistsBetweenPlayers($competitionId, $player1Id, $player2Id)) {
+                if ($this->gameExistsBetweenEntries($competitionId, $entry1Id, $entry2Id)) {
                     continue;
                 }
 
                 $created->push(($this->createGame)([
                     'competition_id' => $competitionId,
                     'group_id' => $group->id,
-                    'player1_id' => $player1Id,
-                    'player2_id' => $player2Id,
+                    'entry1_id' => $entry1Id,
+                    'entry2_id' => $entry2Id,
                     'round' => $round,
                     'group_round' => $groupRound,
                     'group_match' => $matchIndex + 1,
@@ -64,17 +64,17 @@ final class BuildGroupRoundRobinGamesAction
         return $created;
     }
 
-    private function gameExistsBetweenPlayers(int $competitionId, int $player1Id, int $player2Id): bool
+    private function gameExistsBetweenEntries(int $competitionId, int $entry1Id, int $entry2Id): bool
     {
         return Game::query()
             ->where('competition_id', $competitionId)
-            ->where(function ($query) use ($player1Id, $player2Id): void {
-                $query->where(function ($query) use ($player1Id, $player2Id): void {
-                    $query->where('player1_id', $player1Id)
-                        ->where('player2_id', $player2Id);
-                })->orWhere(function ($query) use ($player1Id, $player2Id): void {
-                    $query->where('player1_id', $player2Id)
-                        ->where('player2_id', $player1Id);
+            ->where(function ($query) use ($entry1Id, $entry2Id): void {
+                $query->where(function ($query) use ($entry1Id, $entry2Id): void {
+                    $query->where('entry1_id', $entry1Id)
+                        ->where('entry2_id', $entry2Id);
+                })->orWhere(function ($query) use ($entry1Id, $entry2Id): void {
+                    $query->where('entry1_id', $entry2Id)
+                        ->where('entry2_id', $entry1Id);
                 });
             })
             ->exists();

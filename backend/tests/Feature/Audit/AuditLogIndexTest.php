@@ -171,11 +171,10 @@ class AuditLogIndexTest extends TestCase
             'last_name' => 'Dos',
         ]);
 
-        $game = Game::query()->create([
-            'competition_id' => $competition->id,
+        $this->tournamentContext()->registerPlayers($competition, [$playerOne, $playerTwo]);
+
+        $game = $this->tournamentContext()->persistGame($competition, $playerOne, $playerTwo, [
             'group_id' => $group->id,
-            'player1_id' => $playerOne->id,
-            'player2_id' => $playerTwo->id,
             'status' => 'pending',
         ]);
 

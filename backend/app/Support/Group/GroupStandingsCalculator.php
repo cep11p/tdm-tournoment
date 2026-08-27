@@ -123,16 +123,16 @@ final class GroupStandingsCalculator
         }
 
         $finishedGames = $group->games()
-            ->select(['id', 'player1_id', 'player2_id', 'winner_id'])
+            ->select(['id', 'entry1_id', 'entry2_id', 'winner_entry_id'])
             ->with('sets:id,game_id,player1_score,player2_score')
             ->where('status', GameStatus::Finished)
-            ->whereNotNull('winner_id')
+            ->whereNotNull('winner_entry_id')
             ->get();
 
         foreach ($finishedGames as $game) {
-            $winnerEntryId = $index->entryIdForPlayer((int) $game->winner_id);
-            $player1EntryId = $index->entryIdForPlayer((int) $game->player1_id);
-            $player2EntryId = $index->entryIdForPlayer((int) $game->player2_id);
+            $winnerEntryId = $game->winner_entry_id !== null ? (int) $game->winner_entry_id : null;
+            $player1EntryId = (int) $game->entry1_id;
+            $player2EntryId = $game->entry2_id !== null ? (int) $game->entry2_id : null;
 
             if ($winnerEntryId === null) {
                 continue;
@@ -477,18 +477,17 @@ final class GroupStandingsCalculator
         }
 
         foreach ($finishedGames as $game) {
-            $player1EntryId = $index->entryIdForPlayer((int) $game->player1_id);
-            $player2EntryId = $index->entryIdForPlayer((int) $game->player2_id);
+            $player1EntryId = (int) $game->entry1_id;
+            $player2EntryId = $game->entry2_id !== null ? (int) $game->entry2_id : null;
 
             if (
-                $player1EntryId === null
-                || $player2EntryId === null
+                $player2EntryId === null
                 || ! isset($tiedEntryLookup[$player1EntryId], $tiedEntryLookup[$player2EntryId])
             ) {
                 continue;
             }
 
-            $winnerEntryId = $index->entryIdForPlayer((int) $game->winner_id);
+            $winnerEntryId = $game->winner_entry_id !== null ? (int) $game->winner_entry_id : null;
 
             if ($winnerEntryId !== null && isset($miniStats[$winnerEntryId])) {
                 $miniStats[$winnerEntryId]['mini_won']++;

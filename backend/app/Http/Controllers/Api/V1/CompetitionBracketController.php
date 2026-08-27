@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Bracket\StoreBracketRequest;
 use App\Http\Resources\Bracket\BracketResource;
 use App\Models\Competition;
+use App\Models\Game;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 
@@ -17,12 +18,10 @@ class CompetitionBracketController extends Controller
      */
     private function bracketRelations(): array
     {
-        return [
-            'games.player1:id,first_name,last_name,nickname',
-            'games.player2:id,first_name,last_name,nickname',
-            'games.winner:id,first_name,last_name,nickname',
-            'games.sets',
-        ];
+        return array_map(
+            fn (string $relation): string => 'games.'.$relation,
+            Game::DISPLAY_RELATIONS,
+        );
     }
 
     public function show(Competition $competition): JsonResponse

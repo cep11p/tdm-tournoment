@@ -30,14 +30,9 @@ final class GenerateGroupRoundRobinGamesAction
         TournamentLifecycleGuard::ensureMutableForGroup($group);
         CompetitionFormatGuard::ensureGroupStage($group->competition);
 
-        $playerIds = $group->groupPlayers()
-            ->orderBy('player_id')
-            ->pluck('player_id')
-            ->map(fn ($playerId) => (int) $playerId)
-            ->values()
-            ->all();
+        $entryCount = $group->groupEntries()->count();
 
-        if (count($playerIds) < 2) {
+        if ($entryCount < 2) {
             throw ValidationException::withMessages([
                 'group' => ['El grupo necesita al menos 2 jugadores.'],
             ]);
@@ -49,7 +44,7 @@ final class GenerateGroupRoundRobinGamesAction
             ]);
         }
 
-        $playerCount = count($playerIds);
+        $playerCount = $entryCount;
 
         return DB::transaction(function () use ($group, $playerCount): Collection {
             $created = ($this->buildRoundRobin)($group);

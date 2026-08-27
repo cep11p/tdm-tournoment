@@ -138,10 +138,7 @@ class CloseTournamentTest extends TestCase
         $setup = $context->createFourQualifierGroupPhase();
         $context->completeCompetitionThroughFinal($setup['competition']);
 
-        Game::query()->create([
-            'competition_id' => $setup['competition']->id,
-            'player1_id' => $setup['playerOne']->id,
-            'player2_id' => $setup['playerTwo']->id,
+        $context->persistGame($setup['competition'], $setup['playerOne'], $setup['playerTwo'], [
             'status' => GameStatus::Pending,
             'round' => 'Manual',
         ]);

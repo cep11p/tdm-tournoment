@@ -74,9 +74,9 @@ class GroupPhaseTest extends TestCase
         $findGameBetween = function (Player $left, Player $right) use ($games): Game {
             $game = $games->first(
                 fn (Game $candidate): bool => (
-                    (int) $candidate->player1_id === $left->id && (int) $candidate->player2_id === $right->id
+                    (int) $candidate->singlesPlayer1Id() === $left->id && (int) $candidate->singlesPlayer2Id() === $right->id
                 ) || (
-                    (int) $candidate->player1_id === $right->id && (int) $candidate->player2_id === $left->id
+                    (int) $candidate->singlesPlayer1Id() === $right->id && (int) $candidate->singlesPlayer2Id() === $left->id
                 )
             );
 

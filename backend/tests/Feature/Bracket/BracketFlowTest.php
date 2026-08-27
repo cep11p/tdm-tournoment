@@ -77,10 +77,10 @@ class BracketFlowTest extends TestCase
         $this->assertSame('Semifinal', $semifinals[0]->round);
         $this->assertSame('Semifinal', $semifinals[1]->round);
 
-        $this->assertSame($setup['playerOne']->id, $semifinals[0]->player1_id);
-        $this->assertSame($setup['playerFour']->id, $semifinals[0]->player2_id);
-        $this->assertSame($setup['playerThree']->id, $semifinals[1]->player1_id);
-        $this->assertSame($setup['playerTwo']->id, $semifinals[1]->player2_id);
+        $this->assertSame($setup['playerOne']->id, $semifinals[0]->singlesPlayer1Id());
+        $this->assertSame($setup['playerFour']->id, $semifinals[0]->singlesPlayer2Id());
+        $this->assertSame($setup['playerThree']->id, $semifinals[1]->singlesPlayer1Id());
+        $this->assertSame($setup['playerTwo']->id, $semifinals[1]->singlesPlayer2Id());
     }
 
     public function test_shows_existing_bracket_for_competition(): void
@@ -274,8 +274,8 @@ class BracketFlowTest extends TestCase
         $this->assertCount(1, $final);
         $this->assertSame('Final', $final[0]->round);
         $this->assertSame(1, $final[0]->bracket_match);
-        $this->assertSame($setup['playerOne']->id, $final[0]->player1_id);
-        $this->assertSame($setup['playerThree']->id, $final[0]->player2_id);
+        $this->assertSame($setup['playerOne']->id, $final[0]->singlesPlayer1Id());
+        $this->assertSame($setup['playerThree']->id, $final[0]->singlesPlayer2Id());
     }
 
     public function test_rejects_next_round_when_current_round_is_incomplete(): void
@@ -364,7 +364,7 @@ class BracketFlowTest extends TestCase
         array $sets,
     ): void {
         foreach ($sets as $index => [$leftScore, $rightScore]) {
-            $player1IsLeft = (int) $game->player1_id === $leftPlayer->id;
+            $player1IsLeft = (int) $game->singlesPlayer1Id() === $leftPlayer->id;
             $player1Score = $player1IsLeft ? $leftScore : $rightScore;
             $player2Score = $player1IsLeft ? $rightScore : $leftScore;
 

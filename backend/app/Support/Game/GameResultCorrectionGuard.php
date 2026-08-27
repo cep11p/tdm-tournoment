@@ -33,9 +33,9 @@ final class GameResultCorrectionGuard
             ]);
         }
 
-        if ($game->player1_id === null || $game->player2_id === null) {
+        if ($game->entry1_id === null || $game->entry2_id === null) {
             throw ValidationException::withMessages([
-                'game' => ['El partido no tiene ambos jugadores asignados.'],
+                'game' => ['El partido no tiene ambos lados asignados.'],
             ]);
         }
 
@@ -75,7 +75,7 @@ final class GameResultCorrectionGuard
     /**
      * @param  array<int, array{
      *     destination: Game,
-     *     slot: 'player1_id'|'player2_id',
+     *     slot: 'entry1_id'|'entry2_id',
      *     oldParticipantId: int,
      *     newParticipantId: int,
      *     context: 'final'|'third_place'|'next_round',
@@ -109,7 +109,7 @@ final class GameResultCorrectionGuard
                 ]);
             }
 
-            $otherSlot = $slot === 'player1_id' ? 'player2_id' : 'player1_id';
+            $otherSlot = $slot === 'entry1_id' ? 'entry2_id' : 'entry1_id';
 
             if ((int) $destination->{$otherSlot} === $newParticipantId) {
                 throw ValidationException::withMessages([
@@ -166,7 +166,7 @@ final class GameResultCorrectionGuard
             return true;
         }
 
-        return $destination->winner_id !== null;
+        return $destination->winner_entry_id !== null;
     }
 
     private function slotInconsistencyMessage(string $context): string

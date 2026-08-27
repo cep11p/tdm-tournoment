@@ -27,7 +27,7 @@ class RecordGameSetTest extends TestCase
         $this->assertDatabaseHas('games', [
             'id' => $setup['game']->id,
             'status' => GameStatus::InProgress->value,
-            'winner_id' => null,
+            'winner_entry_id' => null,
         ]);
     }
 
@@ -59,7 +59,7 @@ class RecordGameSetTest extends TestCase
 
         $game = Game::query()->findOrFail($setup['game']->id);
         $this->assertSame(GameStatus::Finished, $game->status);
-        $this->assertSame($setup['playerOne']->id, $game->winner_id);
+        $this->assertSame($setup['playerOne']->id, $game->singlesWinnerId());
         $this->assertNotNull($game->finished_at);
     }
 

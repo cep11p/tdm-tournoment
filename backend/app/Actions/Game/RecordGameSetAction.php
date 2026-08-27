@@ -8,6 +8,7 @@ use App\Enums\GameStatus;
 use App\Models\Game;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
+use App\Support\Game\GameEntryInvariantGuard;
 use App\Support\Game\GameSetScoreValidator;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Database\QueryException;
@@ -97,15 +98,17 @@ final class RecordGameSetAction
             $setsWon = $game->setsWonCount($game->sets);
 
             if ($setsWon['player1'] >= $setsToWin) {
-                $game->winner_id = $game->player1_id;
+                GameEntryInvariantGuard::assertWinnerIsSideOfGame($game, (int) $game->entry1_id);
+                $game->winner_entry_id = $game->entry1_id;
                 $game->status = GameStatus::Finished;
                 $game->finished_at = now();
             } elseif ($setsWon['player2'] >= $setsToWin) {
-                $game->winner_id = $game->player2_id;
+                GameEntryInvariantGuard::assertWinnerIsSideOfGame($game, (int) $game->entry2_id);
+                $game->winner_entry_id = $game->entry2_id;
                 $game->status = GameStatus::Finished;
                 $game->finished_at = now();
             } else {
-                $game->winner_id = null;
+                $game->winner_entry_id = null;
                 $game->status = GameStatus::InProgress;
                 $game->finished_at = null;
             }
@@ -115,13 +118,7 @@ final class RecordGameSetAction
             $newSetsWon = $game->setsWonCount($game->sets);
             $matchFinished = $game->status === GameStatus::Finished;
 
-            $game->load([
-                'competition',
-                'player1:id,first_name,last_name,nickname',
-                'player2:id,first_name,last_name,nickname',
-                'winner:id,first_name,last_name,nickname',
-                'sets',
-            ]);
+            $game->load(Game::DISPLAY_RELATIONS);
 
             $this->auditLogger->log(new AuditEntry(
                 action: AuditAction::GAME_SET_RECORDED,
@@ -143,7 +140,7 @@ final class RecordGameSetAction
                     'player1_score' => $player1Score,
                     'player2_score' => $player2Score,
                     'match_finished' => $matchFinished,
-                    'winner_id' => $game->winner_id,
+                    'winner_id' => $game->singlesWinnerId(),
                 ],
             ));
 

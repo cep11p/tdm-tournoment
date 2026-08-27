@@ -328,7 +328,7 @@ class GroupStandingsTiebreakTest extends TestCase
         array $sets,
     ): void {
         foreach ($sets as $index => [$leftScore, $rightScore]) {
-            $player1IsLeft = (int) $game->player1_id === $leftPlayer->id;
+            $player1IsLeft = (int) $game->singlesPlayer1Id() === $leftPlayer->id;
             $player1Score = $player1IsLeft ? $leftScore : $rightScore;
             $player2Score = $player1IsLeft ? $rightScore : $leftScore;
 

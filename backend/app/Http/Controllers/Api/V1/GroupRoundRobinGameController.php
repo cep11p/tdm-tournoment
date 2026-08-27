@@ -12,12 +12,7 @@ use Illuminate\Http\Response;
 
 class GroupRoundRobinGameController extends Controller
 {
-    private const GAME_RELATIONS = [
-        'player1:id,first_name,last_name,nickname',
-        'player2:id,first_name,last_name,nickname',
-        'winner:id,first_name,last_name,nickname',
-        'sets',
-    ];
+    private const GAME_RELATIONS = Game::DISPLAY_RELATIONS;
 
     public function store(
         Group $group,

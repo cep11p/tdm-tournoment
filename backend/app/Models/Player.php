@@ -58,18 +58,19 @@ class Player extends Model
         return $this->hasMany(GroupPlayer::class);
     }
 
-    public function gamesAsPlayer1(): HasMany
+    public function gamesCount(): int
     {
-        return $this->hasMany(Game::class, 'player1_id');
-    }
+        $entryIds = $this->competitionEntryMembers()->pluck('competition_entry_id');
 
-    public function gamesAsPlayer2(): HasMany
-    {
-        return $this->hasMany(Game::class, 'player2_id');
-    }
+        if ($entryIds->isEmpty()) {
+            return 0;
+        }
 
-    public function wonGames(): HasMany
-    {
-        return $this->hasMany(Game::class, 'winner_id');
+        return Game::query()
+            ->where(function ($query) use ($entryIds): void {
+                $query->whereIn('entry1_id', $entryIds)
+                    ->orWhereIn('entry2_id', $entryIds);
+            })
+            ->count();
     }
 }

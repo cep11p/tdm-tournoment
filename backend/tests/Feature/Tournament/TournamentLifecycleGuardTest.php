@@ -107,10 +107,7 @@ class TournamentLifecycleGuardTest extends TestCase
         $context->completeCompetitionThroughFinal($setup['competition']);
         $context->closeTournament($setup['competition']->tournament)->assertOk();
 
-        $pendingGame = Game::query()->create([
-            'competition_id' => $setup['competition']->id,
-            'player1_id' => $setup['playerOne']->id,
-            'player2_id' => $setup['playerTwo']->id,
+        $pendingGame = $context->persistGame($setup['competition'], $setup['playerOne'], $setup['playerTwo'], [
             'status' => GameStatus::Pending,
             'round' => 'Manual',
             'best_of' => 1,

@@ -112,8 +112,7 @@ final class AuditContextBuilder
             'competition.tournament',
             'group',
             'bracket',
-            'player1',
-            'player2',
+            ...Game::DISPLAY_RELATIONS,
         ]);
 
         $context = self::baseContext(
@@ -128,10 +127,10 @@ final class AuditContextBuilder
         );
 
         return array_merge($context, [
-            'player1_id' => $game->player1_id,
-            'player1_name' => self::playerDisplayName($game->player1),
-            'player2_id' => $game->player2_id,
-            'player2_name' => self::playerDisplayName($game->player2),
+            'player1_id' => $game->singlesPlayer1Id(),
+            'player1_name' => self::playerDisplayName($game->singlesPlayer1()),
+            'player2_id' => $game->singlesPlayer2Id(),
+            'player2_name' => self::playerDisplayName($game->singlesPlayer2()),
         ]);
     }
 

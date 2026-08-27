@@ -137,14 +137,14 @@ class CompetitionStatusSummaryTest extends TestCase
 
         foreach ($semifinals as $game) {
             if (! $game->is_bye) {
-                $context->finishGame($game, $game->player1)->assertOk();
+                $context->finishGame($game, $game->singlesPlayer1())->assertOk();
             }
         }
 
         $context->generateBracketNextRound($bracket)->assertCreated();
 
         $final = $context->bracketGamesForRound($bracket->fresh(), 2)->sole();
-        $context->finishGame($final, $final->player1)->assertOk();
+        $context->finishGame($final, $final->singlesPlayer1())->assertOk();
 
         $response = $this->getJson($context->apiUrl("competitions/{$setup['competition']->id}"));
 
@@ -165,7 +165,7 @@ class CompetitionStatusSummaryTest extends TestCase
 
         foreach ($semifinals as $game) {
             if (! $game->is_bye) {
-                $context->finishGame($game, $game->player1)->assertOk();
+                $context->finishGame($game, $game->singlesPlayer1())->assertOk();
             }
         }
 
@@ -289,7 +289,7 @@ class CompetitionStatusSummaryTest extends TestCase
         array $sets,
     ): void {
         foreach ($sets as $index => [$leftScore, $rightScore]) {
-            $player1IsLeft = (int) $game->player1_id === $leftPlayer->id;
+            $player1IsLeft = (int) $game->singlesPlayer1Id() === $leftPlayer->id;
             $player1Score = $player1IsLeft ? $leftScore : $rightScore;
             $player2Score = $player1IsLeft ? $rightScore : $leftScore;
 

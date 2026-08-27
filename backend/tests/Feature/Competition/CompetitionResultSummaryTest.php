@@ -44,15 +44,15 @@ class CompetitionResultSummaryTest extends TestCase
 
         foreach ($semifinals as $game) {
             if (! $game->is_bye) {
-                $context->finishGame($game, $game->player1)->assertOk();
+                $context->finishGame($game, $game->singlesPlayer1())->assertOk();
             }
         }
 
         $context->generateBracketNextRound($bracket)->assertCreated();
 
         $final = $context->bracketGamesForRound($bracket->fresh(), 2)->sole();
-        $champion = $final->player1;
-        $runnerUp = $final->player2;
+        $champion = $final->singlesPlayer1();
+        $runnerUp = $final->singlesPlayer2();
 
         $context->finishGame($final, $champion)->assertOk();
 
@@ -78,14 +78,14 @@ class CompetitionResultSummaryTest extends TestCase
 
         foreach ($semifinals as $game) {
             if (! $game->is_bye) {
-                $context->finishGame($game, $game->player1)->assertOk();
+                $context->finishGame($game, $game->singlesPlayer1())->assertOk();
             }
         }
 
         $context->generateBracketNextRound($bracket)->assertCreated();
 
         $final = $context->bracketGamesForRound($bracket->fresh(), 2)->sole();
-        $champion = $final->player1;
+        $champion = $final->singlesPlayer1();
         $context->finishGame($final, $champion)->assertOk();
 
         $expectedName = trim("{$champion->first_name} {$champion->last_name}");
@@ -106,7 +106,7 @@ class CompetitionResultSummaryTest extends TestCase
 
         foreach ($semifinals as $game) {
             if (! $game->is_bye) {
-                $context->finishGame($game, $game->player1)->assertOk();
+                $context->finishGame($game, $game->singlesPlayer1())->assertOk();
             }
         }
 
@@ -116,7 +116,7 @@ class CompetitionResultSummaryTest extends TestCase
 
         Game::query()->whereKey($final->id)->update([
             'status' => GameStatus::Finished,
-            'winner_id' => null,
+            'winner_entry_id' => null,
         ]);
 
         $response = $this->getJson($context->apiUrl("competitions/{$setup['competition']->id}"));
