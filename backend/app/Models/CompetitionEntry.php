@@ -27,4 +27,9 @@ class CompetitionEntry extends Model
     {
         return $this->hasMany(CompetitionEntryMember::class);
     }
+
+    public function groupEntries(): HasMany
+    {
+        return $this->hasMany(GroupEntry::class);
+    }
 }

@@ -2,6 +2,7 @@
 
 namespace Tests\Support;
 
+use App\Actions\Group\PersistGroupEntryAction;
 use App\Actions\Registration\PersistRegistrationAction;
 use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
@@ -11,7 +12,7 @@ use App\Models\Category;
 use App\Models\Competition;
 use App\Models\Game;
 use App\Models\Group;
-use App\Models\GroupPlayer;
+use App\Support\Competition\ResolveSinglesEntryForPlayer;
 use App\Models\Player;
 use App\Models\Registration;
 use App\Models\Tournament;
@@ -144,11 +145,13 @@ final class TournamentTestContext
      */
     public function assignPlayersToGroup(Group $group, array $players): void
     {
+        $group->loadMissing('competition');
+        $resolveEntry = app(ResolveSinglesEntryForPlayer::class);
+        $persistGroupEntry = app(PersistGroupEntryAction::class);
+
         foreach ($players as $player) {
-            GroupPlayer::query()->create([
-                'group_id' => $group->id,
-                'player_id' => $player->id,
-            ]);
+            $entry = ($resolveEntry)($group->competition, $player->id);
+            ($persistGroupEntry)($group, $entry);
         }
     }
 

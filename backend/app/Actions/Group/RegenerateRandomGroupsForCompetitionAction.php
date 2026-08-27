@@ -5,6 +5,7 @@ namespace App\Actions\Group;
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
 use App\Enums\GameStatus;
+use App\Enums\CompetitionEntryStatus;
 use App\Models\Bracket;
 use App\Models\Competition;
 use App\Models\Game;
@@ -48,7 +49,9 @@ final class RegenerateRandomGroupsForCompetitionAction
             ]);
         }
 
-        $playerCount = $competition->registrations()->count();
+        $playerCount = $competition->entries()
+            ->where('status', CompetitionEntryStatus::Active)
+            ->count();
 
         if ($playerCount < 2) {
             throw ValidationException::withMessages([

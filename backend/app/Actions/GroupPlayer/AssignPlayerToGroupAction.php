@@ -2,6 +2,7 @@
 
 namespace App\Actions\GroupPlayer;
 
+use App\Actions\Group\PersistGroupEntryAction;
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
 use App\Enums\GroupPlayerStatus;
@@ -11,15 +12,16 @@ use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Competition\CompetitionStructureGuard;
+use App\Support\Competition\ResolveSinglesEntryForPlayer;
 use App\Support\Tournament\TournamentLifecycleGuard;
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 final class AssignPlayerToGroupAction
 {
     public function __construct(
         private readonly AuditLogger $auditLogger,
+        private readonly ResolveSinglesEntryForPlayer $resolveSinglesEntryForPlayer,
+        private readonly PersistGroupEntryAction $persistGroupEntry,
     ) {}
 
     public function __invoke(array $payload): GroupPlayer
@@ -31,33 +33,11 @@ final class AssignPlayerToGroupAction
         CompetitionStructureGuard::ensureEditable($group->competition);
         $playerId = (int) $payload['player_id'];
 
-        $alreadyAssigned = GroupPlayer::query()
-            ->where('player_id', $playerId)
-            ->whereHas('group', fn ($query) => $query->where('competition_id', $group->competition_id))
-            ->exists();
+        $entry = ($this->resolveSinglesEntryForPlayer)($group->competition, $playerId);
 
-        if ($alreadyAssigned) {
-            throw ValidationException::withMessages([
-                'player_id' => ['El jugador ya está asignado a un grupo de esta competencia.'],
-            ]);
-        }
-
-        return DB::transaction(function () use ($group, $playerId): GroupPlayer {
-            try {
-                $groupPlayer = GroupPlayer::query()->create([
-                    'group_id' => $group->id,
-                    'player_id' => $playerId,
-                ]);
-            } catch (QueryException $exception) {
-                if ((string) $exception->getCode() === '23000') {
-                    throw ValidationException::withMessages([
-                        'player_id' => ['El jugador ya está asignado a este grupo.'],
-                    ]);
-                }
-
-                throw $exception;
-            }
-
+        return DB::transaction(function () use ($group, $entry, $playerId): GroupPlayer {
+            $result = ($this->persistGroupEntry)($group, $entry);
+            $groupPlayer = $result['group_player'];
             $groupPlayer->load('player:id,first_name,last_name,nickname');
 
             $status = $groupPlayer->status ?? GroupPlayerStatus::Active;

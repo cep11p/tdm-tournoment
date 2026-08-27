@@ -8,10 +8,12 @@ use App\Enums\GroupPlayerStatusReason;
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
 use App\Models\Group;
+use App\Models\GroupEntry;
 use App\Models\GroupPlayer;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
+use App\Support\Competition\ResolveSinglesEntryForPlayer;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -20,6 +22,7 @@ final class SetGroupPlayerStatusAction
 {
     public function __construct(
         private readonly AuditLogger $auditLogger,
+        private readonly ResolveSinglesEntryForPlayer $resolveSinglesEntryForPlayer,
     ) {}
 
     /**
@@ -44,6 +47,18 @@ final class SetGroupPlayerStatusAction
         }
 
         $playerId = (int) $payload['player_id'];
+        $entry = ($this->resolveSinglesEntryForPlayer)($group->competition, $playerId);
+
+        $groupEntry = GroupEntry::query()
+            ->where('group_id', $group->id)
+            ->where('competition_entry_id', $entry->id)
+            ->first();
+
+        if ($groupEntry === null) {
+            throw ValidationException::withMessages([
+                'player_id' => ['El jugador no pertenece al grupo.'],
+            ]);
+        }
 
         $groupPlayer = GroupPlayer::query()
             ->where('group_id', $group->id)
@@ -56,7 +71,7 @@ final class SetGroupPlayerStatusAction
             ]);
         }
 
-        if (! $groupPlayer->isActive()) {
+        if (! $groupEntry->isActive()) {
             throw ValidationException::withMessages([
                 'player_id' => ['El jugador ya no está activo en el grupo.'],
             ]);
@@ -70,15 +85,25 @@ final class SetGroupPlayerStatusAction
             ]);
         }
 
-        return DB::transaction(function () use ($group, $groupPlayer, $payload, $newStatus, $playerId): GroupPlayer {
-            $oldStatus = $groupPlayer->status;
-
-            $groupPlayer->update([
+        return DB::transaction(function () use (
+            $group,
+            $groupEntry,
+            $groupPlayer,
+            $payload,
+            $newStatus,
+            $playerId,
+        ): GroupPlayer {
+            $oldStatus = $groupEntry->status;
+            $changedAt = now();
+            $statusPayload = [
                 'status' => $newStatus,
                 'status_reason' => $payload['reason'] ?? null,
                 'status_notes' => $payload['notes'] ?? null,
-                'status_changed_at' => now(),
-            ]);
+                'status_changed_at' => $changedAt,
+            ];
+
+            $groupEntry->update($statusPayload);
+            $groupPlayer->update($statusPayload);
 
             $gamesClosed = $this->closePendingGroupGamesForPlayer($group, $playerId);
 

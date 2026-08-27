@@ -2,9 +2,9 @@
 
 namespace App\Actions\Group;
 
+use App\Enums\CompetitionEntryStatus;
 use App\Models\Competition;
 use App\Models\Group;
-use App\Models\GroupPlayer;
 use App\Support\Group\RandomGroupDistributionGuard;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
@@ -13,6 +13,7 @@ final class BuildRandomGroupsForCompetitionAction
 {
     public function __construct(
         private readonly BuildGroupRoundRobinGamesAction $buildRoundRobin,
+        private readonly PersistGroupEntryAction $persistGroupEntry,
     ) {}
 
     /**
@@ -25,28 +26,27 @@ final class BuildRandomGroupsForCompetitionAction
      */
     public function __invoke(Competition $competition, int $groupsCount): array
     {
-        $playerIds = $competition->registrations()
-            ->orderBy('player_id')
-            ->pluck('player_id')
-            ->map(fn ($playerId) => (int) $playerId)
-            ->values()
-            ->all();
+        $entries = $competition->entries()
+            ->where('status', CompetitionEntryStatus::Active)
+            ->orderBy('id')
+            ->with('members')
+            ->get();
 
-        $playerCount = count($playerIds);
+        $entryCount = $entries->count();
 
-        if ($playerCount === 0) {
+        if ($entryCount === 0) {
             throw ValidationException::withMessages([
                 'competition' => ['La competencia no tiene jugadores inscriptos.'],
             ]);
         }
 
-        if ($playerCount < 2) {
+        if ($entryCount < 2) {
             throw ValidationException::withMessages([
                 'competition' => ['Se requieren al menos 2 jugadores inscriptos para generar grupos.'],
             ]);
         }
 
-        if ($groupsCount > $playerCount) {
+        if ($groupsCount > $entryCount) {
             throw ValidationException::withMessages([
                 'groups_count' => [
                     'La cantidad de grupos no puede ser mayor que la cantidad de jugadores inscriptos.',
@@ -54,16 +54,13 @@ final class BuildRandomGroupsForCompetitionAction
             ]);
         }
 
-        RandomGroupDistributionGuard::ensureValid($playerCount, $groupsCount);
+        RandomGroupDistributionGuard::ensureValid($entryCount, $groupsCount);
 
-        $groupSizes = $this->calculateBalancedGroupSizes($playerCount, $groupsCount);
-        $shuffledPlayerIds = $playerIds;
-        shuffle($shuffledPlayerIds);
-
-        $now = now();
+        $groupSizes = $this->calculateBalancedGroupSizes($entryCount, $groupsCount);
+        $shuffledEntries = $entries->shuffle()->values();
         $groups = collect();
-        $groupPlayersPayload = [];
-        $playerOffset = 0;
+        $assignments = collect();
+        $entryOffset = 0;
 
         for ($groupIndex = 0; $groupIndex < $groupsCount; $groupIndex++) {
             $group = Group::query()->create([
@@ -75,18 +72,16 @@ final class BuildRandomGroupsForCompetitionAction
             $groupSize = $groupSizes[$groupIndex];
 
             for ($slot = 0; $slot < $groupSize; $slot++) {
-                $groupPlayersPayload[] = [
-                    'group_id' => $group->id,
-                    'player_id' => $shuffledPlayerIds[$playerOffset],
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ];
+                $assignments->push([
+                    'group' => $group,
+                    'entry' => $shuffledEntries[$entryOffset],
+                ]);
 
-                $playerOffset++;
+                $entryOffset++;
             }
         }
 
-        GroupPlayer::query()->insert($groupPlayersPayload);
+        $this->persistGroupEntry->insertMany($assignments);
 
         $createdGroups = Group::query()
             ->whereIn('id', $groups->pluck('id'))
@@ -113,7 +108,7 @@ final class BuildRandomGroupsForCompetitionAction
 
         return [
             'groups_created' => $groupsCount,
-            'players_assigned' => $playerCount,
+            'players_assigned' => $entryCount,
             'games_created' => $gamesCreated,
             'groups' => $createdGroups,
         ];
