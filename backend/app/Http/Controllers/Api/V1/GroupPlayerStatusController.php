@@ -22,7 +22,8 @@ class GroupPlayerStatusController extends Controller
         $reason = $request->validated('reason');
 
         $groupEntry = $setGroupEntryStatus($group, [
-            'player_id' => (int) $request->validated('player_id'),
+            'player_id' => $request->input('player_id'),
+            'competition_entry_id' => $request->input('competition_entry_id'),
             'status' => GroupPlayerStatus::from($request->validated('status')),
             'reason' => $reason !== null ? GroupPlayerStatusReason::from($reason) : null,
             'notes' => $request->validated('notes'),

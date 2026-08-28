@@ -2,9 +2,14 @@
 
 namespace App\Http\Requests\Group;
 
+use App\Enums\CompetitionType;
 use App\Enums\ManualTiebreakReason;
+use App\Models\Group;
+use App\Support\Competition\BuildGroupEntryIndexForGroup;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Validator;
 
 class ApplyGroupManualTiebreakRequest extends FormRequest
 {
@@ -16,10 +21,91 @@ class ApplyGroupManualTiebreakRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'player_ids' => ['required', 'array', 'min:2'],
+            'entry_ids' => ['sometimes', 'array', 'min:2'],
+            'entry_ids.*' => ['required', 'integer', 'distinct', 'exists:competition_entries,id'],
+            'player_ids' => ['sometimes', 'array', 'min:2'],
             'player_ids.*' => ['required', 'integer', 'distinct', 'exists:players,id'],
             'reason' => ['required', 'string', Rule::enum(ManualTiebreakReason::class)],
             'notes' => ['nullable', 'string', 'max:500'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            /** @var Group|null $group */
+            $group = $this->route('group');
+
+            if (! $group instanceof Group) {
+                return;
+            }
+
+            $group->loadMissing('competition');
+            $isDoubles = $group->competition?->type === CompetitionType::Doubles;
+            $hasEntryIds = is_array($this->input('entry_ids'));
+            $hasPlayerIds = is_array($this->input('player_ids'));
+
+            if ($isDoubles && ! $hasEntryIds) {
+                $validator->errors()->add('entry_ids', 'Se requiere entry_ids para desempatar parejas.');
+
+                return;
+            }
+
+            if (! $isDoubles && ! $hasEntryIds && ! $hasPlayerIds) {
+                $validator->errors()->add('entry_ids', 'Se requiere entry_ids o player_ids.');
+
+                return;
+            }
+
+            if ($isDoubles && $hasPlayerIds) {
+                $validator->errors()->add('player_ids', 'No se puede desempatar parejas usando player_ids.');
+
+                return;
+            }
+
+            if ($hasEntryIds && $hasPlayerIds) {
+                $validator->errors()->add('entry_ids', 'Enviá solo entry_ids o player_ids, no ambos.');
+            }
+        });
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    public function resolvedEntryIds(): array
+    {
+        $entryIds = $this->validated('entry_ids');
+
+        if (is_array($entryIds)) {
+            return array_values(array_map('intval', $entryIds));
+        }
+
+        /** @var Group $group */
+        $group = $this->route('group');
+        $index = app(BuildGroupEntryIndexForGroup::class)($group);
+        $resolved = [];
+
+        foreach ($this->validated('player_ids') as $playerId) {
+            $entryId = $index->entryIdForPlayer((int) $playerId);
+
+            if ($entryId === null) {
+                throw ValidationException::withMessages([
+                    'player_ids' => ['Uno o más jugadores no pertenecen al grupo.'],
+                ]);
+            }
+
+            $resolved[] = $entryId;
+        }
+
+        return $resolved;
+    }
+
+    public function usesPlayerIds(): bool
+    {
+        return is_array($this->validated('player_ids'));
     }
 }

@@ -16,6 +16,9 @@ class GroupController extends Controller
     public function index(Competition $competition): AnonymousResourceCollection
     {
         $groups = $competition->groups()
+            ->with([
+                'groupEntries.competitionEntry.members.player:id,first_name,last_name,nickname',
+            ])
             ->latest('id')
             ->get();
 

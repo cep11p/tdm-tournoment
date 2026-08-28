@@ -163,9 +163,9 @@ final class CreateBracketKnockoutAction
     {
         return $groupQualifiers
             ->sort(function (GroupQualifierData $left, GroupQualifierData $right): int {
-                return [$right->won, $left->lost, strtolower($left->playerName)]
+                return [$right->won, $left->lost, strtolower($left->displayName)]
                     <=>
-                    [$left->won, $right->lost, strtolower($right->playerName)];
+                    [$left->won, $right->lost, strtolower($right->displayName)];
             })
             ->pluck('competitionEntryId')
             ->map(fn (int $entryId) => $entryId)

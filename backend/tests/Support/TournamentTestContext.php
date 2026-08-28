@@ -11,6 +11,7 @@ use App\Enums\TournamentStatus;
 use App\Models\Bracket;
 use App\Models\Category;
 use App\Models\Competition;
+use App\Enums\GameStatus;
 use App\Models\Game;
 use App\Models\Group;
 use App\Support\Competition\ResolveSinglesEntryForPlayer;
@@ -434,6 +435,63 @@ final class TournamentTestContext
             ['player_id' => $player->id],
             $this->authHeaders($roles),
         );
+    }
+
+    public function assignEntryToGroupViaApi(
+        Group $group,
+        CompetitionEntry $entry,
+        array $roles = ['organizer'],
+    ): TestResponse {
+        return $this->test->postJson(
+            $this->apiUrl("groups/{$group->id}/players"),
+            ['competition_entry_id' => $entry->id],
+            $this->authHeaders($roles),
+        );
+    }
+
+    /**
+     * @param  array<int, array{Player, Player}>  $pairs
+     * @return array<int, CompetitionEntry>
+     */
+    public function registerPairs(Competition $competition, array $pairs): array
+    {
+        $entries = [];
+
+        foreach ($pairs as $pair) {
+            [$player1, $player2] = $pair;
+            $entries[] = $this->registerPair($competition, $player1, $player2);
+        }
+
+        return $entries;
+    }
+
+    public function finishGameByEntry(Game $game, int $winnerEntryId): void
+    {
+        $game->update([
+            'status' => GameStatus::Finished,
+            'winner_entry_id' => $winnerEntryId,
+            'finished_at' => now(),
+        ]);
+    }
+
+    /**
+     * @param  iterable<int, Game>  $games
+     */
+    public function findGameBetweenEntries(iterable $games, int $entry1Id, int $entry2Id): Game
+    {
+        foreach ($games as $game) {
+            $left = (int) $game->entry1_id;
+            $right = (int) $game->entry2_id;
+
+            if (
+                ($left === $entry1Id && $right === $entry2Id)
+                || ($left === $entry2Id && $right === $entry1Id)
+            ) {
+                return $game;
+            }
+        }
+
+        throw new \RuntimeException('Game not found between entries.');
     }
 
     /**

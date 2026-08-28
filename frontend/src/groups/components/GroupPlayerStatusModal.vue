@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import {
   GROUP_PLAYER_STATUS_REASONS,
@@ -16,9 +16,13 @@ const props = defineProps({
     type: [String, Number],
     required: true,
   },
-  player: {
+  groupEntry: {
     type: Object,
     default: null,
+  },
+  isDoubles: {
+    type: Boolean,
+    default: false,
   },
 })
 
@@ -30,13 +34,29 @@ const notes = ref('')
 const isSaving = ref(false)
 const errorMessage = ref('')
 
-const playerName = (player) => {
+const entryDisplayName = computed(() => {
+  if (props.groupEntry?.display_name) {
+    return props.groupEntry.display_name
+  }
+
+  const player = props.groupEntry?.player
+
   if (!player?.id) {
-    return 'Jugador no asignado'
+    return 'Participación no asignada'
   }
 
   return `${player.first_name} ${player.last_name}`.trim()
-}
+})
+
+const modalTitle = computed(() =>
+  props.isDoubles ? 'Cambiar estado de la pareja' : 'Cambiar estado del jugador',
+)
+
+const statusHelpText = computed(() =>
+  props.isDoubles
+    ? 'Esta acción cerrará automáticamente los partidos pendientes o en curso de la pareja a favor de sus rivales. No se modificarán partidos ya finalizados.'
+    : 'Esta acción cerrará automáticamente los partidos pendientes o en curso del jugador a favor de sus rivales. No se modificarán partidos ya finalizados.',
+)
 
 const extractGroupPlayerStatusError = (error) => {
   const errors = error?.response?.data?.errors ?? {}
@@ -45,23 +65,28 @@ const extractGroupPlayerStatusError = (error) => {
     return 'No se puede cambiar el estado porque el bracket ya fue creado.'
   }
 
+  if (errors.competition_entry_id?.[0]?.includes('ya no está activa')) {
+    return 'La participación ya no está activa.'
+  }
+
   if (errors.player_id?.[0]?.includes('ya no está activo')) {
     return 'El jugador ya no está activo.'
   }
 
   return (
+    errors.competition_entry_id?.[0] ||
     errors.player_id?.[0] ||
     errors.status?.[0] ||
     errors.reason?.[0] ||
     error?.response?.data?.message ||
-    'No se pudo actualizar el estado del jugador.'
+    'No se pudo actualizar el estado.'
   )
 }
 
 watch(
-  () => [props.show, props.player?.id],
+  () => [props.show, props.groupEntry?.competition_entry_id, props.groupEntry?.id],
   () => {
-    if (!props.show || !props.player) {
+    if (!props.show || !props.groupEntry) {
       return
     }
 
@@ -82,7 +107,7 @@ const handleClose = () => {
 }
 
 const handleSubmit = async () => {
-  if (!props.player?.id) {
+  if (!props.groupEntry?.competition_entry_id && !props.groupEntry?.player?.id) {
     return
   }
 
@@ -90,8 +115,13 @@ const handleSubmit = async () => {
   errorMessage.value = ''
 
   const payload = {
-    player_id: props.player.id,
     status: status.value,
+  }
+
+  if (props.groupEntry.competition_entry_id) {
+    payload.competition_entry_id = props.groupEntry.competition_entry_id
+  } else if (props.groupEntry.player?.id) {
+    payload.player_id = props.groupEntry.player.id
   }
 
   if (reason.value) {
@@ -118,7 +148,7 @@ const handleSubmit = async () => {
 <template>
   <Teleport to="body">
     <div
-      v-if="show && player"
+      v-if="show && groupEntry"
       class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"
       @click.self="handleClose"
     >
@@ -134,10 +164,20 @@ const handleSubmit = async () => {
               id="group-player-status-modal-title"
               class="text-lg font-semibold text-slate-900 dark:text-slate-100"
             >
-              Cambiar estado del jugador
+              {{ modalTitle }}
             </h2>
             <p class="mt-1 font-medium text-slate-900 dark:text-slate-100">
-              {{ playerName(player) }}
+              {{ entryDisplayName }}
+            </p>
+            <p
+              v-if="isDoubles && groupEntry.members?.length"
+              class="mt-1 text-xs text-slate-500 dark:text-slate-400"
+            >
+              {{
+                groupEntry.members
+                  .map((member) => `${member.first_name} ${member.last_name}`.trim())
+                  .join(' · ')
+              }}
             </p>
           </div>
 
@@ -190,8 +230,7 @@ const handleSubmit = async () => {
           </label>
 
           <p class="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
-            Esta acción cerrará automáticamente los partidos pendientes o en curso del jugador a favor
-            de sus rivales. No se modificarán partidos ya finalizados.
+            {{ statusHelpText }}
           </p>
 
           <p v-if="errorMessage" class="text-red-600 dark:text-red-400">{{ errorMessage }}</p>

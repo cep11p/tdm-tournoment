@@ -12,7 +12,7 @@ use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Competition\CompetitionStructureGuard;
-use App\Support\Competition\ResolveSinglesEntryForPlayer;
+use App\Support\Competition\ResolveCompetitionEntryForGroup;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
 
@@ -20,10 +20,13 @@ final class AssignPlayerToGroupAction
 {
     public function __construct(
         private readonly AuditLogger $auditLogger,
-        private readonly ResolveSinglesEntryForPlayer $resolveSinglesEntryForPlayer,
+        private readonly ResolveCompetitionEntryForGroup $resolveCompetitionEntryForGroup,
         private readonly PersistGroupEntryAction $persistGroupEntry,
     ) {}
 
+    /**
+     * @param  array{group_id: int, player_id?: int, competition_entry_id?: int}  $payload
+     */
     public function __invoke(array $payload): GroupEntry
     {
         $group = Group::query()->findOrFail($payload['group_id']);
@@ -31,45 +34,37 @@ final class AssignPlayerToGroupAction
         TournamentLifecycleGuard::ensureMutableForGroup($group);
         CompetitionFormatGuard::ensureGroupStage($group->competition);
         CompetitionStructureGuard::ensureEditable($group->competition);
-        $playerId = (int) $payload['player_id'];
 
-        $entry = ($this->resolveSinglesEntryForPlayer)($group->competition, $playerId);
+        $entry = ($this->resolveCompetitionEntryForGroup)($group->competition, $payload);
 
-        return DB::transaction(function () use ($group, $entry, $playerId): GroupEntry {
+        return DB::transaction(function () use ($group, $entry): GroupEntry {
             $groupEntry = ($this->persistGroupEntry)($group, $entry);
             $groupEntry->load([
                 'competitionEntry.members.player:id,first_name,last_name,nickname',
+                'competitionEntry.competition',
             ]);
 
             $status = $groupEntry->status ?? GroupPlayerStatus::Active;
-            $player = $groupEntry->competitionEntry?->singlesPlayer();
-            $playerName = $player !== null
-                ? trim(sprintf('%s %s', $player->first_name, $player->last_name))
-                : null;
-
-            $context = array_merge(
-                AuditContextBuilder::fromGroup($group),
-                [
-                    'player_id' => $playerId,
-                    'player_name' => $playerName !== '' ? $playerName : null,
-                ],
-            );
+            $entryContext = AuditContextBuilder::fromGroupEntry($groupEntry);
 
             $this->auditLogger->log(new AuditEntry(
                 action: AuditAction::GROUP_PLAYER_ASSIGNED,
                 logName: 'groups',
                 subject: $group,
-                context: $context,
+                context: array_merge(
+                    AuditContextBuilder::fromGroup($group),
+                    $entryContext,
+                ),
                 new: [
                     'group_id' => $group->id,
-                    'player_id' => $playerId,
+                    'competition_entry_id' => $entry->id,
                     'status' => $status instanceof GroupPlayerStatus ? $status->value : (string) $status,
+                    ...$entryContext,
                 ],
                 summary: [
                     'group_id' => $group->id,
                     'group_name' => $group->name,
-                    'player_id' => $playerId,
-                    'player_name' => $playerName !== '' ? $playerName : null,
+                    ...$entryContext,
                 ],
             ));
 

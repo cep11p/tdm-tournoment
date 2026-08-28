@@ -5,6 +5,7 @@ namespace App\Actions\Group;
 use App\Enums\CompetitionEntryStatus;
 use App\Models\Competition;
 use App\Models\Group;
+use App\Support\Competition\CompetitionParticipantLabel;
 use App\Support\Group\RandomGroupDistributionGuard;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
@@ -36,20 +37,20 @@ final class BuildRandomGroupsForCompetitionAction
 
         if ($entryCount === 0) {
             throw ValidationException::withMessages([
-                'competition' => ['La competencia no tiene jugadores inscriptos.'],
+                'competition' => [CompetitionParticipantLabel::registeredNone($competition)],
             ]);
         }
 
         if ($entryCount < 2) {
             throw ValidationException::withMessages([
-                'competition' => ['Se requieren al menos 2 jugadores inscriptos para generar grupos.'],
+                'competition' => [CompetitionParticipantLabel::minimumForGroups($competition)],
             ]);
         }
 
         if ($groupsCount > $entryCount) {
             throw ValidationException::withMessages([
                 'groups_count' => [
-                    'La cantidad de grupos no puede ser mayor que la cantidad de jugadores inscriptos.',
+                    CompetitionParticipantLabel::exceedsGroupCount($competition),
                 ],
             ]);
         }

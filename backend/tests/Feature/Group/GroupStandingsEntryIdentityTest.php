@@ -139,7 +139,7 @@ class GroupStandingsEntryIdentityTest extends TestCase
         ], $orderedEntryIds);
     }
 
-    public function test_standings_json_keeps_singles_contract_without_entry_ids(): void
+    public function test_standings_json_includes_entry_identity_fields_for_singles(): void
     {
         $context = $this->tournamentContext();
         $setup = $this->createFinishedThreePlayerGroup($context);
@@ -151,6 +151,9 @@ class GroupStandingsEntryIdentityTest extends TestCase
 
         $standing = $response->json('data.0');
         $this->assertSame([
+            'competition_entry_id',
+            'display_name',
+            'members',
             'player_id',
             'player_name',
             'played',
@@ -162,6 +165,11 @@ class GroupStandingsEntryIdentityTest extends TestCase
             'eligible_for_qualification',
             'group_player_status',
         ], array_keys($standing));
+
+        $this->assertNotNull($standing['player_id']);
+        $this->assertNotNull($standing['player_name']);
+        $this->assertSame($standing['player_name'], $standing['display_name']);
+        $this->assertCount(1, $standing['members']);
 
         $meta = $response->json('meta');
         $this->assertSame([
@@ -199,11 +207,16 @@ class GroupStandingsEntryIdentityTest extends TestCase
         sort($expected);
         $this->assertSame($expected, $pending);
 
-        $publicPlayerIds = $result->manualTiebreakGroups[0]['player_ids'];
+        $publicPlayerIds = $result->manualTiebreakGroups[0]['player_ids'] ?? [];
         sort($publicPlayerIds);
         $expectedPlayerIds = [$playerA->id, $playerB->id, $playerC->id];
         sort($expectedPlayerIds);
         $this->assertSame($expectedPlayerIds, $publicPlayerIds);
+
+        $publicEntryIds = $result->manualTiebreakGroups[0]['entry_ids'];
+        sort($publicEntryIds);
+        sort($entryIds);
+        $this->assertSame($entryIds, $publicEntryIds);
 
         $competition->update(['qualified_per_group' => 2]);
 

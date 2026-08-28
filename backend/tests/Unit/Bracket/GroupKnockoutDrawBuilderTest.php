@@ -325,6 +325,14 @@ class GroupKnockoutDrawBuilderTest extends TestCase
         int $lost = 0,
     ): GroupQualifierData {
         return new GroupQualifierData(
+            competitionEntryId: $playerId,
+            displayName: sprintf('Jugador %d', $playerId),
+            members: [[
+                'id' => $playerId,
+                'first_name' => 'Jugador',
+                'last_name' => (string) $playerId,
+                'nickname' => null,
+            ]],
             playerId: $playerId,
             playerName: sprintf('Jugador %d', $playerId),
             groupId: $groupId,
@@ -332,7 +340,6 @@ class GroupKnockoutDrawBuilderTest extends TestCase
             groupPosition: $position,
             won: $won,
             lost: $lost,
-            competitionEntryId: $playerId,
         );
     }
 }

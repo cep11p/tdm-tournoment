@@ -9,6 +9,7 @@ import { usePermissions } from '../../composables/usePermissions'
 import BracketService from '../../brackets/services/BracketService'
 import CompetitionService from '../../competitions/services/CompetitionService'
 import { structureLockReason } from '../../competitions/utils/competitionStructure'
+import { isDoublesCompetition } from '../../shared/constants/competitionType'
 import GameResultModal from '../../games/components/GameResultModal.vue'
 import GameService from '../../games/services/GameService'
 import {
@@ -40,6 +41,8 @@ const hasBracket = ref(false)
 
 const qualifiedPerGroup = computed(() => competition.value?.qualified_per_group ?? 2)
 
+const isDoubles = computed(() => isDoublesCompetition(competition.value))
+
 const competitionStructureLockReason = computed(() => structureLockReason(competition.value))
 
 const groupPlayers = ref([])
@@ -54,7 +57,7 @@ const isGeneratingRoundRobin = ref(false)
 const roundRobinError = ref('')
 const roundRobinSuccessMessage = ref('')
 
-const selectedPlayerForStatus = ref(null)
+const selectedGroupEntryForStatus = ref(null)
 const playerStatusSuccessMessage = ref('')
 
 const standingsAreProvisional = computed(() => Boolean(standingsMeta.value.standings_are_provisional))
@@ -128,7 +131,8 @@ const displayedGroupPlayers = computed(() => {
   const displayed = standings.value
     .map((standing, index) => {
       const groupPlayer = groupPlayers.value.find(
-        (currentGroupPlayer) => currentGroupPlayer.player?.id === standing.player_id,
+        (currentGroupPlayer) =>
+          currentGroupPlayer.competition_entry_id === standing.competition_entry_id,
       )
 
       if (!groupPlayer) {
@@ -145,12 +149,12 @@ const displayedGroupPlayers = computed(() => {
     })
     .filter(Boolean)
 
-  const displayedPlayerIds = new Set(
-    displayed.map((entry) => entry.groupPlayer.player?.id).filter(Boolean),
+  const displayedEntryIds = new Set(
+    displayed.map((entry) => entry.groupPlayer.competition_entry_id).filter(Boolean),
   )
 
   for (const groupPlayer of groupPlayers.value) {
-    if (!displayedPlayerIds.has(groupPlayer.player?.id)) {
+    if (!displayedEntryIds.has(groupPlayer.competition_entry_id)) {
       displayed.push({
         groupPlayer,
         position: null,
@@ -202,8 +206,19 @@ const groupPlayersCount = computed(() => displayedGroupPlayers.value.length)
 
 const groupPlayersCountLabel = computed(() => {
   const count = groupPlayersCount.value
+
+  if (isDoubles.value) {
+    return `${count} pareja${count === 1 ? '' : 's'}`
+  }
+
   return `${count} jugador${count === 1 ? '' : 'es'}`
 })
+
+const groupEntryDisplayName = (groupPlayer) =>
+  groupPlayer?.display_name ||
+  (groupPlayer?.player?.id
+    ? `${groupPlayer.player.first_name} ${groupPlayer.player.last_name}`.trim()
+    : 'Participación no asignada')
 
 const playerStatusBadgeClasses = (status) => {
   if (status === 'withdrawn') {
@@ -252,7 +267,11 @@ const groupPlayersTitle = computed(() => {
     return 'Posiciones del grupo'
   }
 
-  return hasGroupGames.value ? 'Jugadores del grupo' : 'Jugadores asignados'
+  if (hasGroupGames.value) {
+    return isDoubles.value ? 'Parejas del grupo' : 'Jugadores del grupo'
+  }
+
+  return isDoubles.value ? 'Parejas asignadas' : 'Jugadores asignados'
 })
 
 const loadGroupGames = async () => {
@@ -568,18 +587,20 @@ const handleGenerateRoundRobin = async () => {
 }
 
 const openPlayerStatusModal = (groupPlayer) => {
-  selectedPlayerForStatus.value = groupPlayer
+  selectedGroupEntryForStatus.value = groupPlayer
   playerStatusSuccessMessage.value = ''
 }
 
 const closePlayerStatusModal = () => {
-  selectedPlayerForStatus.value = null
+  selectedGroupEntryForStatus.value = null
 }
 
 const handlePlayerStatusSaved = async () => {
   closePlayerStatusModal()
   await Promise.all([loadGroupPlayers(), loadStandings(), loadGroupGames()])
-  playerStatusSuccessMessage.value = 'Estado del jugador actualizado correctamente.'
+  playerStatusSuccessMessage.value = isDoubles.value
+    ? 'Estado de la pareja actualizado correctamente.'
+    : 'Estado del jugador actualizado correctamente.'
 }
 
 onMounted(async () => {
@@ -639,7 +660,7 @@ onMounted(async () => {
 
       <dl v-else class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div>
-          <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Jugadores</dt>
+          <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ isDoubles ? 'Parejas' : 'Jugadores' }}</dt>
           <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ groupPlayersCount }}</dd>
         </div>
 
@@ -713,7 +734,7 @@ onMounted(async () => {
           v-else-if="groupPlayers.length === 0"
           class="rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
         >
-          Este grupo todavía no tiene jugadores asignados.
+          Este grupo todavía no tiene {{ isDoubles ? 'parejas asignadas' : 'jugadores asignados' }}.
         </div>
 
         <div v-else class="space-y-1.5">
@@ -733,7 +754,7 @@ onMounted(async () => {
               </span>
 
               <p class="font-medium text-slate-900 dark:text-slate-100">
-                {{ entry.groupPlayer.player.first_name }} {{ entry.groupPlayer.player.last_name }}
+                {{ groupEntryDisplayName(entry.groupPlayer) }}
               </p>
 
               <span
@@ -766,7 +787,17 @@ onMounted(async () => {
             </div>
 
             <p
-              v-if="entry.groupPlayer.player.nickname"
+              v-if="isDoubles && entry.groupPlayer.members?.length"
+              class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
+            >
+              {{
+                entry.groupPlayer.members
+                  .map((member) => `${member.first_name} ${member.last_name}`.trim())
+                  .join(' · ')
+              }}
+            </p>
+            <p
+              v-else-if="entry.groupPlayer.player?.nickname"
               class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
             >
               {{ entry.groupPlayer.player.nickname }}
@@ -1016,9 +1047,10 @@ onMounted(async () => {
     />
 
     <GroupPlayerStatusModal
-      :show="Boolean(selectedPlayerForStatus)"
+      :show="Boolean(selectedGroupEntryForStatus)"
       :group-id="groupId"
-      :player="selectedPlayerForStatus?.player ?? null"
+      :group-entry="selectedGroupEntryForStatus"
+      :is-doubles="isDoubles"
       @close="closePlayerStatusModal"
       @saved="handlePlayerStatusSaved"
     />

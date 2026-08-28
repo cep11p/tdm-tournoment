@@ -84,6 +84,9 @@ final class GroupQualifiersCollector
 
         return $groupQualifiers->values()->map(
             fn (CompetitionStandingData $standing, int $index): GroupQualifierData => new GroupQualifierData(
+                competitionEntryId: (int) $standing->competitionEntryId,
+                displayName: $standing->displayName,
+                members: $standing->members,
                 playerId: $standing->playerId,
                 playerName: $standing->playerName,
                 groupId: (int) $group->id,
@@ -91,7 +94,6 @@ final class GroupQualifiersCollector
                 groupPosition: $index + 1,
                 won: $standing->won,
                 lost: $standing->lost,
-                competitionEntryId: (int) $standing->competitionEntryId,
             ),
         );
     }

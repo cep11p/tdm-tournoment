@@ -30,7 +30,8 @@ class GroupPlayerController extends Controller
     ): JsonResponse {
         $groupEntry = $assignPlayer([
             'group_id' => $group->id,
-            'player_id' => $request->validated('player_id'),
+            'player_id' => $request->input('player_id'),
+            'competition_entry_id' => $request->input('competition_entry_id'),
         ])->load([
             'competitionEntry.members.player:id,first_name,last_name,nickname',
         ]);

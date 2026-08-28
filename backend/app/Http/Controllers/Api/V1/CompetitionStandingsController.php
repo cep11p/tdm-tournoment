@@ -7,8 +7,7 @@ use App\Enums\GameStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CompetitionStanding\CompetitionStandingResource;
 use App\Models\Competition;
-use App\Models\CompetitionEntry;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use App\Support\Competition\CompetitionEntryMemberPayload;
 use Illuminate\Support\Collection;
 
 class CompetitionStandingsController extends Controller
@@ -60,16 +59,19 @@ class CompetitionStandingsController extends Controller
                 ));
 
                 return new CompetitionStandingData(
-                    playerId: $playerId,
-                    playerName: $playerName,
+                    competitionEntryId: (int) $entry->id,
+                    displayName: $playerName,
+                    members: CompetitionEntryMemberPayload::forEntry($entry),
+                    playerId: $playerId > 0 ? $playerId : null,
+                    playerName: $playerName !== '' ? $playerName : null,
                     won: (int) $stats['won'],
                     lost: (int) $stats['lost'],
                 );
             })
             ->sort(function (CompetitionStandingData $left, CompetitionStandingData $right): int {
-                return [$right->won, $left->lost, strtolower($left->playerName)]
+                return [$right->won, $left->lost, strtolower($left->displayName)]
                     <=>
-                    [$left->won, $right->lost, strtolower($right->playerName)];
+                    [$left->won, $right->lost, strtolower($right->displayName)];
             })
             ->values();
 

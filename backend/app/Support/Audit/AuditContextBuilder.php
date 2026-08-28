@@ -2,14 +2,17 @@
 
 namespace App\Support\Audit;
 
+use App\Enums\CompetitionType;
 use App\Models\Bracket;
 use App\Models\Competition;
 use App\Models\CompetitionEntry;
 use App\Models\Game;
 use App\Models\Group;
+use App\Models\GroupEntry;
 use App\Models\Player;
 use App\Models\Tournament;
 use App\Support\Competition\CompetitionEntryDisplayName;
+use App\Support\Competition\CompetitionEntryMemberPayload;
 use Illuminate\Support\Collection;
 
 final class AuditContextBuilder
@@ -102,6 +105,51 @@ final class AuditContextBuilder
     /**
      * @return array<string, mixed>
      */
+    public static function fromGroupEntry(GroupEntry $groupEntry): array
+    {
+        $groupEntry->loadMissing([
+            'competitionEntry.members.player',
+            'competitionEntry.competition',
+        ]);
+
+        $entry = $groupEntry->competitionEntry;
+
+        if ($entry === null) {
+            return [];
+        }
+
+        $type = $entry->competition?->type instanceof CompetitionType
+            ? $entry->competition->type
+            : CompetitionType::Singles;
+        $isSingles = $type === CompetitionType::Singles;
+        $members = CompetitionEntryMemberPayload::forEntry($entry);
+        $displayName = CompetitionEntryDisplayName::for($entry);
+
+        $context = [
+            'competition_entry_id' => $entry->id,
+            'display_name' => $displayName,
+            'member_ids' => array_values(array_filter(array_map(
+                fn (array $member): ?int => $member['id'] ?? null,
+                $members
+            ))),
+            'member_names' => array_values(array_filter(array_map(
+                fn (array $member): ?string => self::memberDisplayName($member),
+                $members
+            ))),
+        ];
+
+        if ($isSingles) {
+            $player = $members[0] ?? null;
+            $context['player_id'] = $player['id'] ?? null;
+            $context['player_name'] = self::memberDisplayName($player);
+        }
+
+        return $context;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     public static function fromGroup(Group $group, ?int $bracketId = null): array
     {
         $group->loadMissing('competition.tournament');
@@ -187,6 +235,20 @@ final class AuditContextBuilder
             'bracket_id' => $bracketId,
             'game_id' => $gameId,
         ];
+    }
+
+    /**
+     * @param  array{id?: int|null, first_name?: string|null, last_name?: string|null}|null  $member
+     */
+    private static function memberDisplayName(?array $member): ?string
+    {
+        if ($member === null) {
+            return null;
+        }
+
+        $name = trim(sprintf('%s %s', (string) ($member['first_name'] ?? ''), (string) ($member['last_name'] ?? '')));
+
+        return $name !== '' ? $name : null;
     }
 
     private static function playerDisplayName(?Player $player): ?string

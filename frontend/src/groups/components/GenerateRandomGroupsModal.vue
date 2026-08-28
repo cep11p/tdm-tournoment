@@ -32,6 +32,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  isDoubles: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits(['close', 'saved'])
@@ -61,19 +65,23 @@ const confirmDisabledReason = computed(() => {
   }
 
   if (props.registeredCount < 2) {
-    return 'Se requieren al menos 2 jugadores inscriptos.'
+    return props.isDoubles
+      ? 'Se requieren al menos 2 parejas inscriptas.'
+      : 'Se requieren al menos 2 jugadores inscriptos.'
   }
 
   if (groupsCount.value < 1 || groupsCount.value > maxGroups.value) {
     const maxLabel = maxGroups.value === 1 ? '1 grupo' : `${maxGroups.value} grupos`
+    const participantLabel = props.isDoubles ? 'parejas' : 'jugadores'
 
-    return `Con ${props.registeredCount} jugadores, el máximo es ${maxLabel}.`
+    return `Con ${props.registeredCount} ${participantLabel}, el máximo es ${maxLabel}.`
   }
 
   if (!isValidGroupDistribution(props.registeredCount, groupsCount.value)) {
     const maxLabel = maxGroups.value === 1 ? '1 grupo' : `${maxGroups.value} grupos`
+    const participantLabel = props.isDoubles ? 'parejas' : 'jugadores'
 
-    return `Con ${props.registeredCount} jugadores, el máximo es ${maxLabel}.`
+    return `Con ${props.registeredCount} ${participantLabel}, el máximo es ${maxLabel}.`
   }
 
   if (isSubmitting.value) {
@@ -116,7 +124,7 @@ const handleConfirm = async () => {
       groups_count: groupsCount.value,
     })
 
-    successMessage.value = buildRandomGroupsSuccessMessage(result)
+    successMessage.value = buildRandomGroupsSuccessMessage(result, { isDoubles: props.isDoubles })
 
     emit('saved', result)
   } catch (error) {

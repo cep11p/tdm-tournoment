@@ -7,6 +7,7 @@ import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import { usePermissions } from '../../composables/usePermissions'
 import CompetitionService from '../../competitions/services/CompetitionService'
+import { isDoublesCompetition } from '../../shared/constants/competitionType'
 import { getGroupPlayerStatusLabel } from '../../groups/constants/groupPlayerStatus'
 import GroupManualTiebreakPanel from '../components/GroupManualTiebreakPanel.vue'
 import StandingService from '../services/StandingService'
@@ -29,6 +30,20 @@ const competition = ref(null)
 const hasBracket = ref(false)
 
 const qualifiedPerGroup = computed(() => competition.value?.qualified_per_group ?? 2)
+
+const isDoubles = computed(() => isDoublesCompetition(competition.value))
+
+const participantColumnLabel = computed(() => (isDoubles.value ? 'Pareja' : 'Jugador'))
+
+const participantsCountLabel = computed(() => {
+  const count = standings.value.length
+
+  if (isDoubles.value) {
+    return `${count} pareja${count === 1 ? '' : 's'}`
+  }
+
+  return `${count} jugador${count === 1 ? '' : 'es'}`
+})
 
 const standings = ref([])
 const standingsMeta = ref({})
@@ -81,7 +96,9 @@ const provisionalMessage = computed(() => {
 })
 
 const tiebreakGroupKey = (tiebreakGroup) =>
-  [...(tiebreakGroup.player_ids ?? [])].sort((left, right) => left - right).join('-')
+  [...(tiebreakGroup.entry_ids ?? tiebreakGroup.player_ids ?? [])]
+    .sort((left, right) => left - right)
+    .join('-')
 
 const completedMatches = computed(() => {
   if (standings.value.length === 0) {
@@ -143,6 +160,9 @@ const playerStatusBadgeClasses = (status) => {
 
   return ''
 }
+
+const standingDisplayName = (standing) =>
+  standing.display_name || standing.player_name || `Participación #${standing.competition_entry_id}`
 
 const playerStatusLabel = (standing) => getGroupPlayerStatusLabel(standing?.group_player_status ?? 'active')
 
@@ -273,8 +293,8 @@ onMounted(async () => {
 
         <dl class="mt-3 grid gap-3 sm:grid-cols-3">
           <div>
-            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Jugadores</dt>
-            <dd class="mt-1 font-medium text-slate-900 dark:text-slate-100">{{ standings.length }}</dd>
+            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ isDoubles ? 'Parejas' : 'Jugadores' }}</dt>
+            <dd class="mt-1 font-medium text-slate-900 dark:text-slate-100">{{ participantsCountLabel }}</dd>
           </div>
 
           <div>
@@ -296,7 +316,7 @@ onMounted(async () => {
           <thead class="bg-slate-50 text-slate-700 dark:bg-slate-800/80 dark:text-slate-200">
             <tr>
               <th class="px-3 py-2 text-left font-medium">Posición</th>
-              <th class="px-3 py-2 text-left font-medium">Jugador</th>
+              <th class="px-3 py-2 text-left font-medium">{{ participantColumnLabel }}</th>
               <th class="px-3 py-2 text-left font-medium">PJ</th>
               <th class="px-3 py-2 text-left font-medium">PG</th>
               <th class="px-3 py-2 text-left font-medium">PP</th>
@@ -306,7 +326,7 @@ onMounted(async () => {
           <tbody>
             <tr
               v-for="standing in standingsWithPosition"
-              :key="standing.player_id"
+              :key="standing.competition_entry_id ?? standing.player_id"
               :class="rowClasses(standing)"
             >
               <td class="px-3 py-2">
@@ -319,7 +339,7 @@ onMounted(async () => {
               </td>
               <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
                 <div class="flex flex-wrap items-center gap-2">
-                  <span>{{ standing.player_name }}</span>
+                  <span>{{ standingDisplayName(standing) }}</span>
                   <span
                     v-if="standing.manual_tiebreak_applied && !standingsAreProvisional"
                     class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-200"

@@ -19,9 +19,10 @@ class GroupManualTiebreakController extends Controller
         ApplyGroupManualTiebreakAction $applyManualTiebreak,
     ): JsonResponse {
         $tiebreak = $applyManualTiebreak($group, [
-            'player_ids' => $request->validated('player_ids'),
+            'entry_ids' => $request->resolvedEntryIds(),
             'reason' => ManualTiebreakReason::from($request->validated('reason')),
             'notes' => $request->validated('notes'),
+            'validation_error_key' => $request->usesPlayerIds() ? 'player_ids' : 'entry_ids',
         ]);
 
         return (new GroupManualTiebreakResource($tiebreak))

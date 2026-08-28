@@ -343,8 +343,12 @@ const structureAction = computed(() => {
       type: disabled ? 'disabled' : 'modal',
       label: 'Generar grupos',
       description: disabled
-        ? 'Necesitás al menos 2 jugadores inscriptos'
-        : 'Distribuir jugadores inscriptos en grupos',
+        ? isDoubles.value
+          ? 'Necesitás al menos 2 parejas inscriptas'
+          : 'Necesitás al menos 2 jugadores inscriptos'
+        : isDoubles.value
+          ? 'Distribuir parejas inscriptas en grupos'
+          : 'Distribuir jugadores inscriptos en grupos',
       icon: Squares2X2Icon,
     }
   }
@@ -409,7 +413,9 @@ const structureAction = computed(() => {
       key: 'generate-bracket-disabled',
       type: 'disabled',
       label: 'Generar llave',
-      description: 'Necesitás al menos 2 jugadores inscriptos',
+      description: isDoubles.value
+        ? 'Necesitás al menos 2 parejas inscriptas'
+        : 'Necesitás al menos 2 jugadores inscriptos',
       icon: TrophyIcon,
     }
   }
@@ -1190,6 +1196,7 @@ const handleEditCompetitionSaved = async () => {
         :registered-count="registeredCount"
         :has-existing-groups="hasExistingGroups"
         :is-competition-completed="isCompetitionCompleted"
+        :is-doubles="isDoubles"
         @close="showGenerateRandomGroupsModal = false"
         @saved="handleRandomGroupsSaved"
       />
@@ -1201,6 +1208,7 @@ const handleEditCompetitionSaved = async () => {
         :registered-count="registeredCount"
         :existing-groups-count="existingGroupsCount"
         :is-competition-completed="isCompetitionCompleted"
+        :is-doubles="isDoubles"
         @close="showRegenerateRandomGroupsModal = false"
         @saved="handleRegenerateRandomGroupsSaved"
       />

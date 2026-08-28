@@ -7,24 +7,29 @@ const formatCountLabel = (count, singular, plural) =>
  *   players_assigned?: number,
  *   games_created?: number,
  * }} [result]
+ * @param {{ isDoubles?: boolean }} [options]
  */
-export function buildRandomGroupsSuccessMessage(result = {}) {
+export function buildRandomGroupsSuccessMessage(result = {}, { isDoubles = false } = {}) {
   const groupsCreated = result.groups_created ?? 0
   const playersAssigned = result.players_assigned ?? 0
   const gamesCreated = result.games_created
 
   const groupsLabel = formatCountLabel(groupsCreated, 'grupo', 'grupos')
-  const playersLabel = formatCountLabel(playersAssigned, 'jugador', 'jugadores')
+  const participantsLabel = isDoubles
+    ? formatCountLabel(playersAssigned, 'pareja', 'parejas')
+    : formatCountLabel(playersAssigned, 'jugador', 'jugadores')
 
   if (typeof gamesCreated !== 'number') {
-    return `Se generaron ${groupsLabel}, se asignaron ${playersLabel}.`
+    return `Se generaron ${groupsLabel}, se asignaron ${participantsLabel}.`
   }
 
   if (gamesCreated === 0) {
-    return `Se generaron ${groupsLabel}, se asignaron ${playersLabel} y no se crearon partidos porque los grupos tienen un solo jugador.`
+    const singleParticipantLabel = isDoubles ? 'pareja' : 'jugador'
+
+    return `Se generaron ${groupsLabel}, se asignaron ${participantsLabel} y no se crearon partidos porque los grupos tienen un solo ${singleParticipantLabel}.`
   }
 
   const gamesLabel = formatCountLabel(gamesCreated, 'partido', 'partidos')
 
-  return `Se generaron ${groupsLabel}, se asignaron ${playersLabel} y se crearon ${gamesLabel}.`
+  return `Se generaron ${groupsLabel}, se asignaron ${participantsLabel} y se crearon ${gamesLabel}.`
 }

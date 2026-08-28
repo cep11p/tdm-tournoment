@@ -346,7 +346,7 @@ class GroupPlayerStatusTest extends TestCase
 
         $response
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['player_id']);
+            ->assertJsonValidationErrors(['competition_entry_id']);
     }
 
     public function test_rejects_status_change_when_bracket_already_exists(): void

@@ -21,51 +21,56 @@ const props = defineProps({
 
 const emit = defineEmits(['saved'])
 
-const playerIds = ref([...(props.tiebreakGroup.player_ids ?? [])])
+const entryIds = ref([...(props.tiebreakGroup.entry_ids ?? props.tiebreakGroup.player_ids ?? [])])
 const reason = ref('draw')
 const notes = ref('')
 const isSaving = ref(false)
 const errorMessage = ref('')
 
-const playerLabelsById = computed(() => {
+const entryLabelsById = computed(() => {
   const labels = {}
+  const ids = props.tiebreakGroup.entry_ids ?? props.tiebreakGroup.player_ids ?? []
+  const names = props.tiebreakGroup.display_names ?? props.tiebreakGroup.player_names ?? []
 
-  ;(props.tiebreakGroup.player_ids ?? []).forEach((playerId, index) => {
-    labels[playerId] = props.tiebreakGroup.player_names?.[index] ?? `Jugador #${playerId}`
+  ids.forEach((entryId, index) => {
+    labels[entryId] = names[index] ?? `Participación #${entryId}`
   })
 
   return labels
 })
 
 const tiebreakGroupKey = computed(() =>
-  [...(props.tiebreakGroup.player_ids ?? [])].sort((left, right) => left - right).join('-'),
+  [...(props.tiebreakGroup.entry_ids ?? props.tiebreakGroup.player_ids ?? [])]
+    .sort((left, right) => left - right)
+    .join('-'),
 )
 
 watch(tiebreakGroupKey, () => {
-  playerIds.value = [...(props.tiebreakGroup.player_ids ?? [])]
+  entryIds.value = [...(props.tiebreakGroup.entry_ids ?? props.tiebreakGroup.player_ids ?? [])]
   reason.value = 'draw'
   notes.value = ''
   errorMessage.value = ''
 })
 
 const extractManualTiebreakError = (error) =>
+  error?.response?.data?.errors?.entry_ids?.[0] ||
   error?.response?.data?.errors?.player_ids?.[0] ||
   error?.response?.data?.errors?.group?.[0] ||
   error?.response?.data?.errors?.reason?.[0] ||
   error?.response?.data?.message ||
   'No se pudo guardar el desempate manual.'
 
-const movePlayer = (index, direction) => {
+const moveEntry = (index, direction) => {
   const targetIndex = index + direction
 
-  if (targetIndex < 0 || targetIndex >= playerIds.value.length) {
+  if (targetIndex < 0 || targetIndex >= entryIds.value.length) {
     return
   }
 
-  const updated = [...playerIds.value]
-  const [movedPlayer] = updated.splice(index, 1)
-  updated.splice(targetIndex, 0, movedPlayer)
-  playerIds.value = updated
+  const updated = [...entryIds.value]
+  const [movedEntry] = updated.splice(index, 1)
+  updated.splice(targetIndex, 0, movedEntry)
+  entryIds.value = updated
 }
 
 const handleSubmit = async () => {
@@ -78,7 +83,7 @@ const handleSubmit = async () => {
 
   try {
     await StandingService.applyManualTiebreak(props.groupId, {
-      player_ids: playerIds.value,
+      entry_ids: entryIds.value,
       reason: reason.value,
       notes: notes.value || null,
     })
@@ -98,17 +103,20 @@ const handleSubmit = async () => {
   >
     <p class="font-medium text-amber-900 dark:text-amber-200">
       Empate pendiente entre:
-      {{ tiebreakGroup.player_names?.join(', ') || 'jugadores empatados' }}
+      {{
+        (tiebreakGroup.display_names ?? tiebreakGroup.player_names)?.join(', ') ||
+        'participaciones empatadas'
+      }}
     </p>
 
     <ul class="space-y-2">
       <li
-        v-for="(playerId, index) in playerIds"
-        :key="playerId"
+        v-for="(entryId, index) in entryIds"
+        :key="entryId"
         class="flex items-center justify-between gap-3 rounded-md border border-amber-100 bg-white px-3 py-2 dark:border-amber-900/60 dark:bg-slate-900"
       >
         <span class="font-medium text-slate-900 dark:text-slate-100">
-          {{ index + 1 }}. {{ playerLabelsById[playerId] }}
+          {{ index + 1 }}. {{ entryLabelsById[entryId] }}
         </span>
 
         <div class="flex items-center gap-1">
@@ -116,15 +124,15 @@ const handleSubmit = async () => {
             type="button"
             class="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
             :disabled="disabled || isSaving || index === 0"
-            @click="movePlayer(index, -1)"
+            @click="moveEntry(index, -1)"
           >
             ↑
           </button>
           <button
             type="button"
             class="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-            :disabled="disabled || isSaving || index === playerIds.length - 1"
-            @click="movePlayer(index, 1)"
+            :disabled="disabled || isSaving || index === entryIds.length - 1"
+            @click="moveEntry(index, 1)"
           >
             ↓
           </button>

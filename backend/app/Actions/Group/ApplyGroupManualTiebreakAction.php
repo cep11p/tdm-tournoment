@@ -10,7 +10,7 @@ use App\Models\GroupManualTiebreak;
 use App\Models\GroupManualTiebreakEntry;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
-use App\Support\Competition\BuildSinglesEntryIndexForGroup;
+use App\Support\Competition\BuildGroupEntryIndexForGroup;
 use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Group\GroupStandingsCalculator;
 use App\Support\Tournament\TournamentLifecycleGuard;
@@ -21,12 +21,12 @@ final class ApplyGroupManualTiebreakAction
 {
     public function __construct(
         private readonly GroupStandingsCalculator $groupStandingsCalculator,
-        private readonly BuildSinglesEntryIndexForGroup $buildSinglesEntryIndexForGroup,
+        private readonly BuildGroupEntryIndexForGroup $buildGroupEntryIndexForGroup,
         private readonly AuditLogger $auditLogger,
     ) {}
 
     /**
-     * @param  array{player_ids: array<int, int>, reason: ManualTiebreakReason, notes?: ?string}  $payload
+     * @param  array{entry_ids: array<int, int>, reason: ManualTiebreakReason, notes?: ?string, validation_error_key?: string}  $payload
      */
     public function __invoke(Group $group, array $payload): GroupManualTiebreak
     {
@@ -47,27 +47,23 @@ final class ApplyGroupManualTiebreakAction
             ]);
         }
 
-        $playerIds = array_values(array_map('intval', $payload['player_ids']));
+        $entryIds = array_values(array_map('intval', $payload['entry_ids']));
+        $validationErrorKey = $payload['validation_error_key'] ?? 'entry_ids';
 
-        if (count($playerIds) !== count(array_unique($playerIds))) {
+        if (count($entryIds) !== count(array_unique($entryIds))) {
             throw ValidationException::withMessages([
-                'player_ids' => ['No se permiten jugadores duplicados.'],
+                $validationErrorKey => ['No se permiten participaciones duplicadas.'],
             ]);
         }
 
-        $index = ($this->buildSinglesEntryIndexForGroup)($group);
-        $entryIds = [];
+        $index = ($this->buildGroupEntryIndexForGroup)($group);
 
-        foreach ($playerIds as $playerId) {
-            $entryId = $index->entryIdForPlayer($playerId);
-
-            if ($entryId === null) {
+        foreach ($entryIds as $entryId) {
+            if (! in_array($entryId, $index->entryIds(), true)) {
                 throw ValidationException::withMessages([
-                    'player_ids' => ['Uno o más jugadores no pertenecen al grupo.'],
+                    $validationErrorKey => ['Una o más participaciones no pertenecen al grupo.'],
                 ]);
             }
-
-            $entryIds[] = $entryId;
         }
 
         $automaticResult = $this->groupStandingsCalculator->calculateAutomaticOnly($group);
@@ -75,27 +71,26 @@ final class ApplyGroupManualTiebreakAction
 
         if ($pendingGroups === []) {
             throw ValidationException::withMessages([
-                'player_ids' => ['No hay empates pendientes de definición manual en este grupo.'],
+                $validationErrorKey => ['No hay empates pendientes de definición manual en este grupo.'],
             ]);
         }
 
         if (! $this->matchesPendingGroup($entryIds, $pendingGroups)) {
             throw ValidationException::withMessages([
-                'player_ids' => ['Los jugadores enviados no coinciden con un empate pendiente actual.'],
+                $validationErrorKey => ['Las participaciones enviadas no coinciden con un empate pendiente actual.'],
             ]);
         }
 
         $existingTiebreak = $this->findExistingTiebreak($group, $entryIds);
-        $oldOrderedPlayerIds = $existingTiebreak instanceof GroupManualTiebreak
-            ? $index->playerIdsForEntries($existingTiebreak->orderedCompetitionEntryIds())
+        $oldOrderedEntryIds = $existingTiebreak instanceof GroupManualTiebreak
+            ? $existingTiebreak->orderedCompetitionEntryIds()
             : [];
 
         return DB::transaction(function () use (
             $group,
-            $playerIds,
             $entryIds,
             $payload,
-            $oldOrderedPlayerIds,
+            $oldOrderedEntryIds,
             $index,
         ): GroupManualTiebreak {
             $existingTiebreak = $this->findExistingTiebreak($group, $entryIds);
@@ -128,9 +123,25 @@ final class ApplyGroupManualTiebreakAction
 
             $tiebreak->load(['entries.competitionEntry.members.player:id,first_name,last_name']);
 
-            $oldPayload = $oldOrderedPlayerIds !== []
-                ? ['ordered_player_ids' => $oldOrderedPlayerIds]
+            $oldPayload = $oldOrderedEntryIds !== []
+                ? ['ordered_entry_ids' => $oldOrderedEntryIds]
                 : [];
+
+            $newPayload = [
+                'ordered_entry_ids' => $entryIds,
+                'display_names' => $index->displayNamesForEntries($entryIds),
+            ];
+
+            if ($index->isSingles()) {
+                $oldPayload = $oldOrderedEntryIds !== []
+                    ? [
+                        ...$oldPayload,
+                        'ordered_player_ids' => $index->playerIdsForEntries($oldOrderedEntryIds),
+                    ]
+                    : $oldPayload;
+
+                $newPayload['ordered_player_ids'] = $index->playerIdsForEntries($entryIds);
+            }
 
             $this->auditLogger->log(new AuditEntry(
                 action: AuditAction::GROUP_MANUAL_TIEBREAK_APPLIED,
@@ -138,22 +149,14 @@ final class ApplyGroupManualTiebreakAction
                 subject: $group,
                 context: AuditContextBuilder::fromGroup($group),
                 old: $oldPayload,
-                new: [
-                    'ordered_player_ids' => $playerIds,
-                ],
+                new: $newPayload,
                 summary: [
-                    'positions_affected' => range(1, count($playerIds)),
-                    'players' => collect($playerIds)
-                        ->map(function (int $playerId) use ($index): array {
-                            $entryId = $index->entryIdForPlayer($playerId);
-
-                            return [
-                                'id' => $playerId,
-                                'name' => $entryId !== null
-                                    ? $index->playerNameForEntry($entryId)
-                                    : '',
-                            ];
-                        })
+                    'positions_affected' => range(1, count($entryIds)),
+                    'entries' => collect($entryIds)
+                        ->map(fn (int $entryId): array => [
+                            'id' => $entryId,
+                            'name' => $index->displayNameForEntry($entryId),
+                        ])
                         ->values()
                         ->all(),
                 ],

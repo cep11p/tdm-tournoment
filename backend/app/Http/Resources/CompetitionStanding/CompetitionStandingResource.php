@@ -10,6 +10,9 @@ class CompetitionStandingResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+            'competition_entry_id' => $this->competitionEntryId,
+            'display_name' => $this->displayName,
+            'members' => $this->members,
             'player_id' => $this->playerId,
             'player_name' => $this->playerName,
             'played' => $this->played(),

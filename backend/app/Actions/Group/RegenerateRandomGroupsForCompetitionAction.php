@@ -13,6 +13,7 @@ use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Competition\CompetitionStructureGuard;
+use App\Support\Competition\CompetitionParticipantLabel;
 use App\Support\Group\RandomGroupDistributionGuard;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
@@ -55,7 +56,7 @@ final class RegenerateRandomGroupsForCompetitionAction
 
         if ($playerCount < 2) {
             throw ValidationException::withMessages([
-                'competition' => ['Se requieren al menos 2 jugadores inscriptos para regenerar grupos.'],
+                'competition' => [CompetitionParticipantLabel::minimumForGroups($competition)],
             ]);
         }
 

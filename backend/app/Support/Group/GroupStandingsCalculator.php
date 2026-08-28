@@ -8,14 +8,14 @@ use App\Enums\GroupPlayerStatus;
 use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupManualTiebreak;
-use App\Support\Competition\BuildSinglesEntryIndexForGroup;
-use App\Support\Competition\SinglesEntryIndex;
+use App\Support\Competition\BuildGroupEntryIndexForGroup;
+use App\Support\Competition\GroupEntryIndex;
 use Illuminate\Support\Collection;
 
 final class GroupStandingsCalculator
 {
     public function __construct(
-        private readonly BuildSinglesEntryIndexForGroup $buildSinglesEntryIndexForGroup,
+        private readonly BuildGroupEntryIndexForGroup $buildGroupEntryIndexForGroup,
     ) {}
 
     public function calculate(Group $group): GroupStandingsResult
@@ -94,12 +94,12 @@ final class GroupStandingsCalculator
      *     stats_by_entry: array<int, array{won: int, lost: int}>,
      *     ordered_entry_ids: array<int, int>,
      *     pending_manual_tie_entry_groups: array<int, array<int, int>>,
-     *     index: SinglesEntryIndex
+     *     index: GroupEntryIndex
      * }
      */
     private function calculateAutomatic(Group $group): array
     {
-        $index = ($this->buildSinglesEntryIndexForGroup)($group);
+        $index = ($this->buildGroupEntryIndexForGroup)($group);
         $entryIds = $index->entryIds();
 
         $activeEntryIds = [];
@@ -197,7 +197,7 @@ final class GroupStandingsCalculator
      *     stats_by_entry: array<int, array{won: int, lost: int}>,
      *     ordered_entry_ids: array<int, int>,
      *     pending_manual_tie_entry_groups: array<int, array<int, int>>,
-     *     index: SinglesEntryIndex
+     *     index: GroupEntryIndex
      * }  $automatic
      */
     private function applyPersistedManualTiebreaks(Group $group, array $automatic, array $gamesProgress): GroupStandingsResult
@@ -270,10 +270,10 @@ final class GroupStandingsCalculator
      *     stats_by_entry: array<int, array{won: int, lost: int}>,
      *     ordered_entry_ids: array<int, int>,
      *     pending_manual_tie_entry_groups: array<int, array<int, int>>,
-     *     index: SinglesEntryIndex
+     *     index: GroupEntryIndex
      * }  $automatic
-     * @param  array<int, array{id: int, player_ids: array<int, int>, player_names: array<int, string>, reason: string, notes: ?string, applied_at: string}>  $appliedManualTiebreaks
-     * @param  array<int, array{id: int, player_ids: array<int, int>, player_names: array<int, string>, reason: string, notes: ?string, applied_at: string}>  $staleManualTiebreaks
+     * @param  array<int, array<string, mixed>>  $appliedManualTiebreaks
+     * @param  array<int, array<string, mixed>>  $staleManualTiebreaks
      * @param  array<int, int>  $manualPositionByEntryId
      * @param  array<int, bool>  $appliedEntryFlags
      * @param  array{
@@ -322,11 +322,13 @@ final class GroupStandingsCalculator
                 $isActive = $status === GroupPlayerStatus::Active;
 
                 return new CompetitionStandingData(
-                    playerId: (int) ($index->playerIdForEntry($entryId) ?? 0),
+                    competitionEntryId: $entryId,
+                    displayName: $index->displayNameForEntry($entryId),
+                    members: $index->membersForEntry($entryId),
+                    playerId: $index->playerIdForEntry($entryId),
                     playerName: $index->playerNameForEntry($entryId),
                     won: (int) $stats['won'],
                     lost: (int) $stats['lost'],
-                    competitionEntryId: $entryId,
                     requiresManualTiebreak: $isActive && (bool) ($manualEntryFlags[$entryId] ?? false),
                     manualTiebreakApplied: (bool) ($appliedEntryFlags[$entryId] ?? false),
                     manualPosition: $appliedEntryFlags[$entryId] ?? false
@@ -339,12 +341,7 @@ final class GroupStandingsCalculator
             ->values();
 
         $manualTiebreakGroups = array_map(
-            function (array $entryIds) use ($index): array {
-                return [
-                    'player_ids' => $index->playerIdsForEntries($entryIds),
-                    'player_names' => $index->playerNamesForEntries($entryIds),
-                ];
-            },
+            fn (array $entryIds): array => $this->formatTiebreakGroupMeta($entryIds, $index),
             $pendingManualTieEntryGroups
         );
 
@@ -436,16 +433,34 @@ final class GroupStandingsCalculator
     }
 
     /**
-     * @return array{id: int, player_ids: array<int, int>, player_names: array<int, string>, reason: string, notes: ?string, applied_at: string}
+     * @param  array<int, int>  $entryIds
+     * @return array{entry_ids: array<int, int>, display_names: array<int, string>, player_ids?: array<int, int>, player_names?: array<int, string>}
      */
-    private function formatPublicTiebreakRecord(GroupManualTiebreak $tiebreak, SinglesEntryIndex $index): array
+    private function formatTiebreakGroupMeta(array $entryIds, GroupEntryIndex $index): array
+    {
+        $meta = [
+            'entry_ids' => array_values(array_map('intval', $entryIds)),
+            'display_names' => $index->displayNamesForEntries($entryIds),
+        ];
+
+        if ($index->isSingles()) {
+            $meta['player_ids'] = $index->playerIdsForEntries($entryIds);
+            $meta['player_names'] = $index->playerNamesForEntries($entryIds);
+        }
+
+        return $meta;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function formatPublicTiebreakRecord(GroupManualTiebreak $tiebreak, GroupEntryIndex $index): array
     {
         $entryIds = $tiebreak->orderedCompetitionEntryIds();
 
         return [
             'id' => (int) $tiebreak->id,
-            'player_ids' => $index->playerIdsForEntries($entryIds),
-            'player_names' => $index->playerNamesForEntries($entryIds),
+            ...$this->formatTiebreakGroupMeta($entryIds, $index),
             'reason' => $tiebreak->reason->value,
             'notes' => $tiebreak->notes,
             'applied_at' => $tiebreak->applied_at?->toIso8601String() ?? '',
@@ -463,7 +478,7 @@ final class GroupStandingsCalculator
     private function resolveTieGroup(
         array $tiedEntryIds,
         array $finishedGames,
-        SinglesEntryIndex $index,
+        GroupEntryIndex $index,
     ): array {
         $tiedEntryLookup = array_fill_keys($tiedEntryIds, true);
         $miniStats = [];
@@ -535,7 +550,7 @@ final class GroupStandingsCalculator
     private function rankByMiniCriteria(
         array $entryIds,
         array $miniStats,
-        SinglesEntryIndex $index,
+        GroupEntryIndex $index,
         array $criteria,
         int $currentCriterion,
     ): array {
@@ -599,11 +614,11 @@ final class GroupStandingsCalculator
      * @param  array<int, int>  $entryIds
      * @return array<int, int>
      */
-    private function sortEntriesByName(array $entryIds, SinglesEntryIndex $index): array
+    private function sortEntriesByName(array $entryIds, GroupEntryIndex $index): array
     {
         usort($entryIds, function (int $leftEntryId, int $rightEntryId) use ($index): int {
-            $leftName = strtolower($index->playerNameForEntry($leftEntryId));
-            $rightName = strtolower($index->playerNameForEntry($rightEntryId));
+            $leftName = strtolower($index->displayNameForEntry($leftEntryId));
+            $rightName = strtolower($index->displayNameForEntry($rightEntryId));
 
             return [$leftName, $leftEntryId] <=> [$rightName, $rightEntryId];
         });

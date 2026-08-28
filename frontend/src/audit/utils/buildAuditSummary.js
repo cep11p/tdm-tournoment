@@ -174,9 +174,14 @@ export function buildAuditSummary(auditLog) {
     }
 
     case 'group.player_assigned': {
-      const playerName = summary.player_name ?? auditLog?.context?.player_name ?? 'Jugador'
+      const participantName =
+        summary.display_name ??
+        auditLog?.context?.display_name ??
+        summary.player_name ??
+        auditLog?.context?.player_name ??
+        'Participación'
       const groupName = summary.group_name ?? auditLog?.context?.group_name ?? 'grupo'
-      return `${playerName} asignado a ${groupName}`
+      return `${participantName} asignado a ${groupName}`
     }
 
     case 'groups.round_robin_generated': {
@@ -265,20 +270,28 @@ export function buildAuditSummary(auditLog) {
     }
 
     case 'groups.player_status_changed': {
-      const playerName = summary.player_name ?? 'Jugador'
+      const participantName =
+        summary.display_name ??
+        auditLog?.context?.display_name ??
+        summary.player_name ??
+        'Participación'
       const oldStatus = summary.old_status ?? auditLog?.old?.status
       const newStatus = summary.new_status ?? auditLog?.new?.status
 
       if (oldStatus && newStatus) {
-        return `${playerName}: ${oldStatus} → ${newStatus}`
+        return `${participantName}: ${oldStatus} → ${newStatus}`
       }
 
-      return playerName
+      return participantName
     }
 
     case 'groups.manual_tiebreak_applied': {
+      const entryNames = summary.entries?.map((entry) => entry.name).filter(Boolean) ?? []
+
       const parts = [
-        formatCount(summary.players_reordered, 'jugador reordenado', 'jugadores reordenados'),
+        entryNames.length > 0
+          ? `orden: ${entryNames.join(', ')}`
+          : formatCount(summary.players_reordered, 'participación reordenada', 'participaciones reordenadas'),
         summary.reason_code ? `motivo ${summary.reason_code}` : null,
       ].filter(Boolean)
 

@@ -12,14 +12,25 @@ export function manualTieCrossesQualifierCutoff(standings, manualTiebreakGroups,
     return false
   }
 
+  const positionByEntryId = Object.fromEntries(
+    standings.map((standing, index) => [standing.competition_entry_id, index]),
+  )
+
   const positionByPlayerId = Object.fromEntries(
     standings.map((standing, index) => [standing.player_id, index]),
   )
 
   return manualTiebreakGroups.some((group) => {
-    const positions = (group.player_ids ?? [])
-      .map((playerId) => positionByPlayerId[playerId])
+    const entryIds = group.entry_ids ?? []
+    let positions = entryIds
+      .map((entryId) => positionByEntryId[entryId])
       .filter((position) => position !== undefined)
+
+    if (positions.length === 0 && group.player_ids?.length) {
+      positions = group.player_ids
+        .map((playerId) => positionByPlayerId[playerId])
+        .filter((position) => position !== undefined)
+    }
 
     if (positions.length === 0) {
       return false

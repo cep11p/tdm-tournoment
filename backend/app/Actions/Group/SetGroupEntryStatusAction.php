@@ -9,11 +9,10 @@ use App\Enums\GroupPlayerStatus;
 use App\Enums\GroupPlayerStatusReason;
 use App\Models\Group;
 use App\Models\GroupEntry;
-use App\Models\Player;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
-use App\Support\Competition\ResolveSinglesEntryForPlayer;
+use App\Support\Competition\ResolveCompetitionEntryForGroup;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -22,12 +21,13 @@ final class SetGroupEntryStatusAction
 {
     public function __construct(
         private readonly AuditLogger $auditLogger,
-        private readonly ResolveSinglesEntryForPlayer $resolveSinglesEntryForPlayer,
+        private readonly ResolveCompetitionEntryForGroup $resolveCompetitionEntryForGroup,
     ) {}
 
     /**
      * @param  array{
-     *     player_id: int,
+     *     player_id?: int,
+     *     competition_entry_id?: int,
      *     status: GroupPlayerStatus,
      *     reason?: ?GroupPlayerStatusReason,
      *     notes?: ?string
@@ -42,12 +42,11 @@ final class SetGroupEntryStatusAction
 
         if ($group->competition->brackets()->exists()) {
             throw ValidationException::withMessages([
-                'group' => ['No se puede cambiar el estado del jugador cuando ya existe un cuadro eliminatorio.'],
+                'group' => ['No se puede cambiar el estado del participante cuando ya existe un cuadro eliminatorio.'],
             ]);
         }
 
-        $playerId = (int) $payload['player_id'];
-        $entry = ($this->resolveSinglesEntryForPlayer)($group->competition, $playerId);
+        $entry = ($this->resolveCompetitionEntryForGroup)($group->competition, $payload);
 
         $groupEntry = GroupEntry::query()
             ->where('group_id', $group->id)
@@ -56,13 +55,13 @@ final class SetGroupEntryStatusAction
 
         if ($groupEntry === null) {
             throw ValidationException::withMessages([
-                'player_id' => ['El jugador no pertenece al grupo.'],
+                'competition_entry_id' => ['La participación no pertenece al grupo.'],
             ]);
         }
 
         if (! $groupEntry->isActive()) {
             throw ValidationException::withMessages([
-                'player_id' => ['El jugador ya no está activo en el grupo.'],
+                'competition_entry_id' => ['La participación ya no está activa en el grupo.'],
             ]);
         }
 
@@ -70,7 +69,7 @@ final class SetGroupEntryStatusAction
 
         if ($newStatus === GroupPlayerStatus::Active) {
             throw ValidationException::withMessages([
-                'status' => ['No se permite reactivar jugadores en esta versión.'],
+                'status' => ['No se permite reactivar participantes en esta versión.'],
             ]);
         }
 
@@ -79,15 +78,13 @@ final class SetGroupEntryStatusAction
             $groupEntry,
             $payload,
             $newStatus,
-            $playerId,
         ): GroupEntry {
             $oldStatus = $groupEntry->status;
-            $changedAt = now();
             $statusPayload = [
                 'status' => $newStatus,
                 'status_reason' => $payload['reason'] ?? null,
                 'status_notes' => $payload['notes'] ?? null,
-                'status_changed_at' => $changedAt,
+                'status_changed_at' => now(),
             ];
 
             $groupEntry->update($statusPayload);
@@ -96,18 +93,19 @@ final class SetGroupEntryStatusAction
 
             $groupEntry = $groupEntry->fresh([
                 'competitionEntry.members.player:id,first_name,last_name,nickname',
+                'competitionEntry.competition',
             ]);
 
-            $player = Player::query()->find($playerId);
-            $playerName = $player !== null
-                ? trim(sprintf('%s %s', $player->first_name, $player->last_name))
-                : '';
+            $entryContext = AuditContextBuilder::fromGroupEntry($groupEntry);
 
             $this->auditLogger->log(new AuditEntry(
                 action: AuditAction::GROUP_PLAYER_STATUS_CHANGED,
                 logName: 'groups',
                 subject: $group,
-                context: AuditContextBuilder::fromGroup($group),
+                context: array_merge(
+                    AuditContextBuilder::fromGroup($group),
+                    $entryContext,
+                ),
                 old: [
                     'status' => $oldStatus->value,
                 ],
@@ -116,10 +114,10 @@ final class SetGroupEntryStatusAction
                     'reason_code' => ($payload['reason'] ?? null) instanceof GroupPlayerStatusReason
                         ? $payload['reason']->value
                         : null,
+                    ...$entryContext,
                 ],
                 summary: [
-                    'player_id' => $playerId,
-                    'player_name' => $playerName,
+                    ...$entryContext,
                     'games_closed' => $gamesClosed,
                     'games_affected' => $gamesClosed,
                 ],
