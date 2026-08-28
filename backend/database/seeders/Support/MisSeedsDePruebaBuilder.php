@@ -8,7 +8,7 @@ use App\Actions\Group\CreateGroupAction;
 use App\Actions\Group\GenerateGroupRoundRobinGamesAction;
 use App\Actions\GroupPlayer\AssignPlayerToGroupAction;
 use App\Actions\Player\CreatePlayerAction;
-use App\Actions\Registration\RegisterPlayerToCompetitionAction;
+use App\Actions\Registration\RegisterCompetitionEntryAction;
 use App\Actions\Tournament\CreateTournamentAction;
 use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
@@ -505,7 +505,7 @@ final class MisSeedsDePruebaBuilder
      */
     public function registerPlayersByNames(Competition $competition, array $playerNames): array
     {
-        $registerPlayer = app(RegisterPlayerToCompetitionAction::class);
+        $registerPlayer = app(RegisterCompetitionEntryAction::class);
 
         if ($this->playersByFullName === null) {
             $this->findOrCreatePlayersFromRoster();

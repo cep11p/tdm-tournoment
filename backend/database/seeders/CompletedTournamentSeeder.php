@@ -10,7 +10,7 @@ use App\Actions\Group\CreateGroupAction;
 use App\Actions\Group\GenerateGroupRoundRobinGamesAction;
 use App\Actions\GroupPlayer\AssignPlayerToGroupAction;
 use App\Actions\Player\CreatePlayerAction;
-use App\Actions\Registration\RegisterPlayerToCompetitionAction;
+use App\Actions\Registration\RegisterCompetitionEntryAction;
 use App\Actions\Tournament\CreateTournamentAction;
 use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
@@ -120,7 +120,7 @@ class CompletedTournamentSeeder extends Seeder
         $createTournament = app(CreateTournamentAction::class);
         $createCompetition = app(CreateCompetitionAction::class);
         $createPlayer = app(CreatePlayerAction::class);
-        $registerPlayer = app(RegisterPlayerToCompetitionAction::class);
+        $registerPlayer = app(RegisterCompetitionEntryAction::class);
         $createGroup = app(CreateGroupAction::class);
         $assignPlayer = app(AssignPlayerToGroupAction::class);
         $generateRoundRobin = app(GenerateGroupRoundRobinGamesAction::class);
@@ -269,7 +269,7 @@ class CompletedTournamentSeeder extends Seeder
     private function registerPlayersToCompetition(
         Competition $competition,
         array $playersByName,
-        RegisterPlayerToCompetitionAction $registerPlayer
+        RegisterCompetitionEntryAction $registerPlayer
     ): void {
         foreach ($playersByName as $player) {
             $alreadyRegistered = CompetitionEntryMember::query()

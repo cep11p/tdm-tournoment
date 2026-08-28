@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 
+import { isDoublesCompetition } from '../../shared/constants/competitionType'
 import BaseModal from '../../shared/components/BaseModal.vue'
 import CompetitionContextHint from './CompetitionContextHint.vue'
 
@@ -13,6 +14,10 @@ const props = defineProps({
   registrations: {
     type: Array,
     default: () => [],
+  },
+  competition: {
+    type: Object,
+    default: null,
   },
   registrationsEditable: {
     type: Boolean,
@@ -30,10 +35,20 @@ const props = defineProps({
 
 defineEmits(['close'])
 
+const isDoubles = computed(() => isDoublesCompetition(props.competition))
+
 const participantCount = computed(() => props.registrations.length)
 
 const modalDescription = computed(() => {
   const count = participantCount.value
+
+  if (isDoubles.value) {
+    if (count === 0) {
+      return 'Todavía no hay parejas inscriptas.'
+    }
+
+    return `${count} pareja${count === 1 ? '' : 's'} inscripta${count === 1 ? '' : 's'}.`
+  }
 
   if (count === 0) {
     return 'Todavía no hay jugadores inscriptos.'
@@ -42,7 +57,17 @@ const modalDescription = computed(() => {
   return `${count} jugador${count === 1 ? '' : 'es'} inscripto${count === 1 ? '' : 's'}.`
 })
 
+const emptyStateMessage = computed(() =>
+  isDoubles.value
+    ? 'Esta competencia todavía no tiene parejas inscriptas.'
+    : 'Esta competencia todavía no tiene inscriptos.',
+)
+
 const formatParticipantName = (registration) => {
+  if (isDoubles.value) {
+    return registration?.display_name || 'Pareja desconocida'
+  }
+
   const player = registration?.player
 
   if (!player) {
@@ -56,7 +81,7 @@ const formatParticipantName = (registration) => {
 <template>
   <BaseModal
     :show="show"
-    title="Participantes"
+    :title="isDoubles ? 'Parejas inscriptas' : 'Participantes'"
     :description="modalDescription"
     size="lg"
     @close="$emit('close')"
@@ -73,7 +98,7 @@ const formatParticipantName = (registration) => {
       v-if="registrations.length === 0"
       class="rounded-md border border-slate-200 p-4 text-slate-600 dark:border-slate-700 dark:text-slate-300"
     >
-      Esta competencia todavía no tiene inscriptos.
+      {{ emptyStateMessage }}
     </div>
 
     <div
@@ -88,7 +113,7 @@ const formatParticipantName = (registration) => {
         <p class="font-medium text-slate-900 dark:text-slate-100">
           {{ formatParticipantName(registration) }}
         </p>
-        <p class="text-slate-600 dark:text-slate-400">
+        <p v-if="!isDoubles" class="text-slate-600 dark:text-slate-400">
           Apodo: {{ registration.player?.nickname || '-' }}
         </p>
       </article>

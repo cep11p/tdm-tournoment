@@ -150,6 +150,17 @@ final class TournamentTestContext
         ], $this->authHeaders($roles));
     }
 
+    public function registerPairViaApi(
+        Competition $competition,
+        Player $player1,
+        Player $player2,
+        array $roles = ['organizer'],
+    ): TestResponse {
+        return $this->test->postJson($this->apiUrl("competitions/{$competition->id}/registrations"), [
+            'player_ids' => [$player1->id, $player2->id],
+        ], $this->authHeaders($roles));
+    }
+
     /**
      * @param  list<string>  $roles
      * @return array<string, string>

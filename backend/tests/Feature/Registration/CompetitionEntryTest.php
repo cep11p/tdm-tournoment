@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Registration;
 
-use App\Actions\Registration\RegisterPlayerToCompetitionAction;
+use App\Actions\Registration\RegisterCompetitionEntryAction;
 use App\Enums\CompetitionEntryStatus;
 use App\Models\CompetitionEntry;
 use App\Models\CompetitionEntryMember;
@@ -241,7 +241,7 @@ class CompetitionEntryTest extends TestCase
 
         try {
             DB::transaction(function () use ($competition, $player): void {
-                app(RegisterPlayerToCompetitionAction::class)([
+                app(RegisterCompetitionEntryAction::class)([
                     'competition_id' => $competition->id,
                     'player_id' => $player->id,
                 ]);

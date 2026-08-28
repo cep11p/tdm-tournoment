@@ -130,7 +130,7 @@ El campo `description` de Spatie almacena el **código estable** (`AuditAction`)
 | `CreatePlayerAction` | `players` | `Player` |
 | `UpdatePlayerAction` | `players` | `Player` |
 | `DeletePlayerAction` | `players` | `Player` |
-| `RegisterPlayerToCompetitionAction` | `registrations` | `Competition` |
+| `RegisterCompetitionEntryAction` | `registrations` | `Competition` |
 | `BulkRegisterPlayersToCompetitionAction` | `registrations` | `Competition` |
 
 `PersistRegistrationAction` persiste inscripciones sin auditar; la usa el flujo individual y el bulk.

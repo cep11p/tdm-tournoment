@@ -38,7 +38,7 @@ import {
   registrationsLockReason,
   structureLockReason,
 } from '../utils/competitionStructure'
-import { getCompetitionTypeLabel } from '../../shared/constants/competitionType'
+import { getCompetitionTypeLabel, isDoublesCompetition } from '../../shared/constants/competitionType'
 
 const route = useRoute()
 const { can } = usePermissions()
@@ -87,6 +87,26 @@ const playerCount = computed(() =>
 )
 
 const registeredCount = computed(() => registrations.value?.length ?? 0)
+
+const isDoubles = computed(() => isDoublesCompetition(competition.value))
+
+const participantsSummaryLabel = computed(() => (isDoubles.value ? 'Parejas' : 'Jugadores'))
+
+const participantsSectionSubtitle = computed(() =>
+  isDoubles.value
+    ? 'Parejas inscriptas en esta competencia'
+    : 'Jugadores inscriptos en esta competencia',
+)
+
+const participantsCountLabel = computed(() => {
+  const count = registeredCount.value
+
+  if (isDoubles.value) {
+    return `${count} pareja${count === 1 ? '' : 's'}`
+  }
+
+  return `${count} jugador${count === 1 ? '' : 'es'}`
+})
 
 const hasExistingGroups = computed(() => (groups.value?.length ?? 0) > 0)
 
@@ -641,7 +661,9 @@ const handleEditCompetitionSaved = async () => {
 
         <dl class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Jugadores</dt>
+            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              {{ participantsSummaryLabel }}
+            </dt>
             <dd class="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
               {{ formatCount(playerCount) }}
             </dd>
@@ -700,10 +722,10 @@ const handleEditCompetitionSaved = async () => {
           <span class="min-w-0 flex-1 text-left">
             <span class="block font-medium text-slate-900 dark:text-slate-100">Participantes</span>
             <span class="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
-              Jugadores inscriptos en esta competencia
+              {{ participantsSectionSubtitle }}
             </span>
             <span class="mt-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
-              {{ registeredCount }} jugador{{ registeredCount === 1 ? '' : 'es' }}
+              {{ participantsCountLabel }}
             </span>
           </span>
 
@@ -1153,6 +1175,7 @@ const handleEditCompetitionSaved = async () => {
       <CompetitionParticipantsModal
         v-if="registrations !== null"
         :show="showParticipantsModal"
+        :competition="competition"
         :registrations="registrations"
         :registrations-editable="registrationsEditable && canManageRegistrations"
         :registrations-lock-message="registrationsEditable ? null : registrationsLockMessage"

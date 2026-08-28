@@ -4,7 +4,7 @@ namespace Database\Seeders;
 
 use App\Actions\Competition\CreateCompetitionAction;
 use App\Actions\Player\CreatePlayerAction;
-use App\Actions\Registration\RegisterPlayerToCompetitionAction;
+use App\Actions\Registration\RegisterCompetitionEntryAction;
 use App\Actions\Tournament\CreateTournamentAction;
 use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
@@ -37,7 +37,7 @@ class FriendlyTournamentSeeder extends Seeder
         $createTournament = app(CreateTournamentAction::class);
         $createCompetition = app(CreateCompetitionAction::class);
         $createPlayer = app(CreatePlayerAction::class);
-        $registerPlayer = app(RegisterPlayerToCompetitionAction::class);
+        $registerPlayer = app(RegisterCompetitionEntryAction::class);
 
         $summary = [
             'tournament_created' => false,
@@ -211,7 +211,7 @@ class FriendlyTournamentSeeder extends Seeder
         Competition $competition,
         array $playerNames,
         array $playersByFullName,
-        RegisterPlayerToCompetitionAction $registerPlayer
+        RegisterCompetitionEntryAction $registerPlayer
     ): array {
         $created = 0;
         $reused = 0;

@@ -10,8 +10,11 @@ import {
   isRegistrationsEditable,
   registrationsLockReason,
 } from '../../competitions/utils/competitionStructure'
+import { isDoublesCompetition } from '../../shared/constants/competitionType'
 import BulkPlayerRegistrationModal from '../components/BulkPlayerRegistrationModal.vue'
+import RegisterPairModal from '../components/RegisterPairModal.vue'
 import RegistrationService from '../services/RegistrationService'
+import { collectRegisteredMemberIds } from '../utils/registeredMemberIds'
 import { resolveCompetitionCategorySlug } from '../../players/utils/playerRegistrationRowStatus'
 
 const route = useRoute()
@@ -25,11 +28,12 @@ const isLoadingRegistrations = ref(false)
 const registrationListError = ref('')
 
 const showBulkRegistrationModal = ref(false)
-const bulkRegistrationSuccessMessage = ref('')
+const showRegisterPairModal = ref(false)
+const registrationSuccessMessage = ref('')
 
-const registeredPlayerIds = computed(() =>
-  registrations.value.map((registration) => registration.player?.id).filter(Boolean),
-)
+const isDoubles = computed(() => isDoublesCompetition(competition.value))
+
+const registeredMemberIds = computed(() => collectRegisteredMemberIds(registrations.value))
 
 const competitionCategorySlug = computed(() => resolveCompetitionCategorySlug(competition.value))
 
@@ -37,21 +41,49 @@ const registrationsEditable = computed(() => isRegistrationsEditable(competition
 
 const registrationsLockMessage = computed(() => registrationsLockReason(competition.value))
 
+const pageTitle = computed(() => {
+  const name = competition.value?.name || `Competencia #${competitionId.value}`
+  const suffix = isDoubles.value ? 'Parejas inscriptas' : 'Jugadores inscriptos'
+
+  return `${suffix} - ${name}`
+})
+
+const emptyStateMessage = computed(() =>
+  isDoubles.value
+    ? 'Todavía no hay parejas registradas.'
+    : 'Esta competencia todavía no tiene inscriptos.',
+)
+
 const openBulkRegistrationModal = () => {
-  bulkRegistrationSuccessMessage.value = ''
+  registrationSuccessMessage.value = ''
   showBulkRegistrationModal.value = true
 }
 
+const openRegisterPairModal = () => {
+  registrationSuccessMessage.value = ''
+  showRegisterPairModal.value = true
+}
+
 const handleBulkRegistrationSaved = async (result) => {
-  bulkRegistrationSuccessMessage.value =
+  registrationSuccessMessage.value =
     result?.message ||
     `Inscripción masiva procesada: ${result?.created ?? 0} inscriptos, ${result?.skipped ?? 0} omitidos.`
   showBulkRegistrationModal.value = false
   await loadRegistrations()
 }
 
+const handlePairRegistrationSaved = async (registration) => {
+  registrationSuccessMessage.value = `Pareja "${registration?.display_name ?? ''}" registrada correctamente.`
+  showRegisterPairModal.value = false
+  await loadRegistrations()
+}
+
 const handleBulkRegistrationClose = () => {
   showBulkRegistrationModal.value = false
+}
+
+const handleRegisterPairClose = () => {
+  showRegisterPairModal.value = false
 }
 
 const loadRegistrations = async () => {
@@ -94,7 +126,7 @@ onMounted(async () => {
 
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
-        Inscriptos - {{ competition?.name || `Competencia #${competitionId}` }}
+        {{ pageTitle }}
       </h1>
 
       <AppBackButton :fallback-to="`/competitions/${competitionId}`" />
@@ -102,6 +134,16 @@ onMounted(async () => {
 
     <div v-if="registrationsEditable && canManageRegistrations" class="flex flex-wrap gap-2">
       <button
+        v-if="isDoubles"
+        type="button"
+        class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+        @click="openRegisterPairModal"
+      >
+        Registrar pareja
+      </button>
+
+      <button
+        v-else
         type="button"
         class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
         @click="openBulkRegistrationModal"
@@ -118,10 +160,10 @@ onMounted(async () => {
     </p>
 
     <p
-      v-if="bulkRegistrationSuccessMessage"
+      v-if="registrationSuccessMessage"
       class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
     >
-      {{ bulkRegistrationSuccessMessage }}
+      {{ registrationSuccessMessage }}
     </p>
 
     <p v-if="isLoadingRegistrations" class="text-sm text-slate-600 dark:text-slate-300">Cargando inscriptos...</p>
@@ -131,7 +173,7 @@ onMounted(async () => {
       v-else-if="registrations.length === 0"
       class="rounded-md border border-slate-200 bg-white p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
     >
-      Esta competencia todavía no tiene inscriptos.
+      {{ emptyStateMessage }}
     </div>
 
     <div
@@ -143,20 +185,39 @@ onMounted(async () => {
         :key="registration.id"
         class="rounded border border-slate-200 p-3 text-sm dark:border-slate-700 dark:bg-slate-950/30"
       >
-        <p class="font-medium text-slate-900 dark:text-slate-100">
-          {{ registration.player.first_name }} {{ registration.player.last_name }}
-        </p>
-        <p class="text-slate-600 dark:text-slate-400">Apodo: {{ registration.player.nickname || '-' }}</p>
+        <template v-if="isDoubles">
+          <p class="font-medium text-slate-900 dark:text-slate-100">
+            {{ registration.display_name }}
+          </p>
+        </template>
+
+        <template v-else>
+          <p class="font-medium text-slate-900 dark:text-slate-100">
+            {{ registration.player?.first_name }} {{ registration.player?.last_name }}
+          </p>
+          <p class="text-slate-600 dark:text-slate-400">Apodo: {{ registration.player?.nickname || '-' }}</p>
+        </template>
       </article>
     </div>
 
     <BulkPlayerRegistrationModal
+      v-if="!isDoubles"
       :show="showBulkRegistrationModal"
       :competition-id="competitionId"
       :competition-category-slug="competitionCategorySlug"
-      :registered-player-ids="registeredPlayerIds"
+      :registered-player-ids="[...registeredMemberIds]"
       @close="handleBulkRegistrationClose"
       @saved="handleBulkRegistrationSaved"
+    />
+
+    <RegisterPairModal
+      v-if="isDoubles"
+      :show="showRegisterPairModal"
+      :competition-id="competitionId"
+      :competition-category-slug="competitionCategorySlug"
+      :registered-member-ids="registeredMemberIds"
+      @close="handleRegisterPairClose"
+      @saved="handlePairRegistrationSaved"
     />
   </section>
 </template>

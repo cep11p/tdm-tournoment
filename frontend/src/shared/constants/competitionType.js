@@ -1,5 +1,6 @@
 const TYPE_LABELS = {
   singles: 'Individual',
+  doubles: 'Dobles',
 }
 
 export function getCompetitionTypeLabel(type) {
@@ -8,4 +9,8 @@ export function getCompetitionTypeLabel(type) {
   }
 
   return TYPE_LABELS[type] ?? type
+}
+
+export function isDoublesCompetition(competition) {
+  return competition?.type === 'doubles'
 }

@@ -8,9 +8,17 @@ const RegistrationService = {
     return unwrap(response) ?? []
   },
 
-  async create(competitionId, playerId) {
+  async registerPlayer(competitionId, playerId) {
     const response = await httpClient.post(`/competitions/${competitionId}/registrations`, {
       player_id: playerId,
+    })
+
+    return unwrap(response) ?? null
+  },
+
+  async registerPair(competitionId, playerIds) {
+    const response = await httpClient.post(`/competitions/${competitionId}/registrations`, {
+      player_ids: playerIds,
     })
 
     return unwrap(response) ?? null

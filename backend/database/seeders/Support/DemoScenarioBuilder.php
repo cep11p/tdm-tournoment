@@ -9,7 +9,7 @@ use App\Actions\Group\CreateGroupAction;
 use App\Actions\Group\GenerateGroupRoundRobinGamesAction;
 use App\Actions\GroupPlayer\AssignPlayerToGroupAction;
 use App\Actions\Player\CreatePlayerAction;
-use App\Actions\Registration\RegisterPlayerToCompetitionAction;
+use App\Actions\Registration\RegisterCompetitionEntryAction;
 use App\Actions\Tournament\CreateTournamentAction;
 use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
@@ -58,7 +58,7 @@ final class DemoScenarioBuilder
         $createCompetition = app(CreateCompetitionAction::class);
         $updateCompetition = app(UpdateCompetitionAction::class);
         $createPlayer = app(CreatePlayerAction::class);
-        $registerPlayer = app(RegisterPlayerToCompetitionAction::class);
+        $registerPlayer = app(RegisterCompetitionEntryAction::class);
         $createGroup = app(CreateGroupAction::class);
         $assignPlayer = app(AssignPlayerToGroupAction::class);
         $generateRoundRobin = app(GenerateGroupRoundRobinGamesAction::class);
@@ -286,7 +286,7 @@ final class DemoScenarioBuilder
     private function registerPlayersToCompetition(
         Competition $competition,
         array $players,
-        RegisterPlayerToCompetitionAction $registerPlayer
+        RegisterCompetitionEntryAction $registerPlayer
     ): void {
         foreach ($players as $player) {
             $alreadyRegistered = CompetitionEntryMember::query()

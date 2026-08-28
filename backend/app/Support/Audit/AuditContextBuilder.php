@@ -4,11 +4,13 @@ namespace App\Support\Audit;
 
 use App\Models\Bracket;
 use App\Models\Competition;
+use App\Models\CompetitionEntry;
 use App\Models\Game;
 use App\Models\Group;
 use App\Models\Player;
-use App\Models\CompetitionEntry;
 use App\Models\Tournament;
+use App\Support\Competition\CompetitionEntryDisplayName;
+use Illuminate\Support\Collection;
 
 final class AuditContextBuilder
 {
@@ -51,6 +53,33 @@ final class AuditContextBuilder
             'competition_entry_id' => $entry?->id,
             'player_id' => $player->id,
             'player_name' => self::playerDisplayName($player),
+        ]);
+    }
+
+    /**
+     * @param  Collection<int, Player>  $players
+     * @return array<string, mixed>
+     */
+    public static function fromDoublesRegistrationContext(
+        Competition $competition,
+        CompetitionEntry $entry,
+        Collection $players,
+    ): array {
+        $competition->loadMissing('tournament');
+
+        $memberIds = $players->pluck('id')->map(fn ($id): int => (int) $id)->values()->all();
+        $memberNames = $players
+            ->map(fn (Player $player): ?string => self::playerDisplayName($player))
+            ->filter()
+            ->values()
+            ->all();
+
+        return array_merge(self::fromCompetition($competition), [
+            'registration_id' => $entry->id,
+            'competition_entry_id' => $entry->id,
+            'member_ids' => $memberIds,
+            'member_names' => $memberNames,
+            'display_name' => CompetitionEntryDisplayName::for($entry),
         ]);
     }
 

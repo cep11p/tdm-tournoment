@@ -196,6 +196,7 @@ onMounted(loadCategories)
             :class="structuralInputClass"
           >
             <option value="singles">{{ getCompetitionTypeLabel('singles') }}</option>
+            <option value="doubles">{{ getCompetitionTypeLabel('doubles') }}</option>
           </select>
           <p v-if="fieldError('type')" class="text-xs text-red-600 dark:text-red-400">
             {{ fieldError('type') }}

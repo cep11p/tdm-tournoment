@@ -2,8 +2,11 @@
 
 namespace App\Http\Requests\Registration;
 
+use App\Enums\CompetitionType;
+use App\Models\Competition;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class BulkStoreRegistrationRequest extends FormRequest
 {
@@ -23,5 +26,28 @@ class BulkStoreRegistrationRequest extends FormRequest
                 Rule::exists('players', 'id')->where('active', true),
             ],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            /** @var Competition|null $competition */
+            $competition = $this->route('competition');
+
+            if ($competition === null) {
+                return;
+            }
+
+            $type = $competition->type instanceof CompetitionType
+                ? $competition->type
+                : CompetitionType::from((string) $competition->type);
+
+            if ($type === CompetitionType::Doubles) {
+                $validator->errors()->add(
+                    'player_ids',
+                    'El registro masivo de parejas todavía no está disponible.',
+                );
+            }
+        });
     }
 }

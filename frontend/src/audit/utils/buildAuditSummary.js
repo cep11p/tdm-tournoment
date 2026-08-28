@@ -146,9 +146,9 @@ export function buildAuditSummary(auditLog) {
     }
 
     case 'registration.created': {
-      const playerName = summary.player_name ?? 'Jugador'
+      const participantName = summary.display_name ?? summary.player_name ?? 'Participante'
       const competitionName = auditLog?.context?.competition_name ?? 'competencia'
-      return `${playerName} inscripto en ${competitionName}`
+      return `${participantName} inscripto en ${competitionName}`
     }
 
     case 'registration.bulk_created': {

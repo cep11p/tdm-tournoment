@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Registration\BulkRegisterPlayersToCompetitionAction;
-use App\Actions\Registration\RegisterPlayerToCompetitionAction;
+use App\Actions\Registration\RegisterCompetitionEntryAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Registration\BulkStoreRegistrationRequest;
 use App\Http\Requests\Registration\StoreRegistrationRequest;
@@ -18,7 +18,11 @@ class RegistrationController extends Controller
     public function index(Competition $competition): AnonymousResourceCollection
     {
         $entries = $competition->entries()
-            ->with(['members.player:id,first_name,last_name,nickname'])
+            ->with([
+                'members' => fn ($query) => $query->orderBy('member_order'),
+                'members.player:id,first_name,last_name,nickname',
+                'competition:id,type',
+            ])
             ->latest('id')
             ->get();
 
@@ -28,12 +32,16 @@ class RegistrationController extends Controller
     public function store(
         StoreRegistrationRequest $request,
         Competition $competition,
-        RegisterPlayerToCompetitionAction $registerPlayer
+        RegisterCompetitionEntryAction $registerEntry,
     ): JsonResponse {
-        $entry = $registerPlayer([
+        $entry = $registerEntry([
             ...$request->validated(),
             'competition_id' => $competition->id,
-        ])->load(['members.player:id,first_name,last_name,nickname']);
+        ])->load([
+            'members' => fn ($query) => $query->orderBy('member_order'),
+            'members.player:id,first_name,last_name,nickname',
+            'competition:id,type',
+        ]);
 
         return (new RegistrationResource($entry))
             ->response()
