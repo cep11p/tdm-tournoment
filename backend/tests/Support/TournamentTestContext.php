@@ -38,6 +38,36 @@ final class TournamentTestContext
         int $pointsPerSet = 11,
         CompetitionFormat $format = CompetitionFormat::GroupsKnockout,
     ): Competition {
+        return $this->createTypedCompetition(
+            CompetitionType::Singles,
+            'Singles Test',
+            $setsToWin,
+            $pointsPerSet,
+            $format,
+        );
+    }
+
+    public function createDoublesCompetition(
+        int $setsToWin = 1,
+        int $pointsPerSet = 11,
+        CompetitionFormat $format = CompetitionFormat::GroupsKnockout,
+    ): Competition {
+        return $this->createTypedCompetition(
+            CompetitionType::Doubles,
+            'Doubles Test',
+            $setsToWin,
+            $pointsPerSet,
+            $format,
+        );
+    }
+
+    private function createTypedCompetition(
+        CompetitionType $type,
+        string $name,
+        int $setsToWin,
+        int $pointsPerSet,
+        CompetitionFormat $format,
+    ): Competition {
         $bestOf = max(1, ($setsToWin * 2) - 1);
 
         $tournament = Tournament::query()->create([
@@ -49,8 +79,8 @@ final class TournamentTestContext
 
         return Competition::query()->create([
             'tournament_id' => $tournament->id,
-            'name' => 'Singles Test',
-            'type' => CompetitionType::Singles,
+            'name' => $name,
+            'type' => $type,
             'category' => 'primera',
             'category_id' => Category::query()->where('slug', 'primera')->value('id'),
             'format' => $format,
@@ -94,6 +124,19 @@ final class TournamentTestContext
         return $persistCompetitionEntry([
             'competition_id' => $competition->id,
             'player_id' => $player->id,
+        ]);
+    }
+
+    public function registerPair(
+        Competition $competition,
+        Player $player1,
+        Player $player2,
+    ): CompetitionEntry {
+        $persistCompetitionEntry = app(PersistCompetitionEntryAction::class);
+
+        return $persistCompetitionEntry([
+            'competition_id' => $competition->id,
+            'player_ids' => [$player1->id, $player2->id],
         ]);
     }
 

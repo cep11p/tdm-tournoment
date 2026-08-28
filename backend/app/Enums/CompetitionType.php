@@ -5,4 +5,5 @@ namespace App\Enums;
 enum CompetitionType: string
 {
     case Singles = 'singles';
+    case Doubles = 'doubles';
 }
