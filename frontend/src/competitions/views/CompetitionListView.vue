@@ -11,6 +11,10 @@ import {
   getStructureSecondary,
 } from '../utils/competitionListDisplay'
 import { getCompetitionTypeLabel } from '../../shared/constants/competitionType'
+import {
+  getCompetitionResultDisplayName,
+  hasCompetitionResult,
+} from '../utils/competitionResultDisplay'
 
 const route = useRoute()
 const tournamentId = route.params.id
@@ -102,10 +106,10 @@ onMounted(loadCompetitions)
                 {{ competition.category }} · {{ getCompetitionTypeLabel(competition.type) }}
               </p>
               <p
-                v-if="competition.result_summary?.champion?.name"
+                v-if="hasCompetitionResult(competition.result_summary?.champion)"
                 class="mt-0.5 text-xs text-emerald-700 dark:text-emerald-400"
               >
-                Campeón: {{ competition.result_summary.champion.name }}
+                Campeón: {{ getCompetitionResultDisplayName(competition.result_summary.champion) }}
               </p>
             </td>
             <td class="px-4 py-3 text-sm">

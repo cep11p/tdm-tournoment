@@ -1,4 +1,10 @@
 <script setup>
+import {
+  getCompetitionResultDisplayName,
+  getCompetitionResultKey,
+  getCompetitionResultMembers,
+} from '../utils/competitionResultDisplay'
+
 defineProps({
   resultSummary: {
     type: Object,
@@ -17,6 +23,19 @@ const isPlayoffPendingThirdPlace = (resultSummary) =>
   && resultSummary?.third_place_game_id
   && thirdPlaceEntries(resultSummary).length === 0
   && !resultSummary?.fourth_place
+
+const memberLine = (result) => {
+  const members = getCompetitionResultMembers(result)
+
+  if (members.length <= 1) {
+    return null
+  }
+
+  return members
+    .map((member) => `${member.first_name ?? ''} ${member.last_name ?? ''}`.trim())
+    .filter(Boolean)
+    .join(' · ')
+}
 </script>
 
 <template>
@@ -41,11 +60,17 @@ const isPlayoffPendingThirdPlace = (resultSummary) =>
         v-if="!compact"
         class="mt-2 text-xl font-bold text-slate-900 dark:text-slate-100"
       >
-        {{ resultSummary.champion.name }}
+        {{ getCompetitionResultDisplayName(resultSummary.champion) }}
       </p>
       <span v-else class="font-medium text-slate-900 dark:text-slate-100">
-        {{ resultSummary.champion.name }}
+        {{ getCompetitionResultDisplayName(resultSummary.champion) }}
       </span>
+      <p
+        v-if="!compact && memberLine(resultSummary.champion)"
+        class="mt-1 text-sm text-slate-600 dark:text-slate-400"
+      >
+        {{ memberLine(resultSummary.champion) }}
+      </p>
     </article>
 
     <article
@@ -68,16 +93,22 @@ const isPlayoffPendingThirdPlace = (resultSummary) =>
         v-if="!compact"
         class="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100"
       >
-        {{ resultSummary.runner_up.name }}
+        {{ getCompetitionResultDisplayName(resultSummary.runner_up) }}
       </p>
       <span v-else class="font-medium text-slate-900 dark:text-slate-100">
-        {{ resultSummary.runner_up.name }}
+        {{ getCompetitionResultDisplayName(resultSummary.runner_up) }}
       </span>
+      <p
+        v-if="!compact && memberLine(resultSummary.runner_up)"
+        class="mt-1 text-sm text-slate-600 dark:text-slate-400"
+      >
+        {{ memberLine(resultSummary.runner_up) }}
+      </p>
     </article>
 
     <article
       v-for="(entry, index) in thirdPlaceEntries(resultSummary)"
-      :key="`${entry.id}-${index}`"
+      :key="getCompetitionResultKey(entry, index)"
       :class="
         compact
           ? ''
@@ -97,11 +128,17 @@ const isPlayoffPendingThirdPlace = (resultSummary) =>
         v-if="!compact"
         class="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100"
       >
-        {{ entry.name }}
+        {{ getCompetitionResultDisplayName(entry) }}
       </p>
       <span v-else class="font-medium text-slate-900 dark:text-slate-100">
-        {{ entry.name }}
+        {{ getCompetitionResultDisplayName(entry) }}
       </span>
+      <p
+        v-if="!compact && memberLine(entry)"
+        class="mt-1 text-sm text-slate-600 dark:text-slate-400"
+      >
+        {{ memberLine(entry) }}
+      </p>
     </article>
 
     <article
@@ -125,11 +162,17 @@ const isPlayoffPendingThirdPlace = (resultSummary) =>
         v-if="!compact"
         class="mt-2 text-lg font-semibold text-slate-900 dark:text-slate-100"
       >
-        {{ resultSummary.fourth_place.name }}
+        {{ getCompetitionResultDisplayName(resultSummary.fourth_place) }}
       </p>
       <span v-else class="font-medium text-slate-900 dark:text-slate-100">
-        {{ resultSummary.fourth_place.name }}
+        {{ getCompetitionResultDisplayName(resultSummary.fourth_place) }}
       </span>
+      <p
+        v-if="!compact && memberLine(resultSummary.fourth_place)"
+        class="mt-1 text-sm text-slate-600 dark:text-slate-400"
+      >
+        {{ memberLine(resultSummary.fourth_place) }}
+      </p>
     </article>
 
     <p

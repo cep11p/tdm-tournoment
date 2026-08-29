@@ -757,11 +757,10 @@ class CorrectFinishedGameResultTest extends TestCase
         $context->finishGame($final, $setup['playerOne'])->assertOk();
 
         $context->correctResult(
-            $final->fresh(),
+            $semifinals[0]->fresh(),
             self::REASON,
             [
-                ['player1_score' => 11, 'player2_score' => 9],
-                ['player1_score' => 11, 'player2_score' => 7],
+                ['player1_score' => 0, 'player2_score' => 11],
             ],
         )->assertUnprocessable()
             ->assertJsonValidationErrors(['competition']);

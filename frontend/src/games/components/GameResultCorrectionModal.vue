@@ -43,7 +43,7 @@ const contextWarning = computed(() => {
   }
 
   if (activeGame.value?.bracket_id) {
-    return 'Si la siguiente ronda y/o el partido por tercer puesto ya fueron generados pero todavía no comenzaron, el sistema actualizará automáticamente los jugadores afectados. La corrección se bloqueará si alguno de los partidos dependientes ya comenzó o tiene resultados.'
+    return 'Si la siguiente ronda y/o el partido por tercer puesto ya fueron generados pero todavía no comenzaron, el sistema actualizará automáticamente los participantes afectados. La corrección se bloqueará si alguno de los partidos dependientes ya comenzó o tiene resultados.'
   }
 
   return null

@@ -2,6 +2,7 @@
 
 namespace App\Support\Game;
 
+use App\Enums\BracketGamePurpose;
 use App\Enums\GameStatus;
 use App\Models\Game;
 use App\Support\Competition\CompetitionResultResolver;
@@ -49,9 +50,11 @@ final class GameResultCorrectionGuard
         }
 
         if ($competition !== null && CompetitionResultResolver::resolve($competition) !== null) {
-            throw ValidationException::withMessages([
-                'competition' => ['No se puede corregir el resultado porque la competencia ya tiene una final terminada.'],
-            ]);
+            if (! self::isPodiumCorrectableGame($game)) {
+                throw ValidationException::withMessages([
+                    'competition' => ['No se puede corregir el resultado porque la competencia ya tiene una final terminada.'],
+                ]);
+            }
         }
 
         if ($game->group_id !== null && $competition !== null && $competition->brackets()->exists()) {
@@ -185,5 +188,22 @@ final class GameResultCorrectionGuard
             'third_place' => 'No se puede corregir el resultado porque el nuevo jugador ya estaría duplicado en el partido por tercer puesto.',
             default => 'No se puede corregir el resultado porque el nuevo ganador ya está asignado en la ronda siguiente.',
         };
+    }
+
+    private static function isPodiumCorrectableGame(Game $game): bool
+    {
+        if ($game->bracket_id === null) {
+            return false;
+        }
+
+        if ($game->round === 'Final') {
+            return true;
+        }
+
+        $purpose = $game->bracket_purpose instanceof BracketGamePurpose
+            ? $game->bracket_purpose
+            : BracketGamePurpose::tryFrom((string) ($game->bracket_purpose ?? BracketGamePurpose::Main->value));
+
+        return $purpose === BracketGamePurpose::ThirdPlace;
     }
 }

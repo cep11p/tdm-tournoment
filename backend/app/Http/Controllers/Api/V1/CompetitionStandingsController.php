@@ -3,67 +3,73 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Data\Competition\CompetitionStandingData;
+use App\Enums\CompetitionType;
 use App\Enums\GameStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CompetitionStanding\CompetitionStandingResource;
 use App\Models\Competition;
+use App\Models\CompetitionEntry;
+use App\Support\Competition\CompetitionEntryDisplayName;
 use App\Support\Competition\CompetitionEntryMemberPayload;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Collection;
 
 class CompetitionStandingsController extends Controller
 {
     public function index(Competition $competition): AnonymousResourceCollection
     {
-        $entries = $competition->entries()
-            ->with(['members.player:id,first_name,last_name'])
-            ->get();
+        $competition->loadMissing('entries.members.player');
 
-        $statsByPlayer = $this->initializeStats($entries);
+        $entries = $competition->entries;
+        $statsByEntry = $this->initializeStats($entries);
+        $isSingles = $this->isSinglesCompetition($competition);
 
         $finishedGames = $competition->games()
             ->select(['entry1_id', 'entry2_id', 'winner_entry_id'])
-            ->with([
-                'entry1.members',
-                'entry2.members',
-                'winnerEntry.members',
-            ])
             ->where('status', GameStatus::Finished)
             ->whereNotNull('winner_entry_id')
             ->get();
 
         foreach ($finishedGames as $game) {
-            $winnerId = $game->singlesWinnerId();
-            $loserEntry = (int) $game->winner_entry_id === (int) $game->entry1_id
-                ? $game->entry2
-                : $game->entry1;
-            $loserId = $loserEntry?->singlesPlayerId();
+            $winnerEntryId = (int) $game->winner_entry_id;
+            $loserEntryId = (int) $game->winner_entry_id === (int) $game->entry1_id
+                ? ($game->entry2_id !== null ? (int) $game->entry2_id : null)
+                : (int) $game->entry1_id;
 
-            if (isset($statsByPlayer[$winnerId])) {
-                $statsByPlayer[$winnerId]['won']++;
+            if (isset($statsByEntry[$winnerEntryId])) {
+                $statsByEntry[$winnerEntryId]['won']++;
             }
 
-            if ($loserId !== null && isset($statsByPlayer[$loserId])) {
-                $statsByPlayer[$loserId]['lost']++;
+            if ($loserEntryId !== null && isset($statsByEntry[$loserEntryId])) {
+                $statsByEntry[$loserEntryId]['lost']++;
             }
         }
 
         $standings = $entries
-            ->map(function (CompetitionEntry $entry) use ($statsByPlayer): CompetitionStandingData {
-                $playerId = (int) ($entry->singlesPlayerId() ?? 0);
-                $stats = $statsByPlayer[$playerId] ?? ['won' => 0, 'lost' => 0];
-                $player = $entry->singlesPlayer();
-                $playerName = trim(sprintf(
-                    '%s %s',
-                    (string) $player?->first_name,
-                    (string) $player?->last_name
-                ));
+            ->map(function (CompetitionEntry $entry) use ($statsByEntry, $isSingles): CompetitionStandingData {
+                $entryId = (int) $entry->id;
+                $stats = $statsByEntry[$entryId] ?? ['won' => 0, 'lost' => 0];
+                $displayName = CompetitionEntryDisplayName::for($entry);
+                $members = CompetitionEntryMemberPayload::forEntry($entry);
+
+                $playerId = null;
+                $playerName = null;
+
+                if ($isSingles) {
+                    $player = $members[0] ?? null;
+                    $playerId = $player['id'] ?? null;
+                    $playerName = $player !== null
+                        ? trim(sprintf('%s %s', (string) $player['first_name'], (string) $player['last_name']))
+                        : null;
+                    $playerName = $playerName !== '' ? $playerName : null;
+                }
 
                 return new CompetitionStandingData(
-                    competitionEntryId: (int) $entry->id,
-                    displayName: $playerName,
-                    members: CompetitionEntryMemberPayload::forEntry($entry),
-                    playerId: $playerId > 0 ? $playerId : null,
-                    playerName: $playerName !== '' ? $playerName : null,
+                    competitionEntryId: $entryId,
+                    displayName: $displayName,
+                    members: $members,
+                    playerId: $playerId,
+                    playerName: $playerName,
                     won: (int) $stats['won'],
                     lost: (int) $stats['lost'],
                 );
@@ -87,18 +93,21 @@ class CompetitionStandingsController extends Controller
         $stats = [];
 
         foreach ($entries as $entry) {
-            $playerId = (int) ($entry->singlesPlayerId() ?? 0);
-
-            if ($playerId <= 0) {
-                continue;
-            }
-
-            $stats[$playerId] = [
+            $stats[(int) $entry->id] = [
                 'won' => 0,
                 'lost' => 0,
             ];
         }
 
         return $stats;
+    }
+
+    private function isSinglesCompetition(Competition $competition): bool
+    {
+        $type = $competition->type instanceof CompetitionType
+            ? $competition->type
+            : CompetitionType::from((string) $competition->type);
+
+        return $type === CompetitionType::Singles;
     }
 }

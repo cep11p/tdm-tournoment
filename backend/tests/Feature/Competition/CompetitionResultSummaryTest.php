@@ -62,6 +62,9 @@ class CompetitionResultSummaryTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.result_summary.champion.id', $champion->id)
             ->assertJsonPath('data.result_summary.champion.name', trim("{$champion->first_name} {$champion->last_name}"))
+            ->assertJsonPath('data.result_summary.champion.competition_entry_id', fn ($value): bool => $value !== null)
+            ->assertJsonPath('data.result_summary.champion.display_name', trim("{$champion->first_name} {$champion->last_name}"))
+            ->assertJsonCount(1, 'data.result_summary.champion.members')
             ->assertJsonPath('data.result_summary.runner_up.id', $runnerUp->id)
             ->assertJsonPath('data.result_summary.runner_up.name', trim("{$runnerUp->first_name} {$runnerUp->last_name}"))
             ->assertJsonPath('data.result_summary.final_game_id', $final->id);

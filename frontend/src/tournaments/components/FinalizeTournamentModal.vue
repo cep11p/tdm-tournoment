@@ -4,6 +4,11 @@ import { computed, ref, watch } from 'vue'
 import BaseModal from '../../shared/components/BaseModal.vue'
 import { extractApiErrorMessage } from '../../shared/utils/extractApiErrorMessage'
 import TournamentService from '../services/TournamentService'
+import {
+  getCompetitionResultDisplayName,
+  getCompetitionResultKey,
+  hasCompetitionResult,
+} from '../../competitions/utils/competitionResultDisplay'
 
 const props = defineProps({
   show: {
@@ -47,11 +52,11 @@ const pendingCompetitions = computed(() =>
 
 const availableResults = computed(() =>
   props.competitions
-    .filter((competition) => competition.result_summary?.champion?.name)
+    .filter((competition) => hasCompetitionResult(competition.result_summary?.champion))
     .map((competition) => ({
       name: competition.name,
-      champion: competition.result_summary.champion.name,
-      runnerUp: competition.result_summary.runner_up?.name ?? '-',
+      champion: getCompetitionResultDisplayName(competition.result_summary.champion),
+      runnerUp: getCompetitionResultDisplayName(competition.result_summary.runner_up),
       thirdPlace: competition.result_summary.third_place ?? [],
     })),
 )
@@ -172,10 +177,10 @@ watch(
             <p class="text-slate-700 dark:text-slate-300">Subcampeón: {{ result.runnerUp }}</p>
             <p
               v-for="(entry, index) in result.thirdPlace"
-              :key="`${result.name}-third-${entry.id}-${index}`"
+              :key="`${result.name}-third-${getCompetitionResultKey(entry, index)}`"
               class="text-slate-700 dark:text-slate-300"
             >
-              3.º puesto: {{ entry.name }}
+              3.º puesto: {{ getCompetitionResultDisplayName(entry) }}
             </p>
           </li>
         </ul>

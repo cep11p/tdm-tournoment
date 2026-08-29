@@ -749,6 +749,71 @@ final class TournamentTestContext
         }
     }
 
+    /**
+     * @return array{champion_entry: CompetitionEntry, runner_up_entry: CompetitionEntry, final: Game}
+     */
+    public function completeDoublesCompetitionThroughFinal(
+        Competition $competition,
+        bool $finishThirdPlace = true,
+    ): array {
+        if (! $competition->brackets()->exists()) {
+            $this->createBracket($competition)->assertCreated();
+        }
+
+        $bracket = $competition->fresh()->brackets()->firstOrFail();
+
+        while (true) {
+            $bracket->refresh();
+            $currentRound = (int) Game::query()
+                ->where('bracket_id', $bracket->id)
+                ->mainBracket()
+                ->max('bracket_round');
+
+            $currentGames = $this->bracketGamesForRound($bracket, $currentRound);
+
+            foreach ($currentGames as $game) {
+                if ($game->is_bye || $game->status === \App\Enums\GameStatus::Finished) {
+                    continue;
+                }
+
+                $this->finishGameByEntryViaApi($game, (int) $game->entry1_id)->assertOk();
+            }
+
+            $final = $currentGames->first(fn (Game $game): bool => $game->round === 'Final');
+
+            if ($final !== null) {
+                $final = $final->fresh(Game::DISPLAY_RELATIONS);
+                $championEntry = $final->winnerEntry ?? $final->entry1;
+                $runnerUpEntry = (int) $final->winner_entry_id === (int) $final->entry1_id
+                    ? $final->entry2
+                    : $final->entry1;
+
+                if ($finishThirdPlace) {
+                    $thirdPlaceGame = Game::query()
+                        ->where('bracket_id', $bracket->id)
+                        ->where('bracket_purpose', \App\Enums\BracketGamePurpose::ThirdPlace)
+                        ->first();
+
+                    if (
+                        $thirdPlaceGame !== null
+                        && $thirdPlaceGame->status !== \App\Enums\GameStatus::Finished
+                        && $thirdPlaceGame->entry1_id !== null
+                    ) {
+                        $this->finishGameByEntryViaApi($thirdPlaceGame, (int) $thirdPlaceGame->entry1_id)->assertOk();
+                    }
+                }
+
+                return [
+                    'champion_entry' => $championEntry,
+                    'runner_up_entry' => $runnerUpEntry,
+                    'final' => $final,
+                ];
+            }
+
+            $this->generateBracketNextRound($bracket)->assertCreated();
+        }
+    }
+
     public function createTournament(array $overrides = []): Tournament
     {
         return Tournament::query()->create([

@@ -7,19 +7,42 @@ use App\Enums\ThirdPlaceMode;
 use App\Models\Competition;
 use App\Models\CompetitionEntry;
 use App\Models\Game;
-use App\Models\Player;
 use App\Support\Bracket\BracketPodiumSupport;
 
 final class CompetitionResultResolver
 {
     /**
      * @return array{
-     *     champion: array{id: int, name: string},
-     *     runner_up: array{id: int, name: string},
+     *     champion: array{
+     *         competition_entry_id: int,
+     *         display_name: string,
+     *         members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>,
+     *         id: int|null,
+     *         name: string|null,
+     *     },
+     *     runner_up: array{
+     *         competition_entry_id: int,
+     *         display_name: string,
+     *         members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>,
+     *         id: int|null,
+     *         name: string|null,
+     *     },
      *     final_game_id: int,
      *     third_place_mode: string,
-     *     third_place: list<array{id: int, name: string}>,
-     *     fourth_place: array{id: int, name: string}|null,
+     *     third_place: list<array{
+     *         competition_entry_id: int,
+     *         display_name: string,
+     *         members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>,
+     *         id: int|null,
+     *         name: string|null,
+     *     }>,
+     *     fourth_place: array{
+     *         competition_entry_id: int,
+     *         display_name: string,
+     *         members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>,
+     *         id: int|null,
+     *         name: string|null,
+     *     }|null,
      *     third_place_game_id: int|null,
      * }|null
      */
@@ -39,18 +62,24 @@ final class CompetitionResultResolver
             return null;
         }
 
-        $champion = $finalGame->singlesWinner();
+        $championEntry = $finalGame->winnerEntry;
 
-        if ($champion === null) {
+        if ($championEntry === null) {
             return null;
         }
 
         $runnerUpEntry = (int) $finalGame->winner_entry_id === (int) $finalGame->entry1_id
             ? $finalGame->entry2
             : $finalGame->entry1;
-        $runnerUp = $runnerUpEntry?->singlesPlayer();
 
-        if ($runnerUp === null || ! $runnerUp->id) {
+        if ($runnerUpEntry === null) {
+            return null;
+        }
+
+        $champion = CompetitionEntrySummaryPayload::forEntry($championEntry, $competition);
+        $runnerUp = CompetitionEntrySummaryPayload::forEntry($runnerUpEntry, $competition);
+
+        if ($champion === null || $runnerUp === null) {
             return null;
         }
 
@@ -67,7 +96,7 @@ final class CompetitionResultResolver
 
             if ($bracket !== null && BracketPodiumSupport::canDetermineThirdPlace($bracket)) {
                 $thirdPlace = array_values(array_filter(array_map(
-                    fn (CompetitionEntry $entry): ?array => self::entryPlayerSummary($entry),
+                    fn (CompetitionEntry $entry): ?array => CompetitionEntrySummaryPayload::forEntry($entry, $competition),
                     BracketPodiumSupport::semifinalLosers($bracket),
                 )));
             }
@@ -89,18 +118,25 @@ final class CompetitionResultResolver
                         && $thirdPlaceGame->entry2_id !== null
                     ) {
                         $thirdPlaceGame->loadMissing(Game::DISPLAY_RELATIONS);
-                        $thirdPlaceWinner = $thirdPlaceGame->singlesWinner();
 
-                        if ($thirdPlaceWinner !== null) {
-                            $thirdPlace = [self::playerSummary($thirdPlaceWinner)];
+                        $thirdPlaceWinnerEntry = $thirdPlaceGame->winnerEntry;
+
+                        if ($thirdPlaceWinnerEntry !== null) {
+                            $thirdPlaceSummary = CompetitionEntrySummaryPayload::forEntry(
+                                $thirdPlaceWinnerEntry,
+                                $competition,
+                            );
+
+                            if ($thirdPlaceSummary !== null) {
+                                $thirdPlace = [$thirdPlaceSummary];
+                            }
 
                             $fourthPlaceEntry = (int) $thirdPlaceGame->winner_entry_id === (int) $thirdPlaceGame->entry1_id
                                 ? $thirdPlaceGame->entry2
                                 : $thirdPlaceGame->entry1;
-                            $fourthPlacePlayer = $fourthPlaceEntry?->singlesPlayer();
 
-                            if ($fourthPlacePlayer !== null && $fourthPlacePlayer->id) {
-                                $fourthPlace = self::playerSummary($fourthPlacePlayer);
+                            if ($fourthPlaceEntry !== null) {
+                                $fourthPlace = CompetitionEntrySummaryPayload::forEntry($fourthPlaceEntry, $competition);
                             }
                         }
                     }
@@ -109,34 +145,13 @@ final class CompetitionResultResolver
         }
 
         return [
-            'champion' => self::playerSummary($champion),
-            'runner_up' => self::playerSummary($runnerUp),
+            'champion' => $champion,
+            'runner_up' => $runnerUp,
             'final_game_id' => $finalGame->id,
             'third_place_mode' => $thirdPlaceMode->value,
             'third_place' => $thirdPlace,
             'fourth_place' => $fourthPlace,
             'third_place_game_id' => $thirdPlaceGameId,
-        ];
-    }
-
-    /**
-     * @return array{id: int, name: string}|null
-     */
-    private static function entryPlayerSummary(CompetitionEntry $entry): ?array
-    {
-        $player = $entry->singlesPlayer();
-
-        return $player !== null ? self::playerSummary($player) : null;
-    }
-
-    /**
-     * @return array{id: int, name: string}
-     */
-    private static function playerSummary(Player $player): array
-    {
-        return [
-            'id' => $player->id,
-            'name' => trim(sprintf('%s %s', $player->first_name, $player->last_name)),
         ];
     }
 }

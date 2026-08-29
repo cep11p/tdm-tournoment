@@ -28,6 +28,11 @@ import {
   getTournamentStatusBadgeClasses,
   getTournamentStatusLabel,
 } from '../utils/tournamentListDisplay'
+import {
+  getCompetitionResultDisplayName,
+  getCompetitionResultKey,
+  hasCompetitionResult,
+} from '../../competitions/utils/competitionResultDisplay'
 
 const route = useRoute()
 const { can } = usePermissions()
@@ -63,18 +68,18 @@ const tournamentResults = computed(() => {
   if (summary?.results?.length) {
     return summary.results.map((result) => ({
       competition_name: result.competition_name,
-      champion_name: result.champion_name,
-      runner_up_name: result.runner_up_name ?? '-',
+      champion_name: result.champion_display_name ?? result.champion_name,
+      runner_up_name: result.runner_up_display_name ?? result.runner_up_name ?? '-',
       third_place: result.third_place ?? [],
     }))
   }
 
   return competitions.value
-    .filter((competition) => competition.result_summary?.champion?.name)
+    .filter((competition) => hasCompetitionResult(competition.result_summary?.champion))
     .map((competition) => ({
       competition_name: competition.name,
-      champion_name: competition.result_summary.champion.name,
-      runner_up_name: competition.result_summary.runner_up?.name ?? '-',
+      champion_name: getCompetitionResultDisplayName(competition.result_summary.champion),
+      runner_up_name: getCompetitionResultDisplayName(competition.result_summary.runner_up),
       third_place: competition.result_summary.third_place ?? [],
     }))
 })
@@ -340,10 +345,10 @@ const handleFinalizeSaved = async () => {
             <p class="text-slate-700 dark:text-slate-300">Subcampeón: {{ result.runner_up_name }}</p>
             <p
               v-for="(entry, index) in result.third_place"
-              :key="`${result.competition_name}-third-${entry.id}-${index}`"
+              :key="`${result.competition_name}-third-${getCompetitionResultKey(entry, index)}`"
               class="text-slate-700 dark:text-slate-300"
             >
-              3.º puesto: {{ entry.name }}
+              3.º puesto: {{ getCompetitionResultDisplayName(entry) }}
             </p>
           </article>
         </div>
@@ -443,10 +448,10 @@ const handleFinalizeSaved = async () => {
                     {{ [competition.category, getCompetitionTypeLabel(competition.type)].filter(Boolean).join(' · ') }}
                   </p>
                   <p
-                    v-if="competition.result_summary?.champion?.name"
+                    v-if="hasCompetitionResult(competition.result_summary?.champion)"
                     class="mt-1 text-xs font-medium text-emerald-700 dark:text-emerald-300"
                   >
-                    Campeón: {{ competition.result_summary.champion.name }}
+                    Campeón: {{ getCompetitionResultDisplayName(competition.result_summary.champion) }}
                   </p>
                   <p
                     v-else-if="isUnusedCompetition(competition)"
