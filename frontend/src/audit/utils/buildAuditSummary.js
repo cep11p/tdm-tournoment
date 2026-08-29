@@ -87,6 +87,46 @@ function displayName(auditLog, fallback = 'Entidad') {
   )
 }
 
+function gameSideName(auditLog, side, summaryKey) {
+  const summary = auditLog?.summary ?? {}
+  const context = auditLog?.context ?? {}
+
+  return (
+    summary[`${summaryKey}_display_name`]
+    ?? context[`${summaryKey}_display_name`]
+    ?? summary[`${side}_name`]
+    ?? context[`${side}_name`]
+    ?? null
+  )
+}
+
+function gameMatchupFromAudit(auditLog) {
+  const entry1 =
+    gameSideName(auditLog, 'player1', 'entry1')
+    ?? auditLog?.summary?.player1_name
+    ?? auditLog?.context?.player1_name
+    ?? 'Participante 1'
+  const entry2 =
+    gameSideName(auditLog, 'player2', 'entry2')
+    ?? auditLog?.summary?.player2_name
+    ?? auditLog?.context?.player2_name
+    ?? 'Participante 2'
+
+  return `${entry1} vs. ${entry2}`
+}
+
+function gameWinnerNameFromAudit(auditLog, snapshotKey) {
+  const snapshot = auditLog?.[snapshotKey] ?? {}
+
+  return (
+    snapshot.winner_display_name
+    ?? auditLog?.summary?.[`${snapshotKey === 'old' ? 'old' : 'new'}_winner_display_name`]
+    ?? snapshot.winner_name
+    ?? (snapshot.winner_id ? `Jugador #${snapshot.winner_id}` : null)
+    ?? (snapshot.winner_entry_id ? `Participación #${snapshot.winner_entry_id}` : null)
+  )
+}
+
 export function buildAuditSummary(auditLog) {
   const action = auditLog?.action
   const summary = auditLog?.summary ?? {}
@@ -220,17 +260,11 @@ export function buildAuditSummary(auditLog) {
       return parts.join(' · ')
     }
 
-    case 'game.created': {
-      const player1 = summary.player1_name ?? auditLog?.context?.player1_name ?? 'Jugador 1'
-      const player2 = summary.player2_name ?? auditLog?.context?.player2_name ?? 'Jugador 2'
-      return `Partido ${player1} vs. ${player2} creado`
-    }
+    case 'game.created':
+      return `Partido ${gameMatchupFromAudit(auditLog)} creado`
 
-    case 'game.deleted': {
-      const player1 = summary.player1_name ?? auditLog?.context?.player1_name ?? 'Jugador 1'
-      const player2 = summary.player2_name ?? auditLog?.context?.player2_name ?? 'Jugador 2'
-      return `Partido ${player1} vs. ${player2} eliminado`
-    }
+    case 'game.deleted':
+      return `Partido ${gameMatchupFromAudit(auditLog)} eliminado`
 
     case 'game.set_recorded': {
       const setNumber = summary.set_number
@@ -249,8 +283,14 @@ export function buildAuditSummary(auditLog) {
     }
 
     case 'game.result_corrected': {
-      const oldWinner = auditLog?.old?.winner_name ?? (auditLog?.old?.winner_id ? `Jugador #${auditLog.old.winner_id}` : null)
-      const newWinner = auditLog?.new?.winner_name ?? (auditLog?.new?.winner_id ? `Jugador #${auditLog.new.winner_id}` : null)
+      const oldWinner =
+        gameWinnerNameFromAudit(auditLog, 'old')
+        ?? summary.old_winner_display_name
+        ?? (summary.old_winner_entry_id ? `Participación #${summary.old_winner_entry_id}` : null)
+      const newWinner =
+        gameWinnerNameFromAudit(auditLog, 'new')
+        ?? summary.new_winner_display_name
+        ?? (summary.new_winner_entry_id ? `Participación #${summary.new_winner_entry_id}` : null)
       const beforeCount = summary.sets_count_before ?? auditLog?.old?.sets?.length
       const afterCount = summary.sets_count_after ?? auditLog?.new?.sets?.length
 

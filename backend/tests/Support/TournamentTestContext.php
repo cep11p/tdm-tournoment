@@ -101,6 +101,13 @@ final class TournamentTestContext
         return $this->createCompetition($setsToWin, $pointsPerSet, CompetitionFormat::KnockoutDirect);
     }
 
+    public function createDoublesKnockoutDirectCompetition(
+        int $setsToWin = 1,
+        int $pointsPerSet = 11,
+    ): Competition {
+        return $this->createDoublesCompetition($setsToWin, $pointsPerSet, CompetitionFormat::KnockoutDirect);
+    }
+
     /**
      * @return array<int, Player>
      */
@@ -235,6 +242,69 @@ final class TournamentTestContext
         $response->assertCreated();
 
         return Game::query()->findOrFail($response->json('data.id'));
+    }
+
+    public function createManualDoublesGame(
+        Competition $competition,
+        CompetitionEntry $entryOne,
+        CompetitionEntry $entryTwo,
+    ): Game {
+        $response = $this->test->postJson($this->apiUrl("competitions/{$competition->id}/games"), [
+            'entry1_id' => $entryOne->id,
+            'entry2_id' => $entryTwo->id,
+        ], $this->authHeaders(['organizer']));
+
+        $response->assertCreated();
+
+        return Game::query()->findOrFail($response->json('data.id'));
+    }
+
+    /**
+     * @return array{
+     *     competition: Competition,
+     *     entries: array<int, CompetitionEntry>,
+     *     game: Game,
+     * }
+     */
+    public function createPendingDoublesGame(int $setsToWin = 1, int $pointsPerSet = 11): array
+    {
+        $competition = $this->createDoublesCompetition($setsToWin, $pointsPerSet);
+        $players = $this->createPlayers(4);
+        $entries = $this->registerPairs($competition, [
+            [$players[0], $players[1]],
+            [$players[2], $players[3]],
+        ]);
+        $game = $this->createManualDoublesGame($competition, $entries[0], $entries[1]);
+
+        return [
+            'competition' => $competition,
+            'entries' => $entries,
+            'game' => $game,
+        ];
+    }
+
+    public function finishGameByEntryViaApi(
+        Game $game,
+        int $winnerEntryId,
+        ?int $pointsPerSet = null,
+        array $roles = ['organizer'],
+    ): TestResponse {
+        $game->loadMissing('competition');
+        $pointsPerSet ??= (int) $game->competition->points_per_set;
+        $setsToWin = (int) ($game->sets_to_win ?? $game->competition->sets_to_win);
+        $entry1Wins = (int) $game->entry1_id === $winnerEntryId;
+
+        $response = null;
+
+        for ($setNumber = 1; $setNumber <= $setsToWin; $setNumber++) {
+            $game->refresh();
+            $player1Score = $entry1Wins ? $pointsPerSet : 0;
+            $player2Score = $entry1Wins ? 0 : $pointsPerSet;
+
+            $response = $this->recordSet($game, $setNumber, $player1Score, $player2Score, $roles);
+        }
+
+        return $response ?? $this->recordSet($game, 1, $pointsPerSet, 0, $roles);
     }
 
     public function recordSet(
@@ -539,6 +609,18 @@ final class TournamentTestContext
             'entry1_id' => $entryId,
             'entry2_id' => null,
             'winner_entry_id' => $entryId,
+            'is_bye' => true,
+            ...$overrides,
+        ]);
+    }
+
+    public function persistByeGameForEntry(Competition $competition, CompetitionEntry $entry, array $overrides = []): Game
+    {
+        return app(CreateGameAction::class)([
+            'competition_id' => $competition->id,
+            'entry1_id' => $entry->id,
+            'entry2_id' => null,
+            'winner_entry_id' => $entry->id,
             'is_bye' => true,
             ...$overrides,
         ]);

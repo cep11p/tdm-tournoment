@@ -4,10 +4,12 @@ namespace App\Actions\Game;
 
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
+use App\Enums\CompetitionType;
 use App\Enums\GameStatus;
 use App\Models\Game;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
+use App\Support\Competition\CompetitionEntryDisplayName;
 use App\Support\Game\GameEntryInvariantGuard;
 use App\Support\Game\GameSetScoreValidator;
 use App\Support\Tournament\TournamentLifecycleGuard;
@@ -135,16 +137,37 @@ final class RecordGameSetAction
                     'player2_sets_won' => $newSetsWon['player2'],
                     'status' => $game->status->value,
                 ],
-                summary: [
+                summary: array_merge([
                     'set_number' => $setNumber,
                     'player1_score' => $player1Score,
                     'player2_score' => $player2Score,
                     'match_finished' => $matchFinished,
-                    'winner_id' => $game->singlesWinnerId(),
-                ],
+                    'winner_entry_id' => $game->winner_entry_id,
+                    'winner_display_name' => $game->winnerEntry !== null
+                        ? CompetitionEntryDisplayName::for($game->winnerEntry)
+                        : null,
+                ], $this->legacyWinnerAuditFields($game)),
             ));
 
             return $game;
         });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function legacyWinnerAuditFields(Game $game): array
+    {
+        $game->loadMissing('competition');
+
+        $type = $game->competition?->type;
+
+        if (! ($type instanceof CompetitionType ? $type === CompetitionType::Singles : (string) $type === CompetitionType::Singles->value)) {
+            return [];
+        }
+
+        return [
+            'winner_id' => $game->singlesWinnerId(),
+        ];
     }
 }

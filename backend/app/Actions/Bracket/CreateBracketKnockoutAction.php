@@ -13,6 +13,7 @@ use App\Models\Competition;
 use App\Models\Game;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
+use App\Support\Competition\CompetitionParticipantLabel;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use App\Support\Bracket\BracketSupport;
 use App\Support\Bracket\GroupKnockoutDrawBuilder;
@@ -68,17 +69,15 @@ final class CreateBracketKnockoutAction
         }
 
         $entryIds = $competition->entries()
-            ->with('members')
-            ->get()
-            ->sortBy(fn ($entry) => $entry->singlesPlayerId() ?? PHP_INT_MAX)
-            ->values()
-            ->map(fn ($entry) => (int) $entry->id)
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(fn ($entryId) => (int) $entryId)
             ->all();
 
         if (count($entryIds) < 2) {
             throw ValidationException::withMessages([
                 'competition' => [
-                    'Se requieren al menos 2 jugadores inscriptos para generar el cuadro eliminatorio.',
+                    CompetitionParticipantLabel::minimumForGroups($competition),
                 ],
             ]);
         }

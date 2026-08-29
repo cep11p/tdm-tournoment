@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 
 import GameService from '../services/GameService'
+import { gameMatchupLabel, getGameSideDisplayName } from '../utils/gameDisplay'
 
 const props = defineProps({
   show: {
@@ -23,11 +24,13 @@ const resultError = ref('')
 
 const playerName = (player) => {
   if (!player?.id) {
-    return 'Jugador no asignado'
+    return 'Participante no asignado'
   }
 
   return `${player.first_name} ${player.last_name}`.trim()
 }
+
+const sideDisplayName = (game, sideNumber) => getGameSideDisplayName(game, sideNumber)
 
 const matchFormatLabel = (game) => {
   if (game?.is_bye) {
@@ -230,7 +233,7 @@ const handleSave = async () => {
                 Cargar resultado
               </h2>
               <p class="mt-1 break-words font-medium text-slate-900 dark:text-slate-100">
-                {{ playerName(activeGame.player1) }} vs {{ playerName(activeGame.player2) }}
+                {{ gameMatchupLabel(activeGame) }}
               </p>
               <p v-if="matchFormatLabel(activeGame)" class="text-slate-600 dark:text-slate-300">
                 {{ matchFormatLabel(activeGame) }}
@@ -251,7 +254,7 @@ const handleSave = async () => {
                   type="number"
                   min="0"
                   :disabled="row.locked || isSavingResult"
-                  :placeholder="playerName(activeGame.player1)"
+                  :placeholder="sideDisplayName(activeGame, 1)"
                   class="min-w-0 w-full rounded-md border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                 />
                 <input
@@ -259,7 +262,7 @@ const handleSave = async () => {
                   type="number"
                   min="0"
                   :disabled="row.locked || isSavingResult"
-                  :placeholder="playerName(activeGame.player2)"
+                  :placeholder="sideDisplayName(activeGame, 2)"
                   class="min-w-0 w-full rounded-md border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>

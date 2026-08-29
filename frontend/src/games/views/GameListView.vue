@@ -8,6 +8,10 @@ import {
   getGameStatusBadgeClasses,
   getGameStatusLabel,
 } from '../../shared/constants/gameStatus'
+import {
+  gameMatchupLabel,
+  getGameWinnerDisplayName,
+} from '../utils/gameDisplay'
 
 const route = useRoute()
 const competitionId = computed(() => route.params.id)
@@ -16,29 +20,7 @@ const games = ref([])
 const isLoading = ref(false)
 const errorMessage = ref('')
 
-const playerName = (player) => {
-  if (!player?.id) {
-    return 'Jugador no asignado'
-  }
-
-  return `${player.first_name} ${player.last_name}`.trim()
-}
-
-const winnerName = (game) => {
-  if (!game?.winner_id) {
-    return '-'
-  }
-
-  if (game.winner_id === game.player1?.id) {
-    return playerName(game.player1)
-  }
-
-  if (game.winner_id === game.player2?.id) {
-    return playerName(game.player2)
-  }
-
-  return `Jugador #${game.winner_id}`
-}
+const winnerName = (game) => getGameWinnerDisplayName(game)
 
 const statusBadge = (game) => getGameListStatusBadge(game?.status)
 
@@ -134,7 +116,7 @@ onMounted(loadGames)
       >
         <div class="flex items-center justify-between gap-3">
           <p class="text-base font-semibold text-slate-900 dark:text-slate-100">
-            {{ playerName(game.player1) }} vs {{ playerName(game.player2) }}
+            {{ gameMatchupLabel(game) }}
           </p>
           <span class="rounded-full px-2 py-1 text-xs font-semibold" :class="badgeClasses(game)">
             {{ statusBadge(game) }}

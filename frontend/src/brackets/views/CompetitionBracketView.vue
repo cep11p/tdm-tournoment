@@ -14,6 +14,15 @@ import {
 import GameService from '../../games/services/GameService'
 import GroupService from '../../groups/services/GroupService'
 import GameResultModal from '../../games/components/GameResultModal.vue'
+import {
+  gameMatchupLabel,
+  getGameSide,
+  getGameSideDisplayName,
+  getGameSideMembers,
+  getGameWinnerDisplayName,
+  isGameBye,
+  isGameSideWinner,
+} from '../../games/utils/gameDisplay'
 import { extractApiErrorMessage } from '../../shared/utils/extractApiErrorMessage'
 import {
   getGameStatusBadgeClasses,
@@ -226,15 +235,7 @@ const loadData = async () => {
   }
 }
 
-const playerName = (player) => {
-  if (!player?.id) {
-    return BYE_OPPONENT_LABEL
-  }
-
-  return `${player.first_name} ${player.last_name}`.trim()
-}
-
-const isByeGame = (game) => game?.is_bye === true || !game?.player2?.id
+const isByeGame = isGameBye
 
 const isQualifyingRoundLabel = (roundLabel) => roundLabel === PLAY_IN_ROUND_LABEL
 
@@ -254,12 +255,24 @@ const byeBadgeLabel = (game) => {
   return BYE_BADGE_LABEL
 }
 
-const opponentLabel = (game, player) => {
+const opponentLabel = (game) => {
   if (isByeGame(game)) {
     return isQualifyingRoundGame(game) ? 'Sin rival' : BYE_OPPONENT_LABEL
   }
 
-  return player?.id ? playerName(player) : UNASSIGNED_PLAYER_LABEL
+  return getGameSideDisplayName(game, 2, { unassigned: UNASSIGNED_PLAYER_LABEL })
+}
+
+const sideMembersHint = (game, sideNumber) => {
+  const members = getGameSideMembers(game, sideNumber)
+
+  if (members.length <= 1) {
+    return null
+  }
+
+  return members
+    .map((member) => `${member.first_name} ${member.last_name}`.trim())
+    .join(' · ')
 }
 
 const matchFormatLabel = (game) => {
@@ -308,25 +321,7 @@ const statusLabel = (game) => {
   return getGameStatusLabel(game?.status)
 }
 
-const winnerName = (game) => {
-  if (isByeGame(game)) {
-    return playerName(game.player1)
-  }
-
-  if (!game?.winner_id) {
-    return '-'
-  }
-
-  if (game.winner_id === game.player1?.id) {
-    return playerName(game.player1)
-  }
-
-  if (game.winner_id === game.player2?.id) {
-    return playerName(game.player2)
-  }
-
-  return `Jugador #${game.winner_id}`
-}
+const winnerName = (game) => getGameWinnerDisplayName(game)
 
 const statusBadgeClasses = (game) => {
   if (isByeGame(game) || game?.status === 'finished') {
@@ -427,15 +422,17 @@ const pairConnectorHeight = (roundIndex) => roundSlotHeight(roundIndex)
 const isEvenMatchIndex = (gameIndex) => gameIndex % 2 === 0
 const hasNextRound = (roundIndex) => roundIndex < groupedRounds.value.length - 1
 
-const isWinnerPlayer = (game, player) => {
-  if (isByeGame(game) && player?.id === game.player1?.id) {
-    return true
+const compactSideRowClasses = (game, sideNumber) => {
+  if (isByeGame(game) && sideNumber === 2) {
+    return 'italic text-slate-400 dark:text-slate-500'
   }
 
-  return Boolean(game?.winner_id && player?.id && game.winner_id === player.id)
-}
+  if (isGameSideWinner(game, sideNumber)) {
+    return 'bg-emerald-50 font-semibold text-slate-900 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-900/30 dark:text-slate-100 dark:ring-emerald-700/50'
+  }
 
-const participantSetsWon = (game, playerNumber) => {
+  return 'text-slate-900 dark:text-slate-100'
+}
   if (isByeGame(game)) {
     return null
   }
@@ -494,18 +491,6 @@ const participantScoreLabel = (game, playerNumber) => {
   return String(sets)
 }
 
-const compactPlayerRowClasses = (game, player) => {
-  if (isByeGame(game) && !player?.id) {
-    return 'italic text-slate-400 dark:text-slate-500'
-  }
-
-  if (isWinnerPlayer(game, player)) {
-    return 'bg-emerald-50 font-semibold text-slate-900 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-900/30 dark:text-slate-100 dark:ring-emerald-700/50'
-  }
-
-  return 'text-slate-900 dark:text-slate-100'
-}
-
 const isFinalRound = (roundLabel) => roundLabel === 'Final'
 
 const isQualifyingRound = (roundLabel) => isQualifyingRoundLabel(roundLabel)
@@ -552,17 +537,25 @@ const finalGame = computed(() => {
 const finalResult = computed(() => {
   const game = finalGame.value
 
-  if (!game || game.status !== 'finished' || !game.winner_id) {
+  if (!game || game.status !== 'finished' || (!game.winner_entry_id && !game.winner_id)) {
     return null
   }
 
   const champion = winnerName(game)
   let runnerUp = '-'
 
-  if (game.winner_id === game.player1?.id) {
-    runnerUp = playerName(game.player2)
+  if (game.winner_entry_id) {
+    const winnerEntryId = Number(game.winner_entry_id)
+    const side1Id = getGameSide(game, 1)?.competition_entry_id
+
+    runnerUp =
+      side1Id && Number(side1Id) === winnerEntryId
+        ? getGameSideDisplayName(game, 2)
+        : getGameSideDisplayName(game, 1)
+  } else if (game.winner_id === game.player1?.id) {
+    runnerUp = getGameSideDisplayName(game, 2)
   } else if (game.winner_id === game.player2?.id) {
-    runnerUp = playerName(game.player1)
+    runnerUp = getGameSideDisplayName(game, 1)
   }
 
   return { champion, runnerUp }
@@ -592,7 +585,8 @@ const canGenerateNextRound = computed(() => {
   }
 
   const currentRoundComplete = currentRoundGames.every(
-    (game) => game.status === 'finished' && game.winner_id != null,
+    (game) =>
+      game.status === 'finished' && (game.winner_entry_id != null || game.winner_id != null),
   )
 
   if (!currentRoundComplete) {
@@ -838,16 +832,16 @@ onMounted(loadData)
             >
               <div
                 class="flex items-center justify-between gap-2 px-3 py-2"
-                :class="compactPlayerRowClasses(thirdPlaceGame, thirdPlaceGame.player1)"
+                :class="compactSideRowClasses(thirdPlaceGame, 1)"
               >
-                <span class="truncate text-sm">{{ playerName(thirdPlaceGame.player1) }}</span>
+                <span class="truncate text-sm">{{ getGameSideDisplayName(thirdPlaceGame, 1) }}</span>
                 <span class="shrink-0 tabular-nums text-sm">{{ participantScoreLabel(thirdPlaceGame, 1) }}</span>
               </div>
               <div
                 class="flex items-center justify-between gap-2 border-t border-slate-200 px-3 py-2 dark:border-slate-700"
-                :class="compactPlayerRowClasses(thirdPlaceGame, thirdPlaceGame.player2)"
+                :class="compactSideRowClasses(thirdPlaceGame, 2)"
               >
-                <span class="truncate text-sm">{{ playerName(thirdPlaceGame.player2) }}</span>
+                <span class="truncate text-sm">{{ getGameSideDisplayName(thirdPlaceGame, 2) }}</span>
                 <span class="shrink-0 tabular-nums text-sm">{{ participantScoreLabel(thirdPlaceGame, 2) }}</span>
               </div>
             </div>
@@ -942,16 +936,32 @@ onMounted(loadData)
                       >
                         <div
                           class="flex items-center justify-between gap-2 px-2 py-1.5"
-                          :class="compactPlayerRowClasses(game, game.player1)"
+                          :class="compactSideRowClasses(game, 1)"
                         >
-                          <span class="truncate text-sm">{{ playerName(game.player1) }}</span>
+                          <div class="min-w-0">
+                            <span class="truncate text-sm">{{ getGameSideDisplayName(game, 1) }}</span>
+                            <p
+                              v-if="sideMembersHint(game, 1)"
+                              class="truncate text-[10px] text-slate-500 dark:text-slate-400"
+                            >
+                              {{ sideMembersHint(game, 1) }}
+                            </p>
+                          </div>
                           <span class="shrink-0 tabular-nums text-sm">{{ participantScoreLabel(game, 1) }}</span>
                         </div>
                         <div
                           class="flex items-center justify-between gap-2 border-t border-slate-200 px-2 py-1.5 dark:border-slate-700"
-                          :class="compactPlayerRowClasses(game, game.player2)"
+                          :class="compactSideRowClasses(game, 2)"
                         >
-                          <span class="truncate text-sm">{{ opponentLabel(game, game.player2) }}</span>
+                          <div class="min-w-0">
+                            <span class="truncate text-sm">{{ opponentLabel(game) }}</span>
+                            <p
+                              v-if="sideMembersHint(game, 2)"
+                              class="truncate text-[10px] text-slate-500 dark:text-slate-400"
+                            >
+                              {{ sideMembersHint(game, 2) }}
+                            </p>
+                          </div>
                           <span class="shrink-0 tabular-nums text-sm">{{ participantScoreLabel(game, 2) }}</span>
                         </div>
                       </div>
@@ -1059,7 +1069,7 @@ onMounted(loadData)
                     class="space-y-1 rounded-md border border-slate-200 p-3 dark:border-slate-700 dark:bg-slate-950/30"
                   >
                     <p class="font-medium text-slate-900 dark:text-slate-100">
-                      {{ playerName(game.player1) }} vs {{ opponentLabel(game, game.player2) }}
+                      {{ gameMatchupLabel(game) }}
                     </p>
 
                     <p v-if="matchFormatLabel(game)" class="text-slate-600 dark:text-slate-300">

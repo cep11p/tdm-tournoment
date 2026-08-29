@@ -4,12 +4,14 @@ namespace App\Actions\Game;
 
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
+use App\Enums\CompetitionType;
 use App\Enums\GameStatus;
 use App\Models\Game;
 use App\Models\Player;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Bracket\BracketPodiumSupport;
+use App\Support\Competition\CompetitionEntryDisplayName;
 use App\Support\Game\GameDependencyResolver;
 use App\Support\Game\GameResultCorrectionGuard;
 use App\Support\Game\GameSetScoreValidator;
@@ -50,7 +52,6 @@ final class CorrectFinishedGameResultAction
             $setsCountBefore = $game->sets->count();
             $oldWinnerEntryId = (int) $game->winner_entry_id;
             $oldLoserEntryId = self::loserEntryIdForWinner($game, $oldWinnerEntryId);
-            $oldWinnerPlayerId = $game->singlesWinnerId();
 
             $competition = $game->competition;
             $setsToWin = (int) ($game->sets_to_win ?? $competition->sets_to_win);
@@ -149,7 +150,6 @@ final class CorrectFinishedGameResultAction
             ]);
 
             $newSnapshot = $this->snapshot($game);
-            $newWinnerPlayerId = $game->singlesWinnerId();
 
             $this->auditLogger->log(new AuditEntry(
                 action: AuditAction::GAME_RESULT_CORRECTED,
@@ -158,10 +158,12 @@ final class CorrectFinishedGameResultAction
                 context: AuditContextBuilder::fromGame($game),
                 old: $oldSnapshot,
                 new: $newSnapshot,
-                summary: [
+                summary: array_merge([
                     'winner_changed' => $oldWinnerEntryId !== $newWinnerEntryId,
-                    'old_winner_id' => $oldWinnerPlayerId,
-                    'new_winner_id' => $newWinnerPlayerId,
+                    'old_winner_entry_id' => $oldWinnerEntryId,
+                    'new_winner_entry_id' => $newWinnerEntryId,
+                    'old_winner_display_name' => $oldSnapshot['winner_display_name'] ?? null,
+                    'new_winner_display_name' => $newSnapshot['winner_display_name'] ?? null,
                     'sets_count_before' => $setsCountBefore,
                     'sets_count_after' => count($newSets),
                     'propagation' => $this->buildPropagationSummary(
@@ -173,7 +175,7 @@ final class CorrectFinishedGameResultAction
                         oldLoserId: $oldLoserEntryId,
                         newLoserId: $newLoserEntryId,
                     ),
-                ],
+                ], $this->legacyWinnerChangeAuditFields($game, $oldSnapshot, $newSnapshot)),
                 reason: $payload['reason'],
             ));
 
@@ -399,8 +401,10 @@ final class CorrectFinishedGameResultAction
     /**
      * @return array{
      *     status: string,
-     *     winner_id: int|null,
-     *     winner_name: string|null,
+     *     winner_entry_id: int|null,
+     *     winner_display_name: string|null,
+     *     winner_id?: int|null,
+     *     winner_name?: string|null,
      *     finished_at: string|null,
      *     sets: array<int, array{set_number: int, player1_score: int, player2_score: int}>,
      *     sets_won: array{player1: int, player2: int}
@@ -413,13 +417,16 @@ final class CorrectFinishedGameResultAction
             : $game->sets()->orderBy('set_number')->get();
 
         $setsWon = $game->setsWonCount($sets);
+        $game->loadMissing(['winnerEntry', 'competition']);
 
-        return [
+        $snapshot = [
             'status' => $game->status instanceof GameStatus
                 ? $game->status->value
                 : (string) $game->status,
-            'winner_id' => $game->singlesWinnerId(),
-            'winner_name' => self::playerDisplayName($game->singlesWinner()),
+            'winner_entry_id' => $game->winner_entry_id !== null ? (int) $game->winner_entry_id : null,
+            'winner_display_name' => $game->winnerEntry !== null
+                ? CompetitionEntryDisplayName::for($game->winnerEntry)
+                : null,
             'finished_at' => $game->finished_at?->toIso8601String(),
             'sets' => $sets
                 ->map(fn ($set): array => [
@@ -431,6 +438,39 @@ final class CorrectFinishedGameResultAction
                 ->all(),
             'sets_won' => $setsWon,
         ];
+
+        if ($this->isSinglesGame($game)) {
+            $snapshot['winner_id'] = $game->singlesWinnerId();
+            $snapshot['winner_name'] = self::playerDisplayName($game->singlesWinner());
+        }
+
+        return $snapshot;
+    }
+
+    /**
+     * @param  array<string, mixed>  $oldSnapshot
+     * @param  array<string, mixed>  $newSnapshot
+     * @return array<string, mixed>
+     */
+    private function legacyWinnerChangeAuditFields(Game $game, array $oldSnapshot, array $newSnapshot): array
+    {
+        if (! $this->isSinglesGame($game)) {
+            return [];
+        }
+
+        return [
+            'old_winner_id' => $oldSnapshot['winner_id'] ?? null,
+            'new_winner_id' => $newSnapshot['winner_id'] ?? null,
+        ];
+    }
+
+    private function isSinglesGame(Game $game): bool
+    {
+        $type = $game->competition?->type;
+
+        return $type instanceof CompetitionType
+            ? $type === CompetitionType::Singles
+            : (string) $type === CompetitionType::Singles->value || $type === null;
     }
 
     private static function playerDisplayName(?Player $player): ?string

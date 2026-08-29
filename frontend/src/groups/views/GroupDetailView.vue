@@ -13,6 +13,12 @@ import { isDoublesCompetition } from '../../shared/constants/competitionType'
 import GameResultModal from '../../games/components/GameResultModal.vue'
 import GameService from '../../games/services/GameService'
 import {
+  gameMatchupLabel,
+  getGameSideDisplayName,
+  getGameWinnerDisplayName,
+  isGameBye,
+} from '../../games/utils/gameDisplay'
+import {
   getGameStatusBadgeClasses,
   getGameStatusLabel,
 } from '../../shared/constants/gameStatus'
@@ -298,15 +304,7 @@ const loadGroupGames = async () => {
   }
 }
 
-const playerName = (player) => {
-  if (!player?.id) {
-    return 'Jugador no asignado'
-  }
-
-  return `${player.first_name} ${player.last_name}`.trim()
-}
-
-const isByeGame = (game) => game?.is_bye === true || !game?.player2?.id
+const isByeGame = isGameBye
 
 const matchFormatLabel = (game) => {
   if (isByeGame(game)) {
@@ -429,25 +427,7 @@ const statusBadgeClasses = (game) => {
   return getGameStatusBadgeClasses(game?.status ?? 'pending')
 }
 
-const winnerName = (game) => {
-  if (isByeGame(game)) {
-    return playerName(game.player1)
-  }
-
-  if (!game?.winner_id) {
-    return '-'
-  }
-
-  if (game.winner_id === game.player1?.id) {
-    return playerName(game.player1)
-  }
-
-  if (game.winner_id === game.player2?.id) {
-    return playerName(game.player2)
-  }
-
-  return `Jugador #${game.winner_id}`
-}
+const winnerName = (game) => getGameWinnerDisplayName(game)
 
 const setsResult = (game) => {
   if (isByeGame(game)) {
@@ -493,7 +473,7 @@ const setScoresDetail = (game) => {
     .map((currentSet) => `${currentSet.player1_score}-${currentSet.player2_score}`)
 }
 
-const matchupLabel = (game) => `${playerName(game.player1)} vs ${playerName(game.player2)}`
+const matchupLabel = (game) => gameMatchupLabel(game)
 
 const participantSetsWonLabel = (game, playerNumber) => {
   const setsWon = game?.sets_won
@@ -911,7 +891,7 @@ onMounted(async () => {
                 >
                   <div class="flex items-center justify-between gap-2 px-2 py-1.5">
                     <span class="truncate text-sm text-slate-900 dark:text-slate-100">
-                      {{ playerName(game.player1) }}
+                      {{ getGameSideDisplayName(game, 1) }}
                     </span>
                     <span class="shrink-0 tabular-nums text-sm text-slate-700 dark:text-slate-300">
                       {{ participantSetsWonLabel(game, 1) }}
@@ -921,7 +901,7 @@ onMounted(async () => {
                     class="flex items-center justify-between gap-2 border-t border-slate-200 px-2 py-1.5 dark:border-slate-700"
                   >
                     <span class="truncate text-sm text-slate-900 dark:text-slate-100">
-                      {{ playerName(game.player2) }}
+                      {{ getGameSideDisplayName(game, 2) }}
                     </span>
                     <span class="shrink-0 tabular-nums text-sm text-slate-700 dark:text-slate-300">
                       {{ participantSetsWonLabel(game, 2) }}
@@ -1013,7 +993,7 @@ onMounted(async () => {
             >
               <div class="flex flex-wrap items-center gap-2">
                 <p class="font-medium text-slate-900 dark:text-slate-100">
-                  {{ playerName(game.player1) }}
+                  {{ getGameSideDisplayName(game, 1) }}
                 </p>
 
                 <span

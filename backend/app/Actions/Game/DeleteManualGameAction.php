@@ -4,11 +4,13 @@ namespace App\Actions\Game;
 
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
+use App\Enums\CompetitionType;
 use App\Enums\GameStatus;
 use App\Models\Game;
 use App\Models\Player;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
+use App\Support\Competition\CompetitionEntryDisplayName;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -53,6 +55,8 @@ final class DeleteManualGameAction
                 old: $snapshot,
                 summary: [
                     'game_id' => $game->id,
+                    'entry1_display_name' => $context['entry1_display_name'] ?? null,
+                    'entry2_display_name' => $context['entry2_display_name'] ?? null,
                     'player1_name' => $context['player1_name'] ?? null,
                     'player2_name' => $context['player2_name'] ?? null,
                     'sets_removed' => $setsRemoved,
@@ -65,21 +69,7 @@ final class DeleteManualGameAction
     }
 
     /**
-     * @return array{
-     *     status: string,
-     *     round: string|null,
-     *     player1_id: int|null,
-     *     player1_name: string|null,
-     *     player2_id: int|null,
-     *     player2_name: string|null,
-     *     winner_id: int|null,
-     *     winner_name: string|null,
-     *     best_of: int|null,
-     *     sets_to_win: int|null,
-     *     points_per_set: int|null,
-     *     is_bye: bool,
-     *     sets: array<int, array{set_number: int, player1_score: int, player2_score: int}>
-     * }
+     * @return array<string, mixed>
      */
     private function snapshot(Game $game): array
     {
@@ -87,17 +77,25 @@ final class DeleteManualGameAction
             ? $game->sets->sortBy('set_number')->values()
             : $game->sets()->orderBy('set_number')->get();
 
-        return [
+        $game->loadMissing(['entry1', 'entry2', 'winnerEntry', 'competition']);
+
+        $snapshot = [
             'status' => $game->status instanceof GameStatus
                 ? $game->status->value
                 : (string) $game->status,
             'round' => $game->round,
-            'player1_id' => $game->singlesPlayer1Id(),
-            'player1_name' => self::playerDisplayName($game->singlesPlayer1()),
-            'player2_id' => $game->singlesPlayer2Id(),
-            'player2_name' => self::playerDisplayName($game->singlesPlayer2()),
-            'winner_id' => $game->singlesWinnerId(),
-            'winner_name' => self::playerDisplayName($game->singlesWinner()),
+            'entry1_id' => $game->entry1_id,
+            'entry1_display_name' => $game->entry1 !== null
+                ? CompetitionEntryDisplayName::for($game->entry1)
+                : null,
+            'entry2_id' => $game->entry2_id,
+            'entry2_display_name' => $game->entry2 !== null
+                ? CompetitionEntryDisplayName::for($game->entry2)
+                : null,
+            'winner_entry_id' => $game->winner_entry_id,
+            'winner_display_name' => $game->winnerEntry !== null
+                ? CompetitionEntryDisplayName::for($game->winnerEntry)
+                : null,
             'best_of' => $game->best_of,
             'sets_to_win' => $game->sets_to_win,
             'points_per_set' => $game->competition?->points_per_set,
@@ -111,6 +109,17 @@ final class DeleteManualGameAction
                 ->values()
                 ->all(),
         ];
+
+        if ($game->competition?->type === CompetitionType::Singles) {
+            $snapshot['player1_id'] = $game->singlesPlayer1Id();
+            $snapshot['player1_name'] = self::playerDisplayName($game->singlesPlayer1());
+            $snapshot['player2_id'] = $game->singlesPlayer2Id();
+            $snapshot['player2_name'] = self::playerDisplayName($game->singlesPlayer2());
+            $snapshot['winner_id'] = $game->singlesWinnerId();
+            $snapshot['winner_name'] = self::playerDisplayName($game->singlesWinner());
+        }
+
+        return $snapshot;
     }
 
     private static function playerDisplayName(?Player $player): ?string

@@ -124,7 +124,9 @@ class GameEntryIdentityTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.player1.id', $setup['playerOne']->id)
             ->assertJsonPath('data.player2.id', $setup['playerTwo']->id)
-            ->assertJsonPath('data.winner_id', null);
+            ->assertJsonPath('data.winner_id', null)
+            ->assertJsonPath('data.side1.competition_entry_id', $setup['game']->entry1_id)
+            ->assertJsonPath('data.side2.competition_entry_id', $setup['game']->entry2_id);
 
         $this->assertArrayNotHasKey('entry1_id', $response->json('data'));
     }

@@ -10,6 +10,13 @@ import { getGameStatusLabel } from '../../shared/constants/gameStatus'
 import { extractApiErrorMessage } from '../../shared/utils/extractApiErrorMessage'
 import { FORBIDDEN_MESSAGE } from '../../services/httpInterceptors'
 import GameResultCorrectionModal from '../components/GameResultCorrectionModal.vue'
+import {
+  gameMatchupLabel,
+  getGameSideDisplayName,
+  getGameSideMembers,
+  getGameWinnerDisplayName,
+  isGameBye,
+} from '../utils/gameDisplay'
 
 const route = useRoute()
 const { can } = usePermissions()
@@ -31,38 +38,16 @@ const form = reactive({
   player2_score: '',
 })
 
-const playerName = (player) => {
-  if (!player?.id) {
-    return 'Jugador no asignado'
-  }
-
-  return `${player.first_name} ${player.last_name}`.trim()
-}
-
-const player1Name = computed(() => playerName(game.value?.player1))
-const player2Name = computed(() => playerName(game.value?.player2))
+const side1Name = computed(() => getGameSideDisplayName(game.value, 1))
+const side2Name = computed(() => getGameSideDisplayName(game.value, 2))
 
 const isFinished = computed(() => game.value?.status === 'finished')
 
 const canShowCorrectionAction = computed(
-  () => isFinished.value && !game.value?.is_bye && canCorrectResults.value,
+  () => isFinished.value && !isGameBye(game.value) && canCorrectResults.value,
 )
 
-const winnerName = computed(() => {
-  if (!game.value?.winner_id) {
-    return '-'
-  }
-
-  if (game.value.winner_id === game.value.player1?.id) {
-    return playerName(game.value.player1)
-  }
-
-  if (game.value.winner_id === game.value.player2?.id) {
-    return playerName(game.value.player2)
-  }
-
-  return `Jugador #${game.value.winner_id}`
-})
+const winnerName = computed(() => getGameWinnerDisplayName(game.value))
 
 const orderedSets = computed(() =>
   [...(game.value?.sets || [])].sort((a, b) => a.set_number - b.set_number),
@@ -89,7 +74,7 @@ const setsSummary = computed(() => {
 })
 
 const matchFormatLabel = computed(() => {
-  if (game.value?.is_bye) {
+  if (isGameBye(game.value)) {
     return 'Pase directo (BYE)'
   }
 
@@ -115,7 +100,7 @@ const loadGame = async () => {
 
 const handleRecordSet = async () => {
   if (form.player1_score === '' || form.player2_score === '') {
-    setError.value = 'Completá los puntajes de ambos jugadores.'
+    setError.value = 'Completá los puntajes de ambos lados.'
     return
   }
 
@@ -164,13 +149,13 @@ onMounted(loadGame)
         competitionId: game?.competition_id,
         competitionName: route.query.competitionName,
         gameId: game?.id || gameId,
-        gameName: game ? `${playerName(game.player1)} vs ${playerName(game.player2)}` : undefined,
+        gameName: game ? gameMatchupLabel(game) : undefined,
       }"
     />
 
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
-        {{ game ? `${playerName(game.player1)} vs ${playerName(game.player2)}` : `Partido #${gameId}` }}
+        {{ game ? gameMatchupLabel(game) : `Partido #${gameId}` }}
       </h1>
       <AppBackButton
         :fallback-to="game?.competition_id ? `/competitions/${game.competition_id}/games` : '/'"
@@ -220,10 +205,33 @@ onMounted(loadGame)
         {{ correctionSuccessMessage }}
       </p>
 
+      <div
+        v-if="getGameSideMembers(game, 1).length > 1 || getGameSideMembers(game, 2).length > 1"
+        class="space-y-2 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
+      >
+        <p class="font-medium text-slate-700 dark:text-slate-200">Integrantes</p>
+        <p v-if="getGameSideMembers(game, 1).length > 1" class="text-slate-600 dark:text-slate-300">
+          {{ side1Name }}:
+          {{
+            getGameSideMembers(game, 1)
+              .map((member) => `${member.first_name} ${member.last_name}`.trim())
+              .join(' · ')
+          }}
+        </p>
+        <p v-if="getGameSideMembers(game, 2).length > 1" class="text-slate-600 dark:text-slate-300">
+          {{ side2Name }}:
+          {{
+            getGameSideMembers(game, 2)
+              .map((member) => `${member.first_name} ${member.last_name}`.trim())
+              .join(' · ')
+          }}
+        </p>
+      </div>
+
       <div class="space-y-2 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900">
         <p class="font-medium text-slate-700 dark:text-slate-200">Resultado actual</p>
-        <p class="text-slate-700 dark:text-slate-200">{{ player1Name }}: {{ setsSummary.player1Sets }} sets</p>
-        <p class="text-slate-700 dark:text-slate-200">{{ player2Name }}: {{ setsSummary.player2Sets }} sets</p>
+        <p class="text-slate-700 dark:text-slate-200">{{ side1Name }}: {{ setsSummary.player1Sets }} sets</p>
+        <p class="text-slate-700 dark:text-slate-200">{{ side2Name }}: {{ setsSummary.player2Sets }} sets</p>
       </div>
 
       <div class="space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900">
@@ -247,11 +255,11 @@ onMounted(loadGame)
               <div
                 class="flex items-center justify-between gap-3 border-b border-dotted border-slate-200 pb-1 dark:border-slate-700"
               >
-                <span>{{ player1Name }}</span>
+                <span>{{ side1Name }}</span>
                 <span class="font-semibold text-slate-900 dark:text-slate-100">{{ gameSet.player1_score }}</span>
               </div>
               <div class="flex items-center justify-between gap-3">
-                <span>{{ player2Name }}</span>
+                <span>{{ side2Name }}</span>
                 <span class="font-semibold text-slate-900 dark:text-slate-100">{{ gameSet.player2_score }}</span>
               </div>
             </div>
@@ -260,7 +268,7 @@ onMounted(loadGame)
       </div>
 
       <form
-        v-if="!isFinished && canRecordResults"
+        v-if="!isFinished && canRecordResults && !isGameBye(game)"
         class="max-w-xl space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
         @submit.prevent="handleRecordSet"
       >
@@ -275,7 +283,7 @@ onMounted(loadGame)
 
         <div>
           <label for="player1-score" class="mb-1 block font-medium text-slate-700 dark:text-slate-200">
-            Puntos {{ player1Name }}
+            Puntos {{ side1Name }}
           </label>
           <input
             id="player1-score"
@@ -288,7 +296,7 @@ onMounted(loadGame)
 
         <div>
           <label for="player2-score" class="mb-1 block font-medium text-slate-700 dark:text-slate-200">
-            Puntos {{ player2Name }}
+            Puntos {{ side2Name }}
           </label>
           <input
             id="player2-score"

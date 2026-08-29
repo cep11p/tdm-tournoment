@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Game;
 
 use App\Enums\BracketGamePurpose;
+use App\Enums\CompetitionType;
 use App\Enums\GameStatus;
 use App\Models\Player;
 use Illuminate\Http\Request;
@@ -20,11 +21,16 @@ class GameResource extends JsonResource
             ? $this->bracket_purpose
             : BracketGamePurpose::from((string) ($this->bracket_purpose ?? BracketGamePurpose::Main->value));
 
-        $player1 = $this->singlesPlayer1();
-        $player2 = $this->singlesPlayer2();
+        $this->loadMissing(['competition', 'entry1.members.player', 'entry2.members.player']);
+
+        $isSingles = $this->isSinglesCompetition();
         $setsWon = $this->setsWonCount(
             $this->relationLoaded('sets') ? $this->sets : null
         );
+
+        $player1 = $isSingles ? $this->singlesPlayer1() : null;
+        $player2 = $isSingles ? $this->singlesPlayer2() : null;
+        $winnerId = $isSingles ? $this->singlesWinnerId() : null;
 
         return [
             'id' => $this->id,
@@ -37,9 +43,12 @@ class GameResource extends JsonResource
             'bracket_purpose_label' => $bracketPurpose->label(),
             'group_round' => $this->group_round,
             'group_match' => $this->group_match,
-            'player1' => $this->presentPlayer($player1),
-            'player2' => $this->presentPlayer($player2),
-            'winner_id' => $this->singlesWinnerId(),
+            'side1' => new CompetitionEntrySideResource($this->entry1),
+            'side2' => new CompetitionEntrySideResource($this->entry2),
+            'winner_entry_id' => $this->winner_entry_id,
+            'player1' => $isSingles ? $this->presentPlayer($player1) : null,
+            'player2' => $isSingles ? $this->presentPlayer($player2) : null,
+            'winner_id' => $winnerId,
             'status' => $status,
             'is_bye' => (bool) $this->is_bye,
             'best_of' => $this->best_of,
@@ -56,16 +65,31 @@ class GameResource extends JsonResource
         ];
     }
 
-    /**
-     * @return array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}
-     */
-    private function presentPlayer(?Player $player): array
+    private function isSinglesCompetition(): bool
     {
+        $type = $this->competition?->type;
+
+        if ($type instanceof CompetitionType) {
+            return $type === CompetitionType::Singles;
+        }
+
+        return (string) $type === CompetitionType::Singles->value || $type === null;
+    }
+
+    /**
+     * @return array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}|null
+     */
+    private function presentPlayer(?Player $player): ?array
+    {
+        if ($player === null) {
+            return null;
+        }
+
         return [
-            'id' => $player?->id,
-            'first_name' => $player?->first_name,
-            'last_name' => $player?->last_name,
-            'nickname' => $player?->nickname,
+            'id' => $player->id,
+            'first_name' => $player->first_name,
+            'last_name' => $player->last_name,
+            'nickname' => $player->nickname,
         ];
     }
 }

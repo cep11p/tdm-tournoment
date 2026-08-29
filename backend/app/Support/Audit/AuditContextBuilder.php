@@ -204,12 +204,63 @@ final class AuditContextBuilder
             gameId: $game->id,
         );
 
-        return array_merge($context, [
+        $type = $game->competition?->type instanceof CompetitionType
+            ? $game->competition->type
+            : CompetitionType::Singles;
+        $isSingles = $type === CompetitionType::Singles;
+
+        $entryContext = array_merge(
+            self::entrySideAuditFields($game->entry1, 'entry1'),
+            self::entrySideAuditFields($game->entry2, 'entry2'),
+            [
+                'winner_entry_id' => $game->winner_entry_id,
+                'winner_display_name' => $game->winnerEntry !== null
+                    ? CompetitionEntryDisplayName::for($game->winnerEntry)
+                    : null,
+            ],
+        );
+
+        if (! $isSingles) {
+            return array_merge($context, $entryContext);
+        }
+
+        return array_merge($context, $entryContext, [
             'player1_id' => $game->singlesPlayer1Id(),
             'player1_name' => self::playerDisplayName($game->singlesPlayer1()),
             'player2_id' => $game->singlesPlayer2Id(),
             'player2_name' => self::playerDisplayName($game->singlesPlayer2()),
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function entrySideAuditFields(?CompetitionEntry $entry, string $prefix): array
+    {
+        if ($entry === null) {
+            return [
+                "{$prefix}_id" => null,
+                "{$prefix}_display_name" => null,
+                "{$prefix}_member_ids" => [],
+                "{$prefix}_member_names" => [],
+            ];
+        }
+
+        $entry->loadMissing('members.player');
+        $members = CompetitionEntryMemberPayload::forEntry($entry);
+
+        return [
+            "{$prefix}_id" => $entry->id,
+            "{$prefix}_display_name" => CompetitionEntryDisplayName::for($entry),
+            "{$prefix}_member_ids" => array_values(array_filter(array_map(
+                fn (array $member): ?int => $member['id'] ?? null,
+                $members,
+            ))),
+            "{$prefix}_member_names" => array_values(array_filter(array_map(
+                fn (array $member): ?string => self::memberDisplayName($member),
+                $members,
+            ))),
+        ];
     }
 
     /**
