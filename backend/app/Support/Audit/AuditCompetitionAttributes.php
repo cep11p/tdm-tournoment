@@ -15,6 +15,8 @@ final class AuditCompetitionAttributes
         return [
             'name',
             'type',
+            'team_size',
+            'team_tie_format_id',
             'format',
             'category_id',
             'points_per_set',

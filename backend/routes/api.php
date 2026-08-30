@@ -16,9 +16,12 @@ use App\Http\Controllers\Api\V1\GroupPlayerController;
 use App\Http\Controllers\Api\V1\GroupManualTiebreakController;
 use App\Http\Controllers\Api\V1\GroupPlayerStatusController;
 use App\Http\Controllers\Api\V1\GroupRoundRobinGameController;
+use App\Http\Controllers\Api\V1\GroupTeamTieController;
 use App\Http\Controllers\Api\V1\GroupStandingsController;
 use App\Http\Controllers\Api\V1\PlayerController;
 use App\Http\Controllers\Api\V1\RegistrationController;
+use App\Http\Controllers\Api\V1\TeamTieController;
+use App\Http\Controllers\Api\V1\TeamTieFormatController;
 use App\Http\Controllers\Api\V1\TournamentController;
 use Illuminate\Support\Facades\Route;
 
@@ -80,6 +83,11 @@ Route::prefix(config('api.version_prefix', 'v1'))
         Route::get('categories', [CategoryController::class, 'index'])
             ->name('categories.index');
 
+        Route::get('team-tie-formats', [TeamTieFormatController::class, 'index'])
+            ->name('team-tie-formats.index');
+        Route::get('team-tie-formats/{team_tie_format}', [TeamTieFormatController::class, 'show'])
+            ->name('team-tie-formats.show');
+
         Route::get('clubs', [ClubController::class, 'index'])
             ->name('clubs.index');
 
@@ -114,6 +122,9 @@ Route::prefix(config('api.version_prefix', 'v1'))
             ->post('groups/{group}/round-robin-games', [GroupRoundRobinGameController::class, 'store'])
             ->name('groups.round-robin-games.store');
 
+        Route::get('groups/{group}/team-ties', [GroupTeamTieController::class, 'index'])
+            ->name('groups.team-ties.index');
+
         Route::get('groups/{group}/standings', [GroupStandingsController::class, 'index'])
             ->name('groups.standings.index');
 
@@ -132,6 +143,9 @@ Route::prefix(config('api.version_prefix', 'v1'))
             ->name('competitions.games.store');
 
         Route::get('games/{game}', [GameController::class, 'show'])->name('games.show');
+
+        Route::get('team-ties/{team_tie}', [TeamTieController::class, 'show'])->name('team-ties.show');
+
         Route::middleware(['auth.keycloak', 'permission:matches.delete'])
             ->delete('games/{game}', [GameController::class, 'destroy'])
             ->name('games.destroy');

@@ -27,6 +27,7 @@ class GroupRandomGenerateController extends Controller
             'groups_created' => $result['groups_created'],
             'players_assigned' => $result['players_assigned'],
             'games_created' => $result['games_created'],
+            'team_ties_created' => $result['team_ties_created'] ?? 0,
             'groups' => GroupResource::collection($result['groups'])->resolve(),
         ], Response::HTTP_CREATED);
     }

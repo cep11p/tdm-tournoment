@@ -2,10 +2,13 @@
 
 namespace App\Support\Competition;
 
+use App\Enums\CompetitionType;
 use App\Enums\GameStatus;
+use App\Enums\TeamTieStatus;
 use App\Enums\ThirdPlaceMode;
 use App\Models\Competition;
 use App\Models\Game;
+use App\Models\TeamTie;
 use App\Support\Bracket\BracketPodiumSupport;
 use App\Support\Bracket\GroupBracketReadiness;
 
@@ -96,18 +99,36 @@ final class CompetitionStatusResolver
             );
         }
 
-        $groupGamesQuery = Game::query()
-            ->where('competition_id', $competition->id)
-            ->whereNotNull('group_id')
-            ->whereNull('bracket_id');
+        $isTeamCompetition = self::isTeamCompetition($competition);
 
-        if (! (clone $groupGamesQuery)->exists()) {
-            return self::summary(
-                'group_stage_pending',
-                'Fase de grupos pendiente',
-                'Hay grupos configurados, pero todavía no se generaron los partidos.',
-                'Generar partidos de grupo',
-            );
+        if ($isTeamCompetition) {
+            $groupScheduleExists = TeamTie::query()
+                ->where('competition_id', $competition->id)
+                ->whereNotNull('group_id')
+                ->exists();
+
+            if (! $groupScheduleExists) {
+                return self::summary(
+                    'group_stage_pending',
+                    'Fase de grupos pendiente',
+                    'Hay grupos configurados, pero todavía no se generaron los enfrentamientos.',
+                    'Generar enfrentamientos de grupo',
+                );
+            }
+        } else {
+            $groupGamesQuery = Game::query()
+                ->where('competition_id', $competition->id)
+                ->whereNotNull('group_id')
+                ->whereNull('bracket_id');
+
+            if (! (clone $groupGamesQuery)->exists()) {
+                return self::summary(
+                    'group_stage_pending',
+                    'Fase de grupos pendiente',
+                    'Hay grupos configurados, pero todavía no se generaron los partidos.',
+                    'Generar partidos de grupo',
+                );
+            }
         }
 
         if ($competition->brackets()->exists()) {
@@ -130,16 +151,33 @@ final class CompetitionStatusResolver
             );
         }
 
-        $hasOpenGroupGames = (clone $groupGamesQuery)
-            ->whereIn('status', [GameStatus::Pending, GameStatus::InProgress])
-            ->exists();
+        if ($isTeamCompetition) {
+            $hasOpenGroupSchedule = TeamTie::query()
+                ->where('competition_id', $competition->id)
+                ->whereNotNull('group_id')
+                ->whereIn('status', [TeamTieStatus::Pending, TeamTieStatus::InProgress])
+                ->exists();
+        } else {
+            $groupGamesQuery = Game::query()
+                ->where('competition_id', $competition->id)
+                ->whereNotNull('group_id')
+                ->whereNull('bracket_id');
 
-        if ($hasOpenGroupGames) {
+            $hasOpenGroupSchedule = (clone $groupGamesQuery)
+                ->whereIn('status', [GameStatus::Pending, GameStatus::InProgress])
+                ->exists();
+        }
+
+        if ($hasOpenGroupSchedule) {
             return self::summary(
                 'group_stage_in_progress',
                 'Fase de grupos en curso',
-                'Hay partidos de grupo pendientes o en curso.',
-                'Completar partidos de grupos',
+                $isTeamCompetition
+                    ? 'Hay enfrentamientos de grupo pendientes o en curso.'
+                    : 'Hay partidos de grupo pendientes o en curso.',
+                $isTeamCompetition
+                    ? 'Completar enfrentamientos de grupos'
+                    : 'Completar partidos de grupos',
             );
         }
 
@@ -285,5 +323,14 @@ final class CompetitionStatusResolver
             'description' => $description,
             'next_action' => $nextAction,
         ];
+    }
+
+    private static function isTeamCompetition(Competition $competition): bool
+    {
+        $type = $competition->type instanceof CompetitionType
+            ? $competition->type
+            : CompetitionType::from((string) $competition->type);
+
+        return $type === CompetitionType::Team;
     }
 }

@@ -2,29 +2,31 @@
 
 namespace App\Actions\Group;
 
-use App\Actions\Game\CreateGameAction;
-use App\Models\Game;
+use App\Enums\TeamTieStatus;
 use App\Models\Group;
-use App\Support\Game\GameFormatResolver;
+use App\Models\TeamTie;
+use App\Models\TeamTieFormat;
 use App\Support\Competition\TeamCompetitionSchedulingGuard;
 use App\Support\Group\RoundRobinScheduleBuilder;
 use Illuminate\Support\Collection;
 
-final class BuildGroupRoundRobinGamesAction
+final class BuildGroupRoundRobinTeamTiesAction
 {
     public function __construct(
-        private readonly CreateGameAction $createGame,
         private readonly RoundRobinScheduleBuilder $scheduleBuilder,
     ) {}
 
     /**
-     * @return Collection<int, Game>
+     * @return Collection<int, TeamTie>
      */
     public function __invoke(Group $group): Collection
     {
-        $group->loadMissing('competition');
+        $group->loadMissing(['competition.teamTieFormat.slots']);
 
-        TeamCompetitionSchedulingGuard::ensureGamesRoundRobinAllowed($group->competition);
+        TeamCompetitionSchedulingGuard::ensureFormatConfigured($group->competition);
+
+        /** @var TeamTieFormat $format */
+        $format = $group->competition->teamTieFormat;
 
         $entryIds = $group->groupEntries()
             ->orderBy('competition_entry_id')
@@ -33,9 +35,7 @@ final class BuildGroupRoundRobinGamesAction
             ->values()
             ->all();
 
-        $round = sprintf('Round Robin - %s', $group->name);
         $competitionId = (int) $group->competition_id;
-        $matchFormat = GameFormatResolver::resolveForGroup($group->competition);
         $schedule = $this->scheduleBuilder->build($entryIds);
         $created = collect();
 
@@ -46,20 +46,23 @@ final class BuildGroupRoundRobinGamesAction
                 $entry1Id = $pairing['entry1_id'];
                 $entry2Id = $pairing['entry2_id'];
 
-                if ($this->gameExistsBetweenEntries($competitionId, $entry1Id, $entry2Id)) {
+                if ($this->teamTieExistsBetweenEntries($group->id, $entry1Id, $entry2Id)) {
                     continue;
                 }
 
-                $created->push(($this->createGame)([
+                $created->push(TeamTie::query()->create([
                     'competition_id' => $competitionId,
                     'group_id' => $group->id,
                     'entry1_id' => $entry1Id,
                     'entry2_id' => $entry2Id,
-                    'round' => $round,
+                    'team_tie_format_id' => $format->id,
+                    'victories_required' => (int) $format->victories_required,
+                    'format_name' => $format->name,
                     'group_round' => $groupRound,
                     'group_match' => $matchIndex + 1,
-                    'best_of' => $matchFormat['best_of'],
-                    'sets_to_win' => $matchFormat['sets_to_win'],
+                    'status' => TeamTieStatus::Pending,
+                    'is_bye' => false,
+                    'winner_entry_id' => null,
                 ]));
             }
         }
@@ -67,10 +70,10 @@ final class BuildGroupRoundRobinGamesAction
         return $created;
     }
 
-    private function gameExistsBetweenEntries(int $competitionId, int $entry1Id, int $entry2Id): bool
+    private function teamTieExistsBetweenEntries(int $groupId, int $entry1Id, int $entry2Id): bool
     {
-        return Game::query()
-            ->where('competition_id', $competitionId)
+        return TeamTie::query()
+            ->where('group_id', $groupId)
             ->where(function ($query) use ($entry1Id, $entry2Id): void {
                 $query->where(function ($query) use ($entry1Id, $entry2Id): void {
                     $query->where('entry1_id', $entry1Id)

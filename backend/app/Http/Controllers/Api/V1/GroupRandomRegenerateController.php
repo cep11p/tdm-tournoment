@@ -26,10 +26,12 @@ class GroupRandomRegenerateController extends Controller
             'message' => 'Grupos regenerados correctamente.',
             'groups_removed' => $result['groups_removed'],
             'games_removed' => $result['games_removed'],
+            'team_ties_removed' => $result['team_ties_removed'] ?? 0,
             'bracket_removed' => $result['bracket_removed'],
             'groups_created' => $result['groups_created'],
             'players_assigned' => $result['players_assigned'],
             'games_created' => $result['games_created'],
+            'team_ties_created' => $result['team_ties_created'] ?? 0,
             'groups' => GroupResource::collection($result['groups'])->resolve(),
         ], Response::HTTP_CREATED);
     }

@@ -7,6 +7,7 @@ use App\Enums\CompetitionType;
 use App\Enums\ThirdPlaceMode;
 use App\Models\Competition;
 use App\Support\Competition\CompetitionStructureGuard;
+use App\Support\Competition\TeamCompetitionStructureGuard;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -19,6 +20,7 @@ class UpdateCompetitionRequest extends FormRequest
     private const STRUCTURAL_FIELDS = [
         'type',
         'team_size',
+        'team_tie_format_id',
         'format',
         'points_per_set',
         'qualified_per_group',
@@ -42,6 +44,7 @@ class UpdateCompetitionRequest extends FormRequest
             'category' => ['sometimes', 'required', 'string', 'max:255'],
             'type' => ['sometimes', Rule::enum(CompetitionType::class)],
             'team_size' => ['sometimes', 'nullable', 'integer', 'min:'.Competition::TEAM_SIZE_MIN, 'max:'.Competition::TEAM_SIZE_MAX],
+            'team_tie_format_id' => ['sometimes', 'nullable', 'integer', Rule::exists('team_tie_formats', 'id')->where('active', true)],
             'format' => ['sometimes', Rule::enum(CompetitionFormat::class)],
             'points_per_set' => ['sometimes', 'integer', 'min:1'],
             'qualified_per_group' => ['sometimes', 'integer', 'min:1'],
@@ -78,6 +81,8 @@ class UpdateCompetitionRequest extends FormRequest
 
             if ($competition instanceof Competition) {
                 $this->validateTeamSizeForType($validator, $competition);
+                $this->validateTeamTieFormatForType($validator, $competition);
+                $this->validateTeamFieldsWhenScheduled($validator, $competition);
                 $this->validateStructuralFieldsWhenLocked($validator, $competition);
             }
         });
@@ -113,6 +118,61 @@ class UpdateCompetitionRequest extends FormRequest
 
         if ($this->has('team_size') && $this->input('team_size') !== null && $this->input('team_size') !== '') {
             $validator->errors()->add('team_size', 'El tamaño del equipo solo aplica a competencias por equipos.');
+        }
+    }
+
+    private function validateTeamTieFormatForType(Validator $validator, Competition $competition): void
+    {
+        if (! $this->has('type') && ! $this->has('team_tie_format_id')) {
+            return;
+        }
+
+        $type = $this->has('type')
+            ? CompetitionType::tryFrom((string) $this->input('type'))
+            : ($competition->type instanceof CompetitionType
+                ? $competition->type
+                : CompetitionType::from((string) $competition->type));
+
+        if ($type === null) {
+            return;
+        }
+
+        $teamTieFormatId = $this->has('team_tie_format_id')
+            ? $this->input('team_tie_format_id')
+            : $competition->team_tie_format_id;
+
+        if ($type === CompetitionType::Team) {
+            if ($teamTieFormatId === null || $teamTieFormatId === '') {
+                $validator->errors()->add('team_tie_format_id', 'El formato de enfrentamiento es obligatorio para competencias por equipos.');
+            }
+
+            return;
+        }
+
+        if ($this->has('team_tie_format_id') && $teamTieFormatId !== null && $teamTieFormatId !== '') {
+            $validator->errors()->add('team_tie_format_id', 'El formato de enfrentamiento solo aplica a competencias por equipos.');
+        }
+    }
+
+    private function validateTeamFieldsWhenScheduled(Validator $validator, Competition $competition): void
+    {
+        if (! TeamCompetitionStructureGuard::hasTeamTies($competition)) {
+            return;
+        }
+
+        foreach (['team_size', 'team_tie_format_id', 'type'] as $field) {
+            if (! $this->has($field)) {
+                continue;
+            }
+
+            if (! $this->structuralFieldChanged($competition, $field)) {
+                continue;
+            }
+
+            $validator->errors()->add(
+                $field,
+                TeamCompetitionStructureGuard::FORMAT_LOCK_MESSAGE,
+            );
         }
     }
 
@@ -153,6 +213,13 @@ class UpdateCompetitionRequest extends FormRequest
                 : CompetitionType::from((string) $competition->type);
 
             return $newType !== $currentType;
+        }
+
+        if ($field === 'team_tie_format_id') {
+            $newValue = $this->input('team_tie_format_id');
+            $currentValue = $competition->team_tie_format_id;
+
+            return (int) $newValue !== (int) $currentValue;
         }
 
         if ($field === 'third_place_mode') {

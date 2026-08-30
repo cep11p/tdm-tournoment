@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 
 import CategoryService from '../../categories/services/CategoryService'
+import TeamTieFormatService from '../../team-ties/services/TeamTieFormatService'
 import { FORMAT_OPTIONS } from '../constants/competitionFormats'
 import { getCompetitionTypeLabel } from '../../shared/constants/competitionType'
 import {
@@ -46,13 +47,14 @@ const props = defineProps({
 const emit = defineEmits(['submit', 'cancel'])
 
 const categories = ref([])
+const teamTieFormats = ref([])
 
 const form = reactive({
   name: '',
   category_id: '',
   type: 'singles',
   team_size: 4,
-  format: 'groups_knockout',
+  team_tie_format_id: '',  format: 'groups_knockout',
   points_per_set: 11,
   qualified_per_group: 2,
   group_stage_best_of: 5,
@@ -69,6 +71,7 @@ const syncForm = (values) => {
   form.category_id = values.category_id ?? ''
   form.type = values.type ?? 'singles'
   form.team_size = values.team_size ?? 4
+  form.team_tie_format_id = values.team_tie_format_id ?? ''
   form.format = values.format ?? 'groups_knockout'
   form.points_per_set = values.points_per_set ?? 11
   form.qualified_per_group = values.qualified_per_group ?? 2
@@ -92,6 +95,26 @@ const showGroupStageFields = computed(
 )
 
 const showTeamSizeField = computed(() => form.type === 'team')
+
+const showTeamTieFormatField = computed(() => form.type === 'team')
+
+const selectedTeamTieFormat = computed(() =>
+  teamTieFormats.value.find(
+    (format) => Number(format.id) === Number(form.team_tie_format_id),
+  ),
+)
+
+const teamTieFormatSummary = computed(() => {
+  const format = selectedTeamTieFormat.value
+
+  if (!format) {
+    return ''
+  }
+
+  const matchCount = format.slots?.length ?? 0
+
+  return `${format.name} · ${matchCount} partidos · gana con ${format.victories_required}`
+})
 
 const fieldsDisabled = computed(
   () => props.mode === 'edit' && !props.structureEditable,
@@ -122,6 +145,14 @@ const handleCancel = () => {
   emit('cancel')
 }
 
+const loadTeamTieFormats = async () => {
+  try {
+    teamTieFormats.value = await TeamTieFormatService.list()
+  } catch {
+    teamTieFormats.value = []
+  }
+}
+
 const loadCategories = async () => {
   try {
     categories.value = await CategoryService.list()
@@ -130,7 +161,9 @@ const loadCategories = async () => {
   }
 }
 
-onMounted(loadCategories)
+onMounted(async () => {
+  await Promise.all([loadCategories(), loadTeamTieFormats()])
+})
 </script>
 
 <template>
@@ -227,6 +260,34 @@ onMounted(loadCategories)
           </p>
           <p v-if="fieldError('team_size')" class="text-xs text-red-600 dark:text-red-400">
             {{ fieldError('team_size') }}
+          </p>
+        </div>
+
+        <div v-if="showTeamTieFormatField" class="space-y-1 sm:col-span-2">
+          <label
+            class="block text-sm font-medium text-slate-700 dark:text-slate-200"
+            for="competition-team-tie-format"
+          >
+            Formato de enfrentamiento
+          </label>
+          <select
+            id="competition-team-tie-format"
+            v-model="form.team_tie_format_id"
+            required
+            :disabled="fieldsDisabled || isSubmitting"
+            :class="structuralInputClass"
+          >
+            <option value="" disabled>Seleccionar formato</option>
+            <option v-for="format in teamTieFormats" :key="format.id" :value="format.id">
+              {{ format.name }} · {{ format.slots?.length ?? 0 }} partidos · gana con
+              {{ format.victories_required }}
+            </option>
+          </select>
+          <p v-if="teamTieFormatSummary" class="text-xs text-slate-500 dark:text-slate-400">
+            {{ teamTieFormatSummary }}
+          </p>
+          <p v-if="fieldError('team_tie_format_id')" class="text-xs text-red-600 dark:text-red-400">
+            {{ fieldError('team_tie_format_id') }}
           </p>
         </div>
 

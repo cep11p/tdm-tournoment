@@ -7,30 +7,28 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Group extends Model
+class TeamTieFormat extends Model
 {
     use HasFactory;
 
     protected $guarded = [];
 
-    public function competition(): BelongsTo
+    protected function casts(): array
     {
-        return $this->belongsTo(Competition::class);
+        return [
+            'victories_required' => 'integer',
+            'active' => 'boolean',
+        ];
     }
 
-    public function groupEntries(): HasMany
+    public function slots(): HasMany
     {
-        return $this->hasMany(GroupEntry::class);
+        return $this->hasMany(TeamTieFormatSlot::class)->orderBy('slot_order');
     }
 
-    public function games(): HasMany
+    public function competitions(): HasMany
     {
-        return $this->hasMany(Game::class);
-    }
-
-    public function manualTiebreaks(): HasMany
-    {
-        return $this->hasMany(GroupManualTiebreak::class);
+        return $this->hasMany(Competition::class);
     }
 
     public function teamTies(): HasMany

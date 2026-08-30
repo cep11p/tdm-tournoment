@@ -4,16 +4,19 @@ namespace App\Actions\Group;
 
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
-use App\Enums\GameStatus;
 use App\Enums\CompetitionEntryStatus;
+use App\Enums\CompetitionType;
+use App\Enums\GameStatus;
+use App\Enums\TeamTieStatus;
 use App\Models\Bracket;
 use App\Models\Competition;
 use App\Models\Game;
+use App\Models\TeamTie;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
-use App\Support\Competition\CompetitionStructureGuard;
 use App\Support\Competition\CompetitionParticipantLabel;
+use App\Support\Competition\CompetitionStructureGuard;
 use App\Support\Group\RandomGroupDistributionGuard;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
@@ -30,10 +33,12 @@ final class RegenerateRandomGroupsForCompetitionAction
      * @return array{
      *     groups_removed: int,
      *     games_removed: int,
+     *     team_ties_removed: int,
      *     bracket_removed: bool,
      *     groups_created: int,
      *     players_assigned: int,
      *     games_created: int,
+     *     team_ties_created: int,
      *     groups: \Illuminate\Support\Collection<int, \App\Models\Group>,
      * }
      */
@@ -49,6 +54,8 @@ final class RegenerateRandomGroupsForCompetitionAction
                 'competition' => ['La competencia no tiene grupos para regenerar.'],
             ]);
         }
+
+        $this->ensureNoNonPendingTeamTies($competition);
 
         $playerCount = $competition->entries()
             ->where('status', CompetitionEntryStatus::Active)
@@ -67,10 +74,14 @@ final class RegenerateRandomGroupsForCompetitionAction
             $oldGamesCount = Game::query()
                 ->where('competition_id', $competition->id)
                 ->count();
+            $oldTeamTiesCount = TeamTie::query()
+                ->where('competition_id', $competition->id)
+                ->count();
             $bracketExists = $competition->brackets()->exists();
 
             $groupsRemoved = $oldGroupsCount;
             $gamesRemoved = 0;
+            $teamTiesRemoved = 0;
             $bracketRemoved = false;
 
             $bracket = $competition->brackets()->first();
@@ -87,6 +98,11 @@ final class RegenerateRandomGroupsForCompetitionAction
                 ->where('status', GameStatus::Pending)
                 ->delete();
 
+            $teamTiesRemoved += TeamTie::query()
+                ->where('competition_id', $competition->id)
+                ->where('status', TeamTieStatus::Pending)
+                ->delete();
+
             $competition->groups()->delete();
 
             $buildResult = ($this->buildRandomGroups)($competition, $groupsCount);
@@ -94,6 +110,7 @@ final class RegenerateRandomGroupsForCompetitionAction
             $result = [
                 'groups_removed' => $groupsRemoved,
                 'games_removed' => $gamesRemoved,
+                'team_ties_removed' => $teamTiesRemoved,
                 'bracket_removed' => $bracketRemoved,
                 ...$buildResult,
             ];
@@ -106,24 +123,50 @@ final class RegenerateRandomGroupsForCompetitionAction
                 old: [
                     'groups_count' => $oldGroupsCount,
                     'games_count' => $oldGamesCount,
+                    'team_ties_count' => $oldTeamTiesCount,
                     'bracket_exists' => $bracketExists,
                 ],
                 new: [
                     'groups_count' => $buildResult['groups_created'],
                     'games_count' => $buildResult['games_created'],
+                    'team_ties_count' => $buildResult['team_ties_created'],
                 ],
                 summary: [
                     'groups_removed' => $groupsRemoved,
                     'games_removed' => $gamesRemoved,
+                    'team_ties_removed' => $teamTiesRemoved,
                     'bracket_removed' => $bracketRemoved,
                     'groups_created' => $buildResult['groups_created'],
                     'players_assigned' => $buildResult['players_assigned'],
                     'games_created' => $buildResult['games_created'],
+                    'team_ties_created' => $buildResult['team_ties_created'],
                 ],
             ));
 
             return $result;
         });
+    }
+
+    private function ensureNoNonPendingTeamTies(Competition $competition): void
+    {
+        $type = $competition->type instanceof CompetitionType
+            ? $competition->type
+            : CompetitionType::from((string) $competition->type);
+
+        if ($type !== CompetitionType::Team) {
+            return;
+        }
+
+        $hasNonPendingTeamTies = TeamTie::query()
+            ->where('competition_id', $competition->id)
+            ->where('status', '!=', TeamTieStatus::Pending)
+            ->exists();
+
+        if ($hasNonPendingTeamTies) {
+            throw ValidationException::withMessages([
+                'competition' => ['No se pueden regenerar los grupos porque ya hay enfrentamientos iniciados o finalizados.'],
+            ]);
+        }
     }
 
     private function deleteBracketGames(Bracket $bracket): int

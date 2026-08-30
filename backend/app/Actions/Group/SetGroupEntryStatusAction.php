@@ -40,6 +40,12 @@ final class SetGroupEntryStatusAction
 
         CompetitionFormatGuard::ensureGroupStage($group->competition);
 
+        if ($group->teamTies()->exists()) {
+            throw ValidationException::withMessages([
+                'group' => ['No se puede cambiar el estado del equipo porque ya hay enfrentamientos generados.'],
+            ]);
+        }
+
         if ($group->competition->brackets()->exists()) {
             throw ValidationException::withMessages([
                 'group' => ['No se puede cambiar el estado del participante cuando ya existe un cuadro eliminatorio.'],

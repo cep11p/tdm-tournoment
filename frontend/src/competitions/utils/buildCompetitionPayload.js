@@ -7,6 +7,7 @@ export const DEFAULT_COMPETITION_FORM_VALUES = {
   category_id: '',
   type: 'singles',
   team_size: 4,
+  team_tie_format_id: '',
   format: 'groups_knockout',
   points_per_set: 11,
   qualified_per_group: 2,
@@ -27,6 +28,7 @@ export function competitionToFormValues(competition) {
     category_id: competition.category_id ?? competition.category_ref?.id ?? '',
     type: competition.type ?? 'singles',
     team_size: competition.team_size ?? 4,
+    team_tie_format_id: competition.team_tie_format_id ?? competition.team_tie_format?.id ?? '',
     format: competition.format ?? 'groups_knockout',
     points_per_set: competition.points_per_set ?? 11,
     qualified_per_group: competition.qualified_per_group ?? 2,
@@ -65,6 +67,7 @@ export function buildCompetitionPayload(form, { structureEditable = true } = {})
 
   if (isTeam) {
     payload.team_size = Number(form.team_size)
+    payload.team_tie_format_id = form.team_tie_format_id === '' ? null : Number(form.team_tie_format_id)
   }
 
   return payload

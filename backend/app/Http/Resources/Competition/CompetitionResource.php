@@ -5,6 +5,7 @@ namespace App\Http\Resources\Competition;
 use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
 use App\Enums\ThirdPlaceMode;
+use App\Http\Resources\TeamTie\TeamTieFormatResource;
 use App\Support\Competition\CompetitionResultResolver;
 use App\Support\Competition\CompetitionStatusResolver;
 use App\Support\Competition\CompetitionStructureGuard;
@@ -51,6 +52,16 @@ class CompetitionResource extends JsonResource
             }),
             'type' => $type,
             'team_size' => $this->team_size,
+            'team_tie_format_id' => $this->team_tie_format_id,
+            'team_tie_format' => $this->whenLoaded('teamTieFormat', function () {
+                if ($this->teamTieFormat === null) {
+                    return null;
+                }
+
+                $this->teamTieFormat->loadMissing(['slots' => fn ($query) => $query->orderBy('slot_order')]);
+
+                return (new TeamTieFormatResource($this->teamTieFormat))->resolve();
+            }),
             'format' => $format,
             'format_label' => $normalizedFormat->label(),
             'has_group_stage' => $normalizedFormat->hasGroupStage(),

@@ -21,14 +21,17 @@ class TeamCompetitionRegistrationTest extends TestCase
     {
         $context = $this->tournamentContext();
         $tournament = $context->createTournament();
+        $format = $context->createTeamTieFormat();
 
         $context->createCompetitionViaApi($tournament->id, [
             'name' => 'Interclubes',
             'type' => 'team',
             'team_size' => 4,
+            'team_tie_format_id' => $format->id,
         ])->assertCreated()
             ->assertJsonPath('data.type', 'team')
-            ->assertJsonPath('data.team_size', 4);
+            ->assertJsonPath('data.team_size', 4)
+            ->assertJsonPath('data.team_tie_format_id', $format->id);
     }
 
     public function test_team_competition_requires_team_size(): void
@@ -38,6 +41,7 @@ class TeamCompetitionRegistrationTest extends TestCase
 
         $context->createCompetitionViaApi($tournament->id, [
             'type' => 'team',
+            'team_tie_format_id' => $context->createTeamTieFormat()->id,
         ])->assertUnprocessable()
             ->assertJsonValidationErrors(['team_size']);
     }
@@ -50,6 +54,7 @@ class TeamCompetitionRegistrationTest extends TestCase
         $context->createCompetitionViaApi($tournament->id, [
             'type' => 'team',
             'team_size' => 1,
+            'team_tie_format_id' => $context->createTeamTieFormat()->id,
         ])->assertUnprocessable()
             ->assertJsonValidationErrors(['team_size']);
     }

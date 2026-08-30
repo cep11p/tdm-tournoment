@@ -34,6 +34,21 @@ class CompetitionEntry extends Model
         return $this->hasMany(GroupEntry::class);
     }
 
+    public function teamTiesAsEntry1(): HasMany
+    {
+        return $this->hasMany(TeamTie::class, 'entry1_id');
+    }
+
+    public function teamTiesAsEntry2(): HasMany
+    {
+        return $this->hasMany(TeamTie::class, 'entry2_id');
+    }
+
+    public function wonTeamTies(): HasMany
+    {
+        return $this->hasMany(TeamTie::class, 'winner_entry_id');
+    }
+
     /**
      * Solo válido para competencias de singles.
      *

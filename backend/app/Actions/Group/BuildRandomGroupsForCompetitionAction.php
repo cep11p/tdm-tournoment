@@ -3,6 +3,7 @@
 namespace App\Actions\Group;
 
 use App\Enums\CompetitionEntryStatus;
+use App\Enums\CompetitionType;
 use App\Models\Competition;
 use App\Models\Group;
 use App\Support\Competition\CompetitionParticipantLabel;
@@ -13,7 +14,8 @@ use Illuminate\Validation\ValidationException;
 final class BuildRandomGroupsForCompetitionAction
 {
     public function __construct(
-        private readonly BuildGroupRoundRobinGamesAction $buildRoundRobin,
+        private readonly BuildGroupRoundRobinGamesAction $buildGameRoundRobin,
+        private readonly BuildGroupRoundRobinTeamTiesAction $buildTeamRoundRobin,
         private readonly PersistGroupEntryAction $persistGroupEntry,
     ) {}
 
@@ -22,6 +24,7 @@ final class BuildRandomGroupsForCompetitionAction
      *     groups_created: int,
      *     players_assigned: int,
      *     games_created: int,
+     *     team_ties_created: int,
      *     groups: Collection<int, Group>,
      * }
      */
@@ -56,6 +59,10 @@ final class BuildRandomGroupsForCompetitionAction
         }
 
         RandomGroupDistributionGuard::ensureValid($entryCount, $groupsCount);
+
+        $type = $competition->type instanceof CompetitionType
+            ? $competition->type
+            : CompetitionType::from((string) $competition->type);
 
         $groupSizes = $this->calculateBalancedGroupSizes($entryCount, $groupsCount);
         $shuffledEntries = $entries->shuffle()->values();
@@ -93,10 +100,20 @@ final class BuildRandomGroupsForCompetitionAction
             ->get();
 
         $gamesCreated = 0;
+        $teamTiesCreated = 0;
 
         foreach ($createdGroups as $group) {
-            // Defensa de dominio: no debería alcanzarse tras validar la distribución.
             if ($group->groupEntries->count() < 2) {
+                continue;
+            }
+
+            if ($type === CompetitionType::Team) {
+                if ($group->teamTies()->exists()) {
+                    continue;
+                }
+
+                $teamTiesCreated += ($this->buildTeamRoundRobin)($group)->count();
+
                 continue;
             }
 
@@ -104,13 +121,14 @@ final class BuildRandomGroupsForCompetitionAction
                 continue;
             }
 
-            $gamesCreated += ($this->buildRoundRobin)($group)->count();
+            $gamesCreated += ($this->buildGameRoundRobin)($group)->count();
         }
 
         return [
             'groups_created' => $groupsCount,
             'players_assigned' => $entryCount,
             'games_created' => $gamesCreated,
+            'team_ties_created' => $teamTiesCreated,
             'groups' => $createdGroups,
         ];
     }

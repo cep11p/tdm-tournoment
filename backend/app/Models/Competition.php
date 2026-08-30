@@ -43,6 +43,7 @@ class Competition extends Model
             'final_best_of' => 'integer',
             'third_place_mode' => ThirdPlaceMode::class,
             'team_size' => 'integer',
+            'team_tie_format_id' => 'integer',
         ];
     }
 
@@ -87,6 +88,16 @@ class Competition extends Model
     public function brackets(): HasMany
     {
         return $this->hasMany(Bracket::class);
+    }
+
+    public function teamTieFormat(): BelongsTo
+    {
+        return $this->belongsTo(TeamTieFormat::class);
+    }
+
+    public function teamTies(): HasMany
+    {
+        return $this->hasMany(TeamTie::class);
     }
 
     private function resolveTeamSize(): int

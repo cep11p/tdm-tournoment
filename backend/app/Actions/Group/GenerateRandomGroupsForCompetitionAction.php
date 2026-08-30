@@ -52,12 +52,14 @@ final class GenerateRandomGroupsForCompetitionAction
                 new: [
                     'groups_count' => $result['groups_created'],
                     'games_count' => $result['games_created'],
+                    'team_ties_count' => $result['team_ties_created'],
                 ],
                 summary: [
                     'requested_groups_count' => $groupsCount,
                     'groups_created' => $result['groups_created'],
                     'players_assigned' => $result['players_assigned'],
                     'games_created' => $result['games_created'],
+                    'team_ties_created' => $result['team_ties_created'],
                 ],
             ));
 

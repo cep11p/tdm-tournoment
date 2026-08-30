@@ -7,6 +7,7 @@ use App\Actions\Group\PersistGroupEntryAction;
 use App\Actions\CompetitionEntry\PersistCompetitionEntryAction;
 use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
+use App\Enums\TeamTieModality;
 use App\Enums\TournamentStatus;
 use App\Models\Bracket;
 use App\Models\Category;
@@ -14,6 +15,9 @@ use App\Models\Competition;
 use App\Enums\GameStatus;
 use App\Models\Game;
 use App\Models\Group;
+use App\Models\TeamTie;
+use App\Models\TeamTieFormat;
+use App\Models\TeamTieFormatSlot;
 use App\Support\Competition\ResolveSinglesEntryForPlayer;
 use App\Models\Player;
 use App\Models\CompetitionEntry;
@@ -69,6 +73,7 @@ final class TournamentTestContext
         int $pointsPerSet,
         CompetitionFormat $format,
         ?int $teamSize = null,
+        ?int $teamTieFormatId = null,
     ): Competition {
         $bestOf = max(1, ($setsToWin * 2) - 1);
 
@@ -79,11 +84,16 @@ final class TournamentTestContext
             'status' => TournamentStatus::Draft,
         ]);
 
+        if ($type === CompetitionType::Team && $teamTieFormatId === null) {
+            $teamTieFormatId = $this->createTeamTieFormat()->id;
+        }
+
         return Competition::query()->create([
             'tournament_id' => $tournament->id,
             'name' => $name,
             'type' => $type,
             'team_size' => $teamSize,
+            'team_tie_format_id' => $type === CompetitionType::Team ? $teamTieFormatId : null,
             'category' => 'primera',
             'category_id' => Category::query()->where('slug', 'primera')->value('id'),
             'format' => $format,
@@ -94,6 +104,44 @@ final class TournamentTestContext
             'semifinal_best_of' => $bestOf,
             'final_best_of' => $bestOf,
         ]);
+    }
+
+    public function createTeamTieFormat(
+        string $name = 'Copa 5',
+        int $victoriesRequired = 3,
+    ): TeamTieFormat {
+        $existing = TeamTieFormat::query()->where('name', $name)->first();
+
+        if ($existing !== null) {
+            $existing->load(['slots' => fn ($query) => $query->orderBy('slot_order')]);
+
+            return $existing;
+        }
+
+        $format = TeamTieFormat::query()->create([
+            'name' => $name,
+            'description' => 'Formato de prueba',
+            'victories_required' => $victoriesRequired,
+            'active' => true,
+        ]);
+
+        $modalities = [
+            TeamTieModality::Singles,
+            TeamTieModality::Singles,
+            TeamTieModality::Doubles,
+            TeamTieModality::Singles,
+            TeamTieModality::Singles,
+        ];
+
+        foreach ($modalities as $index => $modality) {
+            TeamTieFormatSlot::query()->create([
+                'team_tie_format_id' => $format->id,
+                'slot_order' => $index + 1,
+                'modality' => $modality,
+            ]);
+        }
+
+        return $format->fresh(['slots']);
     }
 
     public function createTeamCompetition(
@@ -448,6 +496,61 @@ final class TournamentTestContext
             [],
             $this->authHeaders($roles),
         );
+    }
+
+    public function generateTeamRoundRobin(Group $group, array $roles = ['organizer']): TestResponse
+    {
+        return $this->generateRoundRobin($group, $roles);
+    }
+
+    public function listGroupTeamTies(Group $group, array $roles = ['organizer']): TestResponse
+    {
+        return $this->test->getJson(
+            $this->apiUrl("groups/{$group->id}/team-ties"),
+            $this->authHeaders($roles),
+        );
+    }
+
+    /**
+     * @param  list<CompetitionEntry>  $entries
+     */
+    public function createGroupWithEntries(
+        Competition $competition,
+        array $entries,
+        string $name = 'Grupo A',
+    ): Group {
+        $group = $this->createGroup($competition, $name);
+
+        foreach ($entries as $entry) {
+            $this->assignEntryToGroupViaApi($group, $entry)->assertCreated();
+        }
+
+        return $group->fresh();
+    }
+
+    /**
+     * @return list<CompetitionEntry>
+     */
+    public function registerTeams(
+        Competition $competition,
+        int $teamCount,
+        int $playersPerTeam,
+    ): array {
+        $entries = [];
+
+        for ($teamIndex = 1; $teamIndex <= $teamCount; $teamIndex++) {
+            $players = $this->createPlayers($playersPerTeam);
+            $response = $this->registerTeamViaApi(
+                $competition,
+                "Equipo {$teamIndex}",
+                array_map(fn (Player $player): int => $player->id, $players),
+            );
+
+            $response->assertCreated();
+            $entries[] = CompetitionEntry::query()->findOrFail($response->json('data.id'));
+        }
+
+        return $entries;
     }
 
     public function generateRandomGroups(

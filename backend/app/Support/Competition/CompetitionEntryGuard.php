@@ -20,6 +20,10 @@ final class CompetitionEntryGuard
             return false;
         }
 
+        if (TeamCompetitionStructureGuard::hasTeamTies($competition)) {
+            return false;
+        }
+
         return CompetitionStructureGuard::isStructureEditable($competition);
     }
 
@@ -27,6 +31,10 @@ final class CompetitionEntryGuard
     {
         if (self::hasGeneratedBracket($competition)) {
             return self::LOCK_MESSAGE;
+        }
+
+        if (TeamCompetitionStructureGuard::hasTeamTies($competition)) {
+            return TeamCompetitionStructureGuard::REGISTRATIONS_LOCK_MESSAGE;
         }
 
         return CompetitionStructureGuard::structureLockReason($competition);
@@ -39,6 +47,8 @@ final class CompetitionEntryGuard
                 $field => [self::LOCK_MESSAGE],
             ]);
         }
+
+        TeamCompetitionStructureGuard::ensureRegistrationsEditable($competition, $field);
 
         CompetitionStructureGuard::ensureEditable($competition, $field);
     }

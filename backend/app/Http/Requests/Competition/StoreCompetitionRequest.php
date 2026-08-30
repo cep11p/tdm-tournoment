@@ -26,6 +26,7 @@ class StoreCompetitionRequest extends FormRequest
             'category' => ['sometimes', 'string', 'max:255'],
             'type' => ['required', Rule::enum(CompetitionType::class)],
             'team_size' => ['nullable', 'integer', 'min:'.Competition::TEAM_SIZE_MIN, 'max:'.Competition::TEAM_SIZE_MAX],
+            'team_tie_format_id' => ['nullable', 'integer', Rule::exists('team_tie_formats', 'id')->where('active', true)],
             'format' => ['required', Rule::enum(CompetitionFormat::class)],
             'points_per_set' => ['required', 'integer', 'min:1'],
             'qualified_per_group' => ['nullable', 'integer', 'min:1'],
@@ -49,8 +50,10 @@ class StoreCompetitionRequest extends FormRequest
             if ($type === CompetitionType::Team) {
                 if (! $this->filled('team_size')) {
                     $validator->errors()->add('team_size', 'El tamaño del equipo es obligatorio para competencias por equipos.');
+                }
 
-                    return;
+                if (! $this->filled('team_tie_format_id')) {
+                    $validator->errors()->add('team_tie_format_id', 'El formato de enfrentamiento es obligatorio para competencias por equipos.');
                 }
 
                 return;
@@ -58,6 +61,10 @@ class StoreCompetitionRequest extends FormRequest
 
             if ($this->filled('team_size')) {
                 $validator->errors()->add('team_size', 'El tamaño del equipo solo aplica a competencias por equipos.');
+            }
+
+            if ($this->filled('team_tie_format_id')) {
+                $validator->errors()->add('team_tie_format_id', 'El formato de enfrentamiento solo aplica a competencias por equipos.');
             }
         });
     }

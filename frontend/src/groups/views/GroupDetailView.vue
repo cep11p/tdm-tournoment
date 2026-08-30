@@ -39,6 +39,11 @@ import {
 import GroupPlayerStatusModal from '../components/GroupPlayerStatusModal.vue'
 import { getGroupPlayerStatusLabel } from '../constants/groupPlayerStatus'
 import GroupService from '../services/GroupService'
+import TeamTieService from '../../team-ties/services/TeamTieService'
+import {
+  getTeamTieStatusBadgeClasses,
+  getTeamTieStatusLabel,
+} from '../../team-ties/constants/teamTieStatus'
 
 const route = useRoute()
 const { can } = usePermissions()
@@ -56,7 +61,8 @@ const qualifiedPerGroup = computed(() => competition.value?.qualified_per_group 
 const participantKind = computed(() => getParticipantKind(competition.value))
 const isMultiMember = computed(() => isMultiMemberCompetition(competition.value))
 const isTeam = computed(() => isTeamCompetition(competition.value))
-const canGenerateRoundRobin = computed(() => !isTeam.value)
+const hasTeamTieFormat = computed(() => Boolean(competition.value?.team_tie_format_id))
+const canGenerateRoundRobin = computed(() => !isTeam.value || hasTeamTieFormat.value)
 
 const competitionStructureLockReason = computed(() => structureLockReason(competition.value))
 
@@ -97,7 +103,7 @@ const buildQualification = (standing, position) =>
 const isPlayerActive = (groupPlayer) => (groupPlayer?.status ?? 'active') === 'active'
 
 const canChangePlayerStatus = (groupPlayer) =>
-  isPlayerActive(groupPlayer) && !hasBracket.value && !hasGroupGames.value
+  isPlayerActive(groupPlayer) && !hasBracket.value && !hasGroupSchedule.value
 
 const loadGroupPlayers = async () => {
   isLoadingGroupPlayers.value = true
@@ -274,16 +280,30 @@ const loadStandings = async () => {
 }
 
 const games = ref([])
+const teamTies = ref([])
 const isLoadingGames = ref(false)
+const isLoadingTeamTies = ref(false)
 const gamesError = ref('')
+const teamTiesError = ref('')
 const selectedGame = ref(null)
 const resultSuccessMessage = ref('')
 const resultError = ref('')
 
 const hasGroupGames = computed(() => games.value.length > 0)
+const hasGroupTeamTies = computed(() => teamTies.value.length > 0)
+const hasGroupSchedule = computed(() =>
+  isTeam.value ? hasGroupTeamTies.value : hasGroupGames.value,
+)
+
+const scheduleSectionTitle = computed(() =>
+  isTeam.value ? 'Enfrentamientos del grupo' : 'Partidos del grupo',
+)
 
 const isLoadingOperationalSummary = computed(
-  () => isLoadingGroupPlayers.value || isLoadingStandings.value || isLoadingGames.value,
+  () =>
+    isLoadingGroupPlayers.value ||
+    isLoadingStandings.value ||
+    (isTeam.value ? isLoadingTeamTies.value : isLoadingGames.value),
 )
 
 const groupPlayersTitle = computed(() => {
@@ -291,7 +311,7 @@ const groupPlayersTitle = computed(() => {
     return 'Posiciones del grupo'
   }
 
-  if (hasGroupGames.value) {
+  if (hasGroupSchedule.value) {
     const label = participantPlural(competition.value)
     return `${label.charAt(0).toUpperCase()}${label.slice(1)} del grupo`
   }
@@ -299,6 +319,37 @@ const groupPlayersTitle = computed(() => {
   const label = participantPlural(competition.value)
   return `${label.charAt(0).toUpperCase()}${label.slice(1)} asignados`
 })
+
+const loadGroupTeamTies = async () => {
+  if (!groupId.value) {
+    teamTies.value = []
+    return
+  }
+
+  isLoadingTeamTies.value = true
+  teamTiesError.value = ''
+
+  try {
+    teamTies.value = await TeamTieService.listByGroup(groupId.value)
+  } catch (error) {
+    teamTies.value = []
+    teamTiesError.value =
+      error?.response?.data?.message || 'No se pudieron cargar los enfrentamientos del grupo.'
+  } finally {
+    isLoadingTeamTies.value = false
+  }
+}
+
+const loadGroupSchedule = async () => {
+  if (isTeam.value) {
+    await loadGroupTeamTies()
+    games.value = []
+    return
+  }
+
+  await loadGroupGames()
+  teamTies.value = []
+}
 
 const loadGroupGames = async () => {
   if (!competitionId.value || !groupId.value) {
@@ -323,6 +374,39 @@ const loadGroupGames = async () => {
     isLoadingGames.value = false
   }
 }
+
+const teamTieMatchupLabel = (teamTie) => {
+  const entry1 = teamTie?.entry1?.display_name ?? 'Equipo 1'
+  const entry2 = teamTie?.entry2?.display_name ?? 'Equipo 2'
+
+  return `${entry1} vs ${entry2}`
+}
+
+const teamTiesByRound = computed(() => {
+  const rounds = new Map()
+
+  for (const teamTie of [...teamTies.value].sort(compareByGroupSchedule)) {
+    const roundNumber = teamTie.group_round
+
+    if (roundNumber == null) {
+      continue
+    }
+
+    if (!rounds.has(roundNumber)) {
+      rounds.set(roundNumber, [])
+    }
+
+    rounds.get(roundNumber).push(teamTie)
+  }
+
+  return [...rounds.entries()]
+    .sort(([leftRound], [rightRound]) => leftRound - rightRound)
+    .map(([roundNumber, roundTeamTies]) => ({
+      roundNumber,
+      label: `Ronda ${roundNumber}`,
+      teamTies: roundTeamTies,
+    }))
+})
 
 const isByeGame = isGameBye
 
@@ -374,6 +458,26 @@ const compareByGroupSchedule = (left, right) => {
 
   return left.id - right.id
 }
+
+const pendingTeamTies = computed(() =>
+  teamTies.value.filter((teamTie) => teamTie.status === 'pending'),
+)
+
+const scheduleCount = computed(() =>
+  isTeam.value ? teamTies.value.length : games.value.length,
+)
+
+const pendingScheduleCount = computed(() =>
+  isTeam.value ? pendingTeamTies.value.length : pendingLoadGames.value.length,
+)
+
+const finishedScheduleCount = computed(() =>
+  isTeam.value
+    ? teamTies.value.filter((teamTie) => teamTie.status === 'finished').length
+    : finishedGames.value.length,
+)
+
+const scheduleCountLabel = computed(() => (isTeam.value ? 'Enfrentamientos' : 'Partidos'))
 
 const pendingLoadGames = computed(() =>
   games.value.filter(canLoadResult).sort(compareByGroupSchedule),
@@ -559,7 +663,7 @@ const handleResultSaved = async () => {
   resultError.value = ''
 
   try {
-    await Promise.all([loadGroupGames(), loadStandings()])
+    await Promise.all([loadGroupSchedule(), isTeam.value ? Promise.resolve() : loadStandings()])
     resultSuccessMessage.value = 'Resultado registrado correctamente.'
   } catch (error) {
     resultError.value =
@@ -573,9 +677,15 @@ const handleGenerateRoundRobin = async () => {
   roundRobinSuccessMessage.value = ''
 
   try {
-    const createdGames = await GroupService.generateRoundRobin(groupId.value)
-    roundRobinSuccessMessage.value = `Todos contra todos generado. Partidos creados: ${createdGames.length}.`
-    await Promise.all([loadGroupGames(), loadStandings()])
+    const createdItems = await GroupService.generateRoundRobin(groupId.value)
+    const createdCount = createdItems.length
+    roundRobinSuccessMessage.value = isTeam.value
+      ? `Todos contra todos generado. Enfrentamientos creados: ${createdCount}.`
+      : `Todos contra todos generado. Partidos creados: ${createdCount}.`
+    await Promise.all([
+      loadGroupSchedule(),
+      isTeam.value ? Promise.resolve() : loadStandings(),
+    ])
   } catch (error) {
     roundRobinError.value =
       error?.response?.data?.errors?.group?.[0] ||
@@ -597,16 +707,16 @@ const closePlayerStatusModal = () => {
 
 const handlePlayerStatusSaved = async () => {
   closePlayerStatusModal()
-  await Promise.all([loadGroupPlayers(), loadStandings(), loadGroupGames()])
+  await Promise.all([loadGroupPlayers(), isTeam.value ? Promise.resolve() : loadStandings(), loadGroupSchedule()])
   playerStatusSuccessMessage.value = `Estado del ${participantSingular(competition.value)} actualizado correctamente.`
 }
 
 onMounted(async () => {
+  await loadCompetition()
   await Promise.all([
     loadGroupPlayers(),
-    loadCompetition(),
-    loadStandings(),
-    loadGroupGames(),
+    isTeam.value ? Promise.resolve() : loadStandings(),
+    loadGroupSchedule(),
   ])
 })
 </script>
@@ -632,6 +742,7 @@ onMounted(async () => {
         <AppBackButton :fallback-to="competitionId ? `/competitions/${competitionId}` : '/competitions'" />
 
         <RouterLink
+          v-if="!isTeam"
           :to="`/groups/${groupId}/standings?competitionId=${competitionId}&groupName=${encodeURIComponent(groupName)}`"
           class="text-sm font-medium text-slate-700 hover:underline dark:text-slate-300"
         >
@@ -663,25 +774,25 @@ onMounted(async () => {
         </div>
 
         <div>
-          <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Partidos</dt>
-          <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ games.length }}</dd>
+          <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ scheduleCountLabel }}</dt>
+          <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ scheduleCount }}</dd>
         </div>
 
         <div>
           <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Pendientes</dt>
           <dd class="mt-1 font-semibold text-amber-800 dark:text-amber-200">
-            {{ pendingLoadGames.length }}
+            {{ pendingScheduleCount }}
           </dd>
         </div>
 
         <div>
           <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Finalizados</dt>
           <dd class="mt-1 font-semibold text-emerald-800 dark:text-emerald-200">
-            {{ finishedGames.length }}
+            {{ finishedScheduleCount }}
           </dd>
         </div>
 
-        <div>
+        <div v-if="!isTeam">
           <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
             Clasifican por grupo
           </dt>
@@ -815,10 +926,10 @@ onMounted(async () => {
       class="space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
     >
       <div class="flex items-center justify-between gap-3">
-        <p class="font-medium text-slate-700 dark:text-slate-200">Partidos del grupo</p>
+        <p class="font-medium text-slate-700 dark:text-slate-200">{{ scheduleSectionTitle }}</p>
 
         <button
-          v-if="!hasGroupGames && canManageGroups && canGenerateRoundRobin"
+          v-if="!hasGroupSchedule && canManageGroups && canGenerateRoundRobin"
           type="button"
           class="shrink-0 rounded-md bg-emerald-700 px-3 py-2 font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-emerald-600 dark:hover:bg-emerald-500"
           :disabled="isGeneratingRoundRobin"
@@ -829,21 +940,80 @@ onMounted(async () => {
       </div>
 
       <p
-        v-if="!hasGroupGames && isTeam"
+        v-if="!hasGroupSchedule && isTeam && !hasTeamTieFormat"
         class="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
       >
-        La generación de enfrentamientos por equipos estará disponible en la siguiente etapa.
+        Configurá un formato de enfrentamiento en la competencia antes de generar el calendario.
       </p>
 
       <p v-if="roundRobinError" class="text-red-600 dark:text-red-400">{{ roundRobinError }}</p>
       <p v-if="roundRobinSuccessMessage" class="text-emerald-700 dark:text-emerald-300">
         {{ roundRobinSuccessMessage }}
       </p>
-      <p v-if="resultSuccessMessage" class="text-emerald-700 dark:text-emerald-300">
+      <p v-if="resultSuccessMessage && !isTeam" class="text-emerald-700 dark:text-emerald-300">
         {{ resultSuccessMessage }}
       </p>
-      <p v-if="resultError" class="text-red-600 dark:text-red-400">{{ resultError }}</p>
+      <p v-if="resultError && !isTeam" class="text-red-600 dark:text-red-400">{{ resultError }}</p>
 
+      <template v-if="isTeam">
+        <p v-if="isLoadingTeamTies" class="text-slate-600 dark:text-slate-300">
+          Cargando enfrentamientos...
+        </p>
+        <p v-else-if="teamTiesError" class="text-red-600 dark:text-red-400">{{ teamTiesError }}</p>
+
+        <div
+          v-else-if="!hasGroupTeamTies"
+          class="rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
+        >
+          Todavía no hay enfrentamientos generados para este grupo.
+        </div>
+
+        <div v-else class="space-y-4">
+          <details
+            v-for="(roundGroup, roundIndex) in teamTiesByRound"
+            :key="roundGroup.roundNumber"
+            :open="roundIndex === 0"
+            class="group/team-round overflow-hidden rounded-md border border-slate-200 dark:border-slate-700"
+          >
+            <summary :class="gamesAccordionSummaryClasses">
+              <span class="flex-1">
+                {{ roundGroup.label }} ({{ roundGroup.teamTies.length }})
+              </span>
+              <ChevronDownIcon
+                class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open/team-round:rotate-180"
+                aria-hidden="true"
+              />
+            </summary>
+
+            <ul class="space-y-2 border-t border-slate-200 px-1 pb-1 pt-2 dark:border-slate-700">
+              <li
+                v-for="teamTie in roundGroup.teamTies"
+                :key="`team-tie-${teamTie.id}`"
+                :class="pendingGameCardClasses"
+              >
+                <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                  <p class="min-w-0 flex-1 font-medium text-slate-900 dark:text-slate-100">
+                    {{ teamTieMatchupLabel(teamTie) }}
+                  </p>
+
+                  <span
+                    class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+                    :class="getTeamTieStatusBadgeClasses(teamTie.status)"
+                  >
+                    {{ getTeamTieStatusLabel(teamTie.status) }}
+                  </span>
+                </div>
+
+                <p class="text-xs text-slate-500 dark:text-slate-400">
+                  {{ teamTie.format?.name }} · gana con {{ teamTie.format?.victories_required }}
+                </p>
+              </li>
+            </ul>
+          </details>
+        </div>
+      </template>
+
+      <template v-else>
       <p v-if="isLoadingGames" class="text-slate-600 dark:text-slate-300">Cargando partidos...</p>
       <p v-else-if="gamesError" class="text-red-600 dark:text-red-400">{{ gamesError }}</p>
 
@@ -1042,9 +1212,11 @@ onMounted(async () => {
           </ul>
         </details>
       </div>
+      </template>
     </div>
 
     <GameResultModal
+      v-if="!isTeam"
       :show="Boolean(selectedGame)"
       :game="selectedGame"
       @close="closeResultModal"
