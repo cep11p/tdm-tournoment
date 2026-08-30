@@ -6,6 +6,7 @@ use App\Actions\Game\CreateGameAction;
 use App\Models\Game;
 use App\Models\Group;
 use App\Support\Game\GameFormatResolver;
+use App\Support\Competition\TeamCompetitionSchedulingGuard;
 use App\Support\Group\RoundRobinScheduleBuilder;
 use Illuminate\Support\Collection;
 
@@ -22,6 +23,8 @@ final class BuildGroupRoundRobinGamesAction
     public function __invoke(Group $group): Collection
     {
         $group->loadMissing('competition');
+
+        TeamCompetitionSchedulingGuard::ensureRoundRobinAllowed($group->competition);
 
         $entryIds = $group->groupEntries()
             ->orderBy('competition_entry_id')

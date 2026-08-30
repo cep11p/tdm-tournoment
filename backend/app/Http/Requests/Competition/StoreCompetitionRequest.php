@@ -5,8 +5,10 @@ namespace App\Http\Requests\Competition;
 use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
 use App\Enums\ThirdPlaceMode;
+use App\Models\Competition;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreCompetitionRequest extends FormRequest
 {
@@ -23,6 +25,7 @@ class StoreCompetitionRequest extends FormRequest
             'category_id' => ['required', 'integer', Rule::exists('categories', 'id')->where('active', true)],
             'category' => ['sometimes', 'string', 'max:255'],
             'type' => ['required', Rule::enum(CompetitionType::class)],
+            'team_size' => ['nullable', 'integer', 'min:'.Competition::TEAM_SIZE_MIN, 'max:'.Competition::TEAM_SIZE_MAX],
             'format' => ['required', Rule::enum(CompetitionFormat::class)],
             'points_per_set' => ['required', 'integer', 'min:1'],
             'qualified_per_group' => ['nullable', 'integer', 'min:1'],
@@ -32,6 +35,31 @@ class StoreCompetitionRequest extends FormRequest
             'final_best_of' => ['nullable', 'integer', Rule::in([1, 3, 5, 7])],
             'third_place_mode' => ['nullable', Rule::enum(ThirdPlaceMode::class)],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $type = CompetitionType::tryFrom((string) $this->input('type'));
+
+            if ($type === null) {
+                return;
+            }
+
+            if ($type === CompetitionType::Team) {
+                if (! $this->filled('team_size')) {
+                    $validator->errors()->add('team_size', 'El tamaño del equipo es obligatorio para competencias por equipos.');
+
+                    return;
+                }
+
+                return;
+            }
+
+            if ($this->filled('team_size')) {
+                $validator->errors()->add('team_size', 'El tamaño del equipo solo aplica a competencias por equipos.');
+            }
+        });
     }
 
     protected function prepareForValidation(): void

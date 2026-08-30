@@ -48,6 +48,13 @@ class BulkStoreRegistrationRequest extends FormRequest
                     'El registro masivo de parejas todavía no está disponible.',
                 );
             }
+
+            if ($type === CompetitionType::Team) {
+                $validator->errors()->add(
+                    'player_ids',
+                    'El registro masivo de equipos todavía no está disponible.',
+                );
+            }
         });
     }
 }

@@ -51,6 +51,7 @@ const form = reactive({
   name: '',
   category_id: '',
   type: 'singles',
+  team_size: 4,
   format: 'groups_knockout',
   points_per_set: 11,
   qualified_per_group: 2,
@@ -67,6 +68,7 @@ const syncForm = (values) => {
   form.name = values.name ?? ''
   form.category_id = values.category_id ?? ''
   form.type = values.type ?? 'singles'
+  form.team_size = values.team_size ?? 4
   form.format = values.format ?? 'groups_knockout'
   form.points_per_set = values.points_per_set ?? 11
   form.qualified_per_group = values.qualified_per_group ?? 2
@@ -88,6 +90,8 @@ watch(
 const showGroupStageFields = computed(
   () => form.format === 'groups_knockout' || form.format === 'manual',
 )
+
+const showTeamSizeField = computed(() => form.type === 'team')
 
 const fieldsDisabled = computed(
   () => props.mode === 'edit' && !props.structureEditable,
@@ -197,9 +201,32 @@ onMounted(loadCategories)
           >
             <option value="singles">{{ getCompetitionTypeLabel('singles') }}</option>
             <option value="doubles">{{ getCompetitionTypeLabel('doubles') }}</option>
+            <option value="team">{{ getCompetitionTypeLabel('team') }}</option>
           </select>
           <p v-if="fieldError('type')" class="text-xs text-red-600 dark:text-red-400">
             {{ fieldError('type') }}
+          </p>
+        </div>
+
+        <div v-if="showTeamSizeField" class="space-y-1">
+          <label class="block text-sm font-medium text-slate-700 dark:text-slate-200" for="competition-team-size">
+            Tamaño del equipo
+          </label>
+          <input
+            id="competition-team-size"
+            v-model.number="form.team_size"
+            type="number"
+            min="2"
+            max="20"
+            required
+            :disabled="fieldsDisabled || isSubmitting"
+            :class="structuralInputClass"
+          />
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            Cantidad de jugadores que debe tener cada equipo.
+          </p>
+          <p v-if="fieldError('team_size')" class="text-xs text-red-600 dark:text-red-400">
+            {{ fieldError('team_size') }}
           </p>
         </div>
 

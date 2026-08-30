@@ -20,7 +20,7 @@ const props = defineProps({
     type: Object,
     default: null,
   },
-  isDoubles: {
+  isMultiMember: {
     type: Boolean,
     default: false,
   },
@@ -49,12 +49,12 @@ const entryDisplayName = computed(() => {
 })
 
 const modalTitle = computed(() =>
-  props.isDoubles ? 'Cambiar estado de la pareja' : 'Cambiar estado del jugador',
+  props.isMultiMember ? 'Cambiar estado de la participación' : 'Cambiar estado del jugador',
 )
 
 const statusHelpText = computed(() =>
-  props.isDoubles
-    ? 'Esta acción cerrará automáticamente los partidos pendientes o en curso de la pareja a favor de sus rivales. No se modificarán partidos ya finalizados.'
+  props.isMultiMember
+    ? 'Esta acción cerrará automáticamente los partidos pendientes o en curso de la participación a favor de sus rivales. No se modificarán partidos ya finalizados.'
     : 'Esta acción cerrará automáticamente los partidos pendientes o en curso del jugador a favor de sus rivales. No se modificarán partidos ya finalizados.',
 )
 
@@ -170,7 +170,7 @@ const handleSubmit = async () => {
               {{ entryDisplayName }}
             </p>
             <p
-              v-if="isDoubles && groupEntry.members?.length"
+              v-if="isMultiMember && groupEntry.members?.length"
               class="mt-1 text-xs text-slate-500 dark:text-slate-400"
             >
               {{

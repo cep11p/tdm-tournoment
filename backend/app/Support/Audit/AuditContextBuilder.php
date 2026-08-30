@@ -87,6 +87,22 @@ final class AuditContextBuilder
     }
 
     /**
+     * @param  Collection<int, Player>  $players
+     * @return array<string, mixed>
+     */
+    public static function fromTeamRegistrationContext(
+        Competition $competition,
+        CompetitionEntry $entry,
+        Collection $players,
+    ): array {
+        $context = self::fromDoublesRegistrationContext($competition, $entry, $players);
+
+        return array_merge($context, [
+            'team_name' => $entry->display_name ?? $context['display_name'],
+        ]);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public static function fromCompetition(Competition $competition, ?int $bracketId = null): array

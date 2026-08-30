@@ -24,6 +24,15 @@ const RegistrationService = {
     return unwrap(response) ?? null
   },
 
+  async registerTeam(competitionId, name, playerIds) {
+    const response = await httpClient.post(`/competitions/${competitionId}/registrations`, {
+      name,
+      player_ids: playerIds,
+    })
+
+    return unwrap(response) ?? null
+  },
+
   async bulkRegister(competitionId, playerIds) {
     const response = await httpClient.post(`/competitions/${competitionId}/registrations/bulk`, {
       player_ids: playerIds,

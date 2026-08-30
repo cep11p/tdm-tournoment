@@ -87,7 +87,7 @@ final class CreateManualGameAction
      */
     private function resolveEntries(Competition $competition, array $payload): array
     {
-        if ($competition->type === CompetitionType::Doubles) {
+        if ($competition->type?->isMultiMember() === true) {
             return [
                 $this->resolveEntryById($competition, (int) $payload['entry1_id'], 'entry1_id'),
                 $this->resolveEntryById($competition, (int) $payload['entry2_id'], 'entry2_id'),
@@ -121,18 +121,25 @@ final class CreateManualGameAction
             ]);
         }
 
-        if ($competition->type === CompetitionType::Doubles && $entry->members->count() !== 2) {
-            throw ValidationException::withMessages([
-                $field => ['La participación no es una pareja válida para esta competencia.'],
-            ]);
-        }
+        $expectedCount = $competition->expectedMemberCount();
 
-        if ($competition->type === CompetitionType::Singles && $entry->members->count() !== 1) {
+        if ($entry->members->count() !== $expectedCount) {
+            $type = $competition->type instanceof CompetitionType
+                ? $competition->type
+                : CompetitionType::from((string) $competition->type);
+
+            $message = match ($type) {
+                CompetitionType::Singles => 'La participación no es un jugador válido para esta competencia.',
+                CompetitionType::Doubles => 'La participación no es una pareja válida para esta competencia.',
+                CompetitionType::Team => 'La participación no es un equipo válido para esta competencia.',
+            };
+
             throw ValidationException::withMessages([
-                $field => ['La participación no es un jugador válido para esta competencia.'],
+                $field => [$message],
             ]);
         }
 
         return $entry;
     }
 }
+

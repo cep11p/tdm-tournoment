@@ -45,24 +45,29 @@ class ApplyGroupManualTiebreakRequest extends FormRequest
             }
 
             $group->loadMissing('competition');
-            $isDoubles = $group->competition?->type === CompetitionType::Doubles;
+            $type = $group->competition?->type instanceof CompetitionType
+                ? $group->competition->type
+                : null;
+            $isMultiMember = $type?->isMultiMember() === true;
             $hasEntryIds = is_array($this->input('entry_ids'));
             $hasPlayerIds = is_array($this->input('player_ids'));
 
-            if ($isDoubles && ! $hasEntryIds) {
-                $validator->errors()->add('entry_ids', 'Se requiere entry_ids para desempatar parejas.');
+            if ($isMultiMember && ! $hasEntryIds) {
+                $label = $type->isTeam() ? 'equipos' : 'parejas';
+                $validator->errors()->add('entry_ids', "Se requiere entry_ids para desempatar {$label}.");
 
                 return;
             }
 
-            if (! $isDoubles && ! $hasEntryIds && ! $hasPlayerIds) {
+            if (! $isMultiMember && ! $hasEntryIds && ! $hasPlayerIds) {
                 $validator->errors()->add('entry_ids', 'Se requiere entry_ids o player_ids.');
 
                 return;
             }
 
-            if ($isDoubles && $hasPlayerIds) {
-                $validator->errors()->add('player_ids', 'No se puede desempatar parejas usando player_ids.');
+            if ($isMultiMember && $hasPlayerIds) {
+                $label = $type->isTeam() ? 'equipos' : 'parejas';
+                $validator->errors()->add('player_ids', "No se puede desempatar {$label} usando player_ids.");
 
                 return;
             }

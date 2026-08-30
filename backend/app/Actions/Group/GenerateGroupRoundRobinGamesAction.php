@@ -9,6 +9,7 @@ use App\Models\Group;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
+use App\Support\Competition\TeamCompetitionSchedulingGuard;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +30,7 @@ final class GenerateGroupRoundRobinGamesAction
         $group->loadMissing('competition.tournament');
         TournamentLifecycleGuard::ensureMutableForGroup($group);
         CompetitionFormatGuard::ensureGroupStage($group->competition);
+        TeamCompetitionSchedulingGuard::ensureRoundRobinAllowed($group->competition);
 
         $entryCount = $group->groupEntries()->count();
 

@@ -22,9 +22,11 @@ class SetGroupPlayerStatusRequest extends FormRequest
         /** @var Group|null $group */
         $group = $this->route('group');
         $group?->loadMissing('competition');
-        $isDoubles = $group?->competition?->type === CompetitionType::Doubles;
+        $type = $group?->competition?->type instanceof CompetitionType
+            ? $group->competition->type
+            : null;
 
-        $identifierRules = $isDoubles
+        $identifierRules = $type?->isMultiMember() === true
             ? [
                 'competition_entry_id' => ['required', 'integer', 'exists:competition_entries,id'],
             ]
@@ -53,13 +55,17 @@ class SetGroupPlayerStatusRequest extends FormRequest
 
             /** @var Group|null $group */
             $group = $this->route('group');
+            $type = $group?->competition?->type instanceof CompetitionType
+                ? $group->competition->type
+                : null;
 
-            if (! $group instanceof Group || $group->competition?->type !== CompetitionType::Doubles) {
+            if ($type?->isMultiMember() !== true) {
                 return;
             }
 
             if ($this->filled('player_id')) {
-                $validator->errors()->add('player_id', 'No se puede cambiar el estado de una pareja usando player_id.');
+                $label = $type->isTeam() ? 'equipo' : 'pareja';
+                $validator->errors()->add('player_id', "No se puede cambiar el estado de un {$label} usando player_id.");
             }
         });
     }

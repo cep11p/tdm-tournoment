@@ -50,6 +50,7 @@ class CompetitionResource extends JsonResource
                 ];
             }),
             'type' => $type,
+            'team_size' => $this->team_size,
             'format' => $format,
             'format_label' => $normalizedFormat->label(),
             'has_group_stage' => $normalizedFormat->hasGroupStage(),

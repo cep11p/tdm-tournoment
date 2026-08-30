@@ -9,7 +9,13 @@ import { usePermissions } from '../../composables/usePermissions'
 import BracketService from '../../brackets/services/BracketService'
 import CompetitionService from '../../competitions/services/CompetitionService'
 import { structureLockReason } from '../../competitions/utils/competitionStructure'
-import { isDoublesCompetition } from '../../shared/constants/competitionType'
+import {
+  getParticipantKind,
+  isMultiMemberCompetition,
+  isTeamCompetition,
+  participantPlural,
+  participantSingular,
+} from '../../shared/constants/competitionType'
 import GameResultModal from '../../games/components/GameResultModal.vue'
 import GameService from '../../games/services/GameService'
 import {
@@ -47,7 +53,10 @@ const hasBracket = ref(false)
 
 const qualifiedPerGroup = computed(() => competition.value?.qualified_per_group ?? 2)
 
-const isDoubles = computed(() => isDoublesCompetition(competition.value))
+const participantKind = computed(() => getParticipantKind(competition.value))
+const isMultiMember = computed(() => isMultiMemberCompetition(competition.value))
+const isTeam = computed(() => isTeamCompetition(competition.value))
+const canGenerateRoundRobin = computed(() => !isTeam.value)
 
 const competitionStructureLockReason = computed(() => structureLockReason(competition.value))
 
@@ -210,14 +219,23 @@ const groupPlayersAccordionIconClasses =
 
 const groupPlayersCount = computed(() => displayedGroupPlayers.value.length)
 
+const participantsSummaryLabel = computed(() => {
+  const label = participantPlural(competition.value)
+
+  return label.charAt(0).toUpperCase() + label.slice(1)
+})
+
+const assignedParticipantsEmptyLabel = computed(() => {
+  const label = participantPlural(competition.value)
+
+  return `${label} asignados`
+})
+
 const groupPlayersCountLabel = computed(() => {
   const count = groupPlayersCount.value
+  const label = participantPlural(competition.value)
 
-  if (isDoubles.value) {
-    return `${count} pareja${count === 1 ? '' : 's'}`
-  }
-
-  return `${count} jugador${count === 1 ? '' : 'es'}`
+  return `${count} ${label}`
 })
 
 const groupEntryDisplayName = (groupPlayer) =>
@@ -274,10 +292,12 @@ const groupPlayersTitle = computed(() => {
   }
 
   if (hasGroupGames.value) {
-    return isDoubles.value ? 'Parejas del grupo' : 'Jugadores del grupo'
+    const label = participantPlural(competition.value)
+    return `${label.charAt(0).toUpperCase()}${label.slice(1)} del grupo`
   }
 
-  return isDoubles.value ? 'Parejas asignadas' : 'Jugadores asignados'
+  const label = participantPlural(competition.value)
+  return `${label.charAt(0).toUpperCase()}${label.slice(1)} asignados`
 })
 
 const loadGroupGames = async () => {
@@ -578,9 +598,7 @@ const closePlayerStatusModal = () => {
 const handlePlayerStatusSaved = async () => {
   closePlayerStatusModal()
   await Promise.all([loadGroupPlayers(), loadStandings(), loadGroupGames()])
-  playerStatusSuccessMessage.value = isDoubles.value
-    ? 'Estado de la pareja actualizado correctamente.'
-    : 'Estado del jugador actualizado correctamente.'
+  playerStatusSuccessMessage.value = `Estado del ${participantSingular(competition.value)} actualizado correctamente.`
 }
 
 onMounted(async () => {
@@ -640,7 +658,7 @@ onMounted(async () => {
 
       <dl v-else class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div>
-          <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ isDoubles ? 'Parejas' : 'Jugadores' }}</dt>
+          <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ participantsSummaryLabel }}</dt>
           <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ groupPlayersCount }}</dd>
         </div>
 
@@ -714,7 +732,7 @@ onMounted(async () => {
           v-else-if="groupPlayers.length === 0"
           class="rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
         >
-          Este grupo todavía no tiene {{ isDoubles ? 'parejas asignadas' : 'jugadores asignados' }}.
+          Este grupo todavía no tiene {{ assignedParticipantsEmptyLabel }}.
         </div>
 
         <div v-else class="space-y-1.5">
@@ -767,7 +785,7 @@ onMounted(async () => {
             </div>
 
             <p
-              v-if="isDoubles && entry.groupPlayer.members?.length"
+              v-if="isMultiMember && entry.groupPlayer.members?.length"
               class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
             >
               {{
@@ -800,7 +818,7 @@ onMounted(async () => {
         <p class="font-medium text-slate-700 dark:text-slate-200">Partidos del grupo</p>
 
         <button
-          v-if="!hasGroupGames && canManageGroups"
+          v-if="!hasGroupGames && canManageGroups && canGenerateRoundRobin"
           type="button"
           class="shrink-0 rounded-md bg-emerald-700 px-3 py-2 font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-emerald-600 dark:hover:bg-emerald-500"
           :disabled="isGeneratingRoundRobin"
@@ -809,6 +827,13 @@ onMounted(async () => {
           {{ isGeneratingRoundRobin ? 'Generando...' : 'Generar todos contra todos' }}
         </button>
       </div>
+
+      <p
+        v-if="!hasGroupGames && isTeam"
+        class="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+      >
+        La generación de enfrentamientos por equipos estará disponible en la siguiente etapa.
+      </p>
 
       <p v-if="roundRobinError" class="text-red-600 dark:text-red-400">{{ roundRobinError }}</p>
       <p v-if="roundRobinSuccessMessage" class="text-emerald-700 dark:text-emerald-300">
@@ -1030,7 +1055,7 @@ onMounted(async () => {
       :show="Boolean(selectedGroupEntryForStatus)"
       :group-id="groupId"
       :group-entry="selectedGroupEntryForStatus"
-      :is-doubles="isDoubles"
+      :is-multi-member="isMultiMember"
       @close="closePlayerStatusModal"
       @saved="handlePlayerStatusSaved"
     />

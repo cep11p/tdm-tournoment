@@ -18,19 +18,24 @@ final class ResolveCompetitionEntryForGroup
      */
     public function __invoke(Competition $competition, array $payload): CompetitionEntry
     {
-        $competition->loadMissing('tournament');
-        $isDoubles = $competition->type === CompetitionType::Doubles;
+        $type = $competition->type instanceof CompetitionType
+            ? $competition->type
+            : CompetitionType::from((string) $competition->type);
 
-        if ($isDoubles) {
+        if ($type->isMultiMember()) {
             if (! isset($payload['competition_entry_id'])) {
+                $label = $type->isTeam() ? 'equipo' : 'pareja';
+
                 throw ValidationException::withMessages([
-                    'competition_entry_id' => ['Se requiere competition_entry_id para asignar una pareja al grupo.'],
+                    'competition_entry_id' => ["Se requiere competition_entry_id para asignar un {$label} al grupo."],
                 ]);
             }
 
             if (isset($payload['player_id'])) {
+                $label = $type->isTeam() ? 'equipo' : 'pareja';
+
                 throw ValidationException::withMessages([
-                    'player_id' => ['No se puede asignar una pareja al grupo usando player_id.'],
+                    'player_id' => ["No se puede asignar un {$label} al grupo usando player_id."],
                 ]);
             }
 
@@ -64,15 +69,22 @@ final class ResolveCompetitionEntryForGroup
             ]);
         }
 
-        if ($competition->type === CompetitionType::Doubles && $entry->members->count() !== 2) {
-            throw ValidationException::withMessages([
-                'competition_entry_id' => ['La participación no es una pareja válida para esta competencia.'],
-            ]);
-        }
+        $expectedCount = $competition->expectedMemberCount();
+        $actualCount = $entry->members->count();
 
-        if ($competition->type === CompetitionType::Singles && $entry->members->count() !== 1) {
+        if ($actualCount !== $expectedCount) {
+            $type = $competition->type instanceof CompetitionType
+                ? $competition->type
+                : CompetitionType::from((string) $competition->type);
+
+            $message = match ($type) {
+                CompetitionType::Singles => 'La participación no es un jugador válido para esta competencia.',
+                CompetitionType::Doubles => 'La participación no es una pareja válida para esta competencia.',
+                CompetitionType::Team => 'La participación no es un equipo válido para esta competencia.',
+            };
+
             throw ValidationException::withMessages([
-                'competition_entry_id' => ['La participación no es un jugador válido para esta competencia.'],
+                'competition_entry_id' => [$message],
             ]);
         }
 

@@ -68,6 +68,7 @@ final class TournamentTestContext
         int $setsToWin,
         int $pointsPerSet,
         CompetitionFormat $format,
+        ?int $teamSize = null,
     ): Competition {
         $bestOf = max(1, ($setsToWin * 2) - 1);
 
@@ -82,6 +83,7 @@ final class TournamentTestContext
             'tournament_id' => $tournament->id,
             'name' => $name,
             'type' => $type,
+            'team_size' => $teamSize,
             'category' => 'primera',
             'category_id' => Category::query()->where('slug', 'primera')->value('id'),
             'format' => $format,
@@ -92,6 +94,22 @@ final class TournamentTestContext
             'semifinal_best_of' => $bestOf,
             'final_best_of' => $bestOf,
         ]);
+    }
+
+    public function createTeamCompetition(
+        int $teamSize = 4,
+        int $setsToWin = 1,
+        int $pointsPerSet = 11,
+        CompetitionFormat $format = CompetitionFormat::GroupsKnockout,
+    ): Competition {
+        return $this->createTypedCompetition(
+            CompetitionType::Team,
+            'Team Test',
+            $setsToWin,
+            $pointsPerSet,
+            $format,
+            $teamSize,
+        );
     }
 
     public function createKnockoutDirectCompetition(
@@ -166,6 +184,38 @@ final class TournamentTestContext
     ): TestResponse {
         return $this->test->postJson($this->apiUrl("competitions/{$competition->id}/registrations"), [
             'player_ids' => [$player1->id, $player2->id],
+        ], $this->authHeaders($roles));
+    }
+
+    /**
+     * @param  list<int>  $playerIds
+     */
+    public function registerTeam(
+        Competition $competition,
+        string $name,
+        array $playerIds,
+    ): CompetitionEntry {
+        $persistCompetitionEntry = app(PersistCompetitionEntryAction::class);
+
+        return $persistCompetitionEntry([
+            'competition_id' => $competition->id,
+            'name' => $name,
+            'player_ids' => $playerIds,
+        ]);
+    }
+
+    /**
+     * @param  list<int>  $playerIds
+     */
+    public function registerTeamViaApi(
+        Competition $competition,
+        string $name,
+        array $playerIds,
+        array $roles = ['organizer'],
+    ): TestResponse {
+        return $this->test->postJson($this->apiUrl("competitions/{$competition->id}/registrations"), [
+            'name' => $name,
+            'player_ids' => $playerIds,
         ], $this->authHeaders($roles));
     }
 

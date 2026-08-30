@@ -20,9 +20,11 @@ class StoreGroupPlayerRequest extends FormRequest
         /** @var Group|null $group */
         $group = $this->route('group');
         $group?->loadMissing('competition');
-        $isDoubles = $group?->competition?->type === CompetitionType::Doubles;
+        $type = $group?->competition?->type instanceof CompetitionType
+            ? $group->competition->type
+            : null;
 
-        if ($isDoubles) {
+        if ($type?->isMultiMember() === true) {
             return [
                 'competition_entry_id' => [
                     'required',
@@ -57,13 +59,21 @@ class StoreGroupPlayerRequest extends FormRequest
 
             /** @var Group|null $group */
             $group = $this->route('group');
+            $type = $group?->competition?->type instanceof CompetitionType
+                ? $group->competition->type
+                : null;
 
-            if (! $group instanceof Group || $group->competition?->type !== CompetitionType::Doubles) {
+            if ($type?->isMultiMember() !== true) {
                 return;
             }
 
             if ($this->filled('player_id')) {
-                $validator->errors()->add('player_id', 'No se puede asignar una pareja al grupo usando player_id.');
+                $label = $type->isTeam() ? 'equipo' : 'pareja';
+
+                $validator->errors()->add(
+                    'player_id',
+                    "No se puede asignar un {$label} al grupo usando player_id.",
+                );
             }
         });
     }

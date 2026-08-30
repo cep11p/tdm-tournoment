@@ -20,7 +20,8 @@ final class PersistCompetitionEntryAction
      * @param  array{
      *     competition_id: int,
      *     player_id?: int,
-     *     player_ids?: list<int>
+     *     player_ids?: list<int>,
+     *     name?: string
      * }  $payload
      */
     public function __invoke(array $payload): CompetitionEntry
@@ -30,8 +31,13 @@ final class PersistCompetitionEntryAction
         TournamentLifecycleGuard::ensureMutableForCompetition($competition);
         CompetitionEntryGuard::ensureEditable($competition);
 
+        $type = $competition->type instanceof CompetitionType
+            ? $competition->type
+            : CompetitionType::from((string) $competition->type);
+
         $hasPlayerId = array_key_exists('player_id', $payload);
         $hasPlayerIds = array_key_exists('player_ids', $payload);
+        $hasName = array_key_exists('name', $payload);
 
         if ($hasPlayerId && $hasPlayerIds) {
             throw ValidationException::withMessages([
@@ -46,23 +52,53 @@ final class PersistCompetitionEntryAction
             ]);
         }
 
+        if ($type->isTeam() && ! $hasName) {
+            throw ValidationException::withMessages([
+                'name' => ['El nombre del equipo es obligatorio.'],
+            ]);
+        }
+
+        if (! $type->isTeam() && $hasName) {
+            throw ValidationException::withMessages([
+                'name' => ['No se puede enviar el nombre del equipo en esta competencia.'],
+            ]);
+        }
+
         $playersErrorKey = $hasPlayerIds ? 'player_ids' : 'player_id';
 
         $playerIds = $hasPlayerIds
             ? array_map('intval', $payload['player_ids'])
             : [(int) $payload['player_id']];
 
-        $this->validateMemberCount($competition->type, $playerIds, $playersErrorKey);
+        $teamName = $type->isTeam() ? trim((string) $payload['name']) : null;
+
+        if ($type->isTeam() && ($teamName === null || $teamName === '')) {
+            throw ValidationException::withMessages([
+                'name' => ['El nombre del equipo es obligatorio.'],
+            ]);
+        }
+
+        $this->validateMemberCount($competition, $playerIds, $playersErrorKey);
         $this->validateDistinctPlayerIds($playerIds, $playersErrorKey);
         $this->validatePlayersExist($playerIds, $playersErrorKey);
         $this->validatePlayersNotAlreadyRegistered($competition->id, $playerIds, $playersErrorKey);
 
-        return DB::transaction(function () use ($competition, $playerIds, $playersErrorKey): CompetitionEntry {
+        if ($type->isTeam() && $teamName !== null) {
+            $this->validateTeamNameUnique($competition->id, $teamName);
+        }
+
+        return DB::transaction(function () use ($competition, $playerIds, $playersErrorKey, $teamName, $type): CompetitionEntry {
             try {
-                $entry = CompetitionEntry::query()->create([
+                $entryAttributes = [
                     'competition_id' => $competition->id,
                     'status' => CompetitionEntryStatus::Active,
-                ]);
+                ];
+
+                if ($type->isTeam()) {
+                    $entryAttributes['display_name'] = $teamName;
+                }
+
+                $entry = CompetitionEntry::query()->create($entryAttributes);
 
                 foreach ($playerIds as $index => $playerId) {
                     CompetitionEntryMember::query()->create([
@@ -76,6 +112,12 @@ final class PersistCompetitionEntryAction
                 return $entry->load('members');
             } catch (QueryException $exception) {
                 if ((string) $exception->getCode() === '23000') {
+                    if ($type->isTeam()) {
+                        throw ValidationException::withMessages([
+                            'name' => ['Ya existe un equipo con ese nombre en esta competencia.'],
+                        ]);
+                    }
+
                     throw ValidationException::withMessages([
                         $playersErrorKey => ['El jugador ya está inscripto en esta competencia.'],
                     ]);
@@ -89,21 +131,26 @@ final class PersistCompetitionEntryAction
     /**
      * @param  list<int>  $playerIds
      */
-    private function validateMemberCount(CompetitionType $type, array $playerIds, string $errorKey): void
+    private function validateMemberCount(Competition $competition, array $playerIds, string $errorKey): void
     {
         $count = count($playerIds);
-        $expected = match ($type) {
-            CompetitionType::Singles => 1,
-            CompetitionType::Doubles => 2,
-        };
+        $expected = $competition->expectedMemberCount();
 
         if ($count === $expected) {
             return;
         }
 
+        $type = $competition->type instanceof CompetitionType
+            ? $competition->type
+            : CompetitionType::from((string) $competition->type);
+
         $message = match ($type) {
             CompetitionType::Singles => 'Una competencia de singles requiere exactamente 1 jugador.',
             CompetitionType::Doubles => 'Una competencia de dobles requiere exactamente 2 jugadores.',
+            CompetitionType::Team => sprintf(
+                'Una competencia por equipos requiere exactamente %d integrantes.',
+                $expected,
+            ),
         };
 
         throw ValidationException::withMessages([
@@ -158,6 +205,22 @@ final class PersistCompetitionEntryAction
 
         throw ValidationException::withMessages([
             $errorKey => ['El jugador ya está inscripto en esta competencia.'],
+        ]);
+    }
+
+    private function validateTeamNameUnique(int $competitionId, string $teamName): void
+    {
+        $exists = CompetitionEntry::query()
+            ->where('competition_id', $competitionId)
+            ->where('display_name', $teamName)
+            ->exists();
+
+        if (! $exists) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'name' => ['Ya existe un equipo con ese nombre en esta competencia.'],
         ]);
     }
 }

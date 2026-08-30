@@ -9,6 +9,12 @@ final class CompetitionEntryDisplayName
 {
     public static function for(CompetitionEntry $entry): string
     {
+        $storedName = trim((string) ($entry->display_name ?? ''));
+
+        if ($storedName !== '') {
+            return $storedName;
+        }
+
         $entry->loadMissing('members.player');
 
         $names = $entry->members

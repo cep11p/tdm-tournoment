@@ -10,9 +10,13 @@ import {
   isRegistrationsEditable,
   registrationsLockReason,
 } from '../../competitions/utils/competitionStructure'
-import { isDoublesCompetition } from '../../shared/constants/competitionType'
+import {
+  getParticipantKind,
+  participantPlural,
+} from '../../shared/constants/competitionType'
 import BulkPlayerRegistrationModal from '../components/BulkPlayerRegistrationModal.vue'
 import RegisterPairModal from '../components/RegisterPairModal.vue'
+import RegisterTeamModal from '../components/RegisterTeamModal.vue'
 import RegistrationService from '../services/RegistrationService'
 import { collectRegisteredMemberIds } from '../utils/registeredMemberIds'
 import { resolveCompetitionCategorySlug } from '../../players/utils/playerRegistrationRowStatus'
@@ -29,9 +33,10 @@ const registrationListError = ref('')
 
 const showBulkRegistrationModal = ref(false)
 const showRegisterPairModal = ref(false)
+const showRegisterTeamModal = ref(false)
 const registrationSuccessMessage = ref('')
 
-const isDoubles = computed(() => isDoublesCompetition(competition.value))
+const participantKind = computed(() => getParticipantKind(competition.value))
 
 const registeredMemberIds = computed(() => collectRegisteredMemberIds(registrations.value))
 
@@ -43,16 +48,16 @@ const registrationsLockMessage = computed(() => registrationsLockReason(competit
 
 const pageTitle = computed(() => {
   const name = competition.value?.name || `Competencia #${competitionId.value}`
-  const suffix = isDoubles.value ? 'Parejas inscriptas' : 'Jugadores inscriptos'
+  const suffix = `${participantPlural(competition.value)} inscriptos`
 
-  return `${suffix} - ${name}`
+  return `${suffix.charAt(0).toUpperCase()}${suffix.slice(1)} - ${name}`
 })
 
-const emptyStateMessage = computed(() =>
-  isDoubles.value
-    ? 'Todavía no hay parejas registradas.'
-    : 'Esta competencia todavía no tiene inscriptos.',
-)
+const emptyStateMessage = computed(() => {
+  const label = participantPlural(competition.value)
+
+  return `Todavía no hay ${label} registrados.`
+})
 
 const openBulkRegistrationModal = () => {
   registrationSuccessMessage.value = ''
@@ -62,6 +67,11 @@ const openBulkRegistrationModal = () => {
 const openRegisterPairModal = () => {
   registrationSuccessMessage.value = ''
   showRegisterPairModal.value = true
+}
+
+const openRegisterTeamModal = () => {
+  registrationSuccessMessage.value = ''
+  showRegisterTeamModal.value = true
 }
 
 const handleBulkRegistrationSaved = async (result) => {
@@ -78,6 +88,12 @@ const handlePairRegistrationSaved = async (registration) => {
   await loadRegistrations()
 }
 
+const handleTeamRegistrationSaved = async (registration) => {
+  registrationSuccessMessage.value = `Equipo "${registration?.display_name ?? ''}" registrado correctamente.`
+  showRegisterTeamModal.value = false
+  await loadRegistrations()
+}
+
 const handleBulkRegistrationClose = () => {
   showBulkRegistrationModal.value = false
 }
@@ -85,6 +101,22 @@ const handleBulkRegistrationClose = () => {
 const handleRegisterPairClose = () => {
   showRegisterPairModal.value = false
 }
+
+const handleRegisterTeamClose = () => {
+  showRegisterTeamModal.value = false
+}
+
+const memberCountLabel = (registration) => {
+  const count = registration?.members?.length ?? 0
+
+  return `${count} integrante${count === 1 ? '' : 's'}`
+}
+
+const memberNamesPreview = (registration) =>
+  (registration?.members ?? [])
+    .map((member) => `${member.first_name ?? ''} ${member.last_name ?? ''}`.trim())
+    .filter(Boolean)
+    .join(', ')
 
 const loadRegistrations = async () => {
   isLoadingRegistrations.value = true
@@ -134,12 +166,21 @@ onMounted(async () => {
 
     <div v-if="registrationsEditable && canManageRegistrations" class="flex flex-wrap gap-2">
       <button
-        v-if="isDoubles"
+        v-if="participantKind === 'pair'"
         type="button"
         class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
         @click="openRegisterPairModal"
       >
         Registrar pareja
+      </button>
+
+      <button
+        v-else-if="participantKind === 'team'"
+        type="button"
+        class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+        @click="openRegisterTeamModal"
+      >
+        Registrar equipo
       </button>
 
       <button
@@ -185,23 +226,33 @@ onMounted(async () => {
         :key="registration.id"
         class="rounded border border-slate-200 p-3 text-sm dark:border-slate-700 dark:bg-slate-950/30"
       >
-        <template v-if="isDoubles">
-          <p class="font-medium text-slate-900 dark:text-slate-100">
-            {{ registration.display_name }}
-          </p>
-        </template>
-
-        <template v-else>
+        <template v-if="participantKind === 'player'">
           <p class="font-medium text-slate-900 dark:text-slate-100">
             {{ registration.player?.first_name }} {{ registration.player?.last_name }}
           </p>
           <p class="text-slate-600 dark:text-slate-400">Apodo: {{ registration.player?.nickname || '-' }}</p>
         </template>
+
+        <template v-else-if="participantKind === 'team'">
+          <p class="font-medium text-slate-900 dark:text-slate-100">
+            {{ registration.display_name }}
+          </p>
+          <p class="text-slate-600 dark:text-slate-400">{{ memberCountLabel(registration) }}</p>
+          <p v-if="memberNamesPreview(registration)" class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {{ memberNamesPreview(registration) }}
+          </p>
+        </template>
+
+        <template v-else>
+          <p class="font-medium text-slate-900 dark:text-slate-100">
+            {{ registration.display_name }}
+          </p>
+        </template>
       </article>
     </div>
 
     <BulkPlayerRegistrationModal
-      v-if="!isDoubles"
+      v-if="participantKind === 'player'"
       :show="showBulkRegistrationModal"
       :competition-id="competitionId"
       :competition-category-slug="competitionCategorySlug"
@@ -211,13 +262,24 @@ onMounted(async () => {
     />
 
     <RegisterPairModal
-      v-if="isDoubles"
+      v-if="participantKind === 'pair'"
       :show="showRegisterPairModal"
       :competition-id="competitionId"
       :competition-category-slug="competitionCategorySlug"
       :registered-member-ids="registeredMemberIds"
       @close="handleRegisterPairClose"
       @saved="handlePairRegistrationSaved"
+    />
+
+    <RegisterTeamModal
+      v-if="participantKind === 'team'"
+      :show="showRegisterTeamModal"
+      :competition-id="competitionId"
+      :competition-category-slug="competitionCategorySlug"
+      :team-size="competition?.team_size ?? 4"
+      :registered-member-ids="registeredMemberIds"
+      @close="handleRegisterTeamClose"
+      @saved="handleTeamRegistrationSaved"
     />
   </section>
 </template>

@@ -18,6 +18,7 @@ class UpdateCompetitionRequest extends FormRequest
      */
     private const STRUCTURAL_FIELDS = [
         'type',
+        'team_size',
         'format',
         'points_per_set',
         'qualified_per_group',
@@ -40,6 +41,7 @@ class UpdateCompetitionRequest extends FormRequest
             'category_id' => ['sometimes', 'integer', Rule::exists('categories', 'id')->where('active', true)],
             'category' => ['sometimes', 'required', 'string', 'max:255'],
             'type' => ['sometimes', Rule::enum(CompetitionType::class)],
+            'team_size' => ['sometimes', 'nullable', 'integer', 'min:'.Competition::TEAM_SIZE_MIN, 'max:'.Competition::TEAM_SIZE_MAX],
             'format' => ['sometimes', Rule::enum(CompetitionFormat::class)],
             'points_per_set' => ['sometimes', 'integer', 'min:1'],
             'qualified_per_group' => ['sometimes', 'integer', 'min:1'],
@@ -74,29 +76,66 @@ class UpdateCompetitionRequest extends FormRequest
         $validator->after(function (Validator $validator): void {
             $competition = $this->route('competition');
 
-            if (! $competition instanceof Competition) {
-                return;
-            }
-
-            if (CompetitionStructureGuard::isStructureEditable($competition)) {
-                return;
-            }
-
-            foreach (self::STRUCTURAL_FIELDS as $field) {
-                if (! $this->has($field)) {
-                    continue;
-                }
-
-                if (! $this->structuralFieldChanged($competition, $field)) {
-                    continue;
-                }
-
-                $validator->errors()->add(
-                    $field,
-                    CompetitionStructureGuard::LOCK_MESSAGE,
-                );
+            if ($competition instanceof Competition) {
+                $this->validateTeamSizeForType($validator, $competition);
+                $this->validateStructuralFieldsWhenLocked($validator, $competition);
             }
         });
+    }
+
+    private function validateTeamSizeForType(Validator $validator, Competition $competition): void
+    {
+        if (! $this->has('type') && ! $this->has('team_size')) {
+            return;
+        }
+
+        $type = $this->has('type')
+            ? CompetitionType::tryFrom((string) $this->input('type'))
+            : ($competition->type instanceof CompetitionType
+                ? $competition->type
+                : CompetitionType::from((string) $competition->type));
+
+        if ($type === null) {
+            return;
+        }
+
+        $teamSize = $this->has('team_size')
+            ? $this->input('team_size')
+            : $competition->team_size;
+
+        if ($type === CompetitionType::Team) {
+            if ($teamSize === null || $teamSize === '') {
+                $validator->errors()->add('team_size', 'El tamaño del equipo es obligatorio para competencias por equipos.');
+            }
+
+            return;
+        }
+
+        if ($this->has('team_size') && $this->input('team_size') !== null && $this->input('team_size') !== '') {
+            $validator->errors()->add('team_size', 'El tamaño del equipo solo aplica a competencias por equipos.');
+        }
+    }
+
+    private function validateStructuralFieldsWhenLocked(Validator $validator, Competition $competition): void
+    {
+        if (CompetitionStructureGuard::isStructureEditable($competition)) {
+            return;
+        }
+
+        foreach (self::STRUCTURAL_FIELDS as $field) {
+            if (! $this->has($field)) {
+                continue;
+            }
+
+            if (! $this->structuralFieldChanged($competition, $field)) {
+                continue;
+            }
+
+            $validator->errors()->add(
+                $field,
+                CompetitionStructureGuard::LOCK_MESSAGE,
+            );
+        }
     }
 
     private function structuralFieldChanged(Competition $competition, string $field): bool

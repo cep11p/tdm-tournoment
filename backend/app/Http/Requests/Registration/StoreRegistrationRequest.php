@@ -27,9 +27,12 @@ class StoreRegistrationRequest extends FormRequest
             'competition_id' => ['required', 'integer', 'exists:competitions,id'],
         ];
 
-        if ($type === CompetitionType::Doubles) {
+        if ($type === CompetitionType::Team) {
+            $teamSize = (int) ($competition?->team_size ?? 0);
+
             return array_merge($baseRules, [
-                'player_ids' => ['required', 'array', 'size:2'],
+                'name' => ['required', 'string', 'max:255'],
+                'player_ids' => ['required', 'array', 'size:'.$teamSize],
                 'player_ids.*' => [
                     'required',
                     'integer',
@@ -40,6 +43,20 @@ class StoreRegistrationRequest extends FormRequest
             ]);
         }
 
+        if ($type === CompetitionType::Doubles) {
+            return array_merge($baseRules, [
+                'player_ids' => ['required', 'array', 'size:2'],
+                'player_ids.*' => [
+                    'required',
+                    'integer',
+                    'distinct',
+                    Rule::exists('players', 'id')->where('active', true),
+                ],
+                'player_id' => ['prohibited'],
+                'name' => ['prohibited'],
+            ]);
+        }
+
         return array_merge($baseRules, [
             'player_id' => [
                 'required',
@@ -47,6 +64,7 @@ class StoreRegistrationRequest extends FormRequest
                 Rule::exists('players', 'id')->where('active', true),
             ],
             'player_ids' => ['prohibited'],
+            'name' => ['prohibited'],
         ]);
     }
 

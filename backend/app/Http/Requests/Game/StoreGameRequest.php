@@ -18,9 +18,11 @@ class StoreGameRequest extends FormRequest
     {
         /** @var \App\Models\Competition|null $competition */
         $competition = $this->route('competition');
-        $isDoubles = $competition?->type === CompetitionType::Doubles;
+        $type = $competition?->type instanceof CompetitionType
+            ? $competition->type
+            : null;
 
-        if ($isDoubles) {
+        if ($type?->isMultiMember() === true) {
             return [
                 'competition_id' => ['required', 'integer', 'exists:competitions,id'],
                 'entry1_id' => [
@@ -82,15 +84,20 @@ class StoreGameRequest extends FormRequest
             /** @var \App\Models\Competition|null $competition */
             $competition = $this->route('competition');
 
-            if ($competition === null || $competition->type !== CompetitionType::Doubles) {
+            $type = $competition?->type instanceof CompetitionType
+                ? $competition->type
+                : null;
+
+            if ($type?->isMultiMember() !== true) {
                 return;
             }
 
             if ($this->filled('player1_id') || $this->filled('player2_id')) {
-                $validator->errors()->add(
-                    'player1_id',
-                    'No se puede crear un partido de dobles usando player_id.',
-                );
+                $message = $type->isTeam()
+                    ? 'No se puede crear un partido por equipos usando player_id.'
+                    : 'No se puede crear un partido de dobles usando player_id.';
+
+                $validator->errors()->add('player1_id', $message);
             }
         });
     }

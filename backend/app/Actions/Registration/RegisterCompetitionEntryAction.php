@@ -27,8 +27,12 @@ final class RegisterCompetitionEntryAction
 
             $competition = Competition::query()->findOrFail($entry->competition_id);
 
-            if ($competition->type === CompetitionType::Doubles) {
-                $this->auditDoublesRegistration($competition, $entry, $payload);
+            $type = $competition->type instanceof CompetitionType
+                ? $competition->type
+                : CompetitionType::from((string) $competition->type);
+
+            if ($type->isMultiMember()) {
+                $this->auditMultiMemberRegistration($competition, $entry, $payload, $type);
 
                 return $entry;
             }
@@ -65,12 +69,13 @@ final class RegisterCompetitionEntryAction
     }
 
     /**
-     * @param  array{player_ids: list<int>}  $payload
+     * @param  array{player_ids: list<int>, name?: string}  $payload
      */
-    private function auditDoublesRegistration(
+    private function auditMultiMemberRegistration(
         Competition $competition,
         CompetitionEntry $entry,
         array $payload,
+        CompetitionType $type,
     ): void {
         $entry->loadMissing(['members.player']);
 
@@ -82,11 +87,21 @@ final class RegisterCompetitionEntryAction
             ->sortBy(fn (Player $player): int => (int) array_search($player->id, $playerIds, true))
             ->values();
 
-        $context = AuditContextBuilder::fromDoublesRegistrationContext(
-            $competition,
-            $entry,
-            $players,
-        );
+        $context = $type->isTeam()
+            ? AuditContextBuilder::fromTeamRegistrationContext($competition, $entry, $players)
+            : AuditContextBuilder::fromDoublesRegistrationContext($competition, $entry, $players);
+
+        $summary = [
+            'registration_id' => $entry->id,
+            'competition_entry_id' => $entry->id,
+            'member_ids' => $context['member_ids'],
+            'member_names' => $context['member_names'],
+            'display_name' => $context['display_name'],
+        ];
+
+        if ($type->isTeam()) {
+            $summary['team_name'] = $context['team_name'] ?? $context['display_name'];
+        }
 
         $this->auditLogger->log(new AuditEntry(
             action: AuditAction::REGISTRATION_CREATED,
@@ -98,13 +113,7 @@ final class RegisterCompetitionEntryAction
                 'competition_entry_id' => $entry->id,
                 'member_ids' => $context['member_ids'],
             ],
-            summary: [
-                'registration_id' => $entry->id,
-                'competition_entry_id' => $entry->id,
-                'member_ids' => $context['member_ids'],
-                'member_names' => $context['member_names'],
-                'display_name' => $context['display_name'],
-            ],
+            summary: $summary,
         ));
     }
 }

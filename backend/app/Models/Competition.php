@@ -14,6 +14,10 @@ class Competition extends Model
 {
     use HasFactory;
 
+    public const TEAM_SIZE_MIN = 2;
+
+    public const TEAM_SIZE_MAX = 20;
+
     protected $guarded = [];
 
     protected $attributes = [
@@ -38,7 +42,21 @@ class Competition extends Model
             'semifinal_best_of' => 'integer',
             'final_best_of' => 'integer',
             'third_place_mode' => ThirdPlaceMode::class,
+            'team_size' => 'integer',
         ];
+    }
+
+    public function expectedMemberCount(): int
+    {
+        $type = $this->type instanceof CompetitionType
+            ? $this->type
+            : CompetitionType::from((string) $this->type);
+
+        return match ($type) {
+            CompetitionType::Singles => 1,
+            CompetitionType::Doubles => 2,
+            CompetitionType::Team => $this->resolveTeamSize(),
+        };
     }
 
     public function tournament(): BelongsTo
@@ -69,5 +87,14 @@ class Competition extends Model
     public function brackets(): HasMany
     {
         return $this->hasMany(Bracket::class);
+    }
+
+    private function resolveTeamSize(): int
+    {
+        if ($this->team_size === null) {
+            throw new \LogicException('La competencia por equipos no tiene team_size configurado.');
+        }
+
+        return (int) $this->team_size;
     }
 }

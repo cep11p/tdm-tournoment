@@ -29,7 +29,7 @@ class RegistrationResource extends JsonResource
             ->values()
             ->all();
 
-        $isSingles = $type === CompetitionType::Singles;
+        $isSingles = $type->isSingles();
 
         return [
             'id' => $entry->id,

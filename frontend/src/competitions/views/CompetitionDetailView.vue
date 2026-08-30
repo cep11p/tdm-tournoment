@@ -38,7 +38,7 @@ import {
   registrationsLockReason,
   structureLockReason,
 } from '../utils/competitionStructure'
-import { getCompetitionTypeLabel, isDoublesCompetition } from '../../shared/constants/competitionType'
+import { getCompetitionTypeLabel, getParticipantKind, participantPlural } from '../../shared/constants/competitionType'
 
 const route = useRoute()
 const { can } = usePermissions()
@@ -88,24 +88,25 @@ const playerCount = computed(() =>
 
 const registeredCount = computed(() => registrations.value?.length ?? 0)
 
-const isDoubles = computed(() => isDoublesCompetition(competition.value))
+const participantKind = computed(() => getParticipantKind(competition.value))
 
-const participantsSummaryLabel = computed(() => (isDoubles.value ? 'Parejas' : 'Jugadores'))
+const participantsSummaryLabel = computed(() => {
+  const label = participantPlural(competition.value)
 
-const participantsSectionSubtitle = computed(() =>
-  isDoubles.value
-    ? 'Parejas inscriptas en esta competencia'
-    : 'Jugadores inscriptos en esta competencia',
-)
+  return label.charAt(0).toUpperCase() + label.slice(1)
+})
+
+const participantsSectionSubtitle = computed(() => {
+  const label = participantPlural(competition.value)
+
+  return `${label.charAt(0).toUpperCase()}${label.slice(1)} inscriptos en esta competencia`
+})
 
 const participantsCountLabel = computed(() => {
   const count = registeredCount.value
+  const label = participantPlural(competition.value)
 
-  if (isDoubles.value) {
-    return `${count} pareja${count === 1 ? '' : 's'}`
-  }
-
-  return `${count} jugador${count === 1 ? '' : 'es'}`
+  return `${count} ${label}`
 })
 
 const hasExistingGroups = computed(() => (groups.value?.length ?? 0) > 0)
@@ -343,12 +344,8 @@ const structureAction = computed(() => {
       type: disabled ? 'disabled' : 'modal',
       label: 'Generar grupos',
       description: disabled
-        ? isDoubles.value
-          ? 'Necesitás al menos 2 parejas inscriptas'
-          : 'Necesitás al menos 2 jugadores inscriptos'
-        : isDoubles.value
-          ? 'Distribuir parejas inscriptas en grupos'
-          : 'Distribuir jugadores inscriptos en grupos',
+        ? `Necesitás al menos 2 ${participantPlural(competition.value)} inscriptos`
+        : `Distribuir ${participantPlural(competition.value)} inscriptos en grupos`,
       icon: Squares2X2Icon,
     }
   }
@@ -413,9 +410,7 @@ const structureAction = computed(() => {
       key: 'generate-bracket-disabled',
       type: 'disabled',
       label: 'Generar llave',
-      description: isDoubles.value
-        ? 'Necesitás al menos 2 parejas inscriptas'
-        : 'Necesitás al menos 2 jugadores inscriptos',
+      description: `Necesitás al menos 2 ${participantPlural(competition.value)} inscriptos`,
       icon: TrophyIcon,
     }
   }
@@ -1196,7 +1191,7 @@ const handleEditCompetitionSaved = async () => {
         :registered-count="registeredCount"
         :has-existing-groups="hasExistingGroups"
         :is-competition-completed="isCompetitionCompleted"
-        :is-doubles="isDoubles"
+        :participant-kind="participantKind"
         @close="showGenerateRandomGroupsModal = false"
         @saved="handleRandomGroupsSaved"
       />
@@ -1208,7 +1203,7 @@ const handleEditCompetitionSaved = async () => {
         :registered-count="registeredCount"
         :existing-groups-count="existingGroupsCount"
         :is-competition-completed="isCompetitionCompleted"
-        :is-doubles="isDoubles"
+        :participant-kind="participantKind"
         @close="showRegenerateRandomGroupsModal = false"
         @saved="handleRegenerateRandomGroupsSaved"
       />

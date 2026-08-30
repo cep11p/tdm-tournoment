@@ -6,6 +6,7 @@ export const DEFAULT_COMPETITION_FORM_VALUES = {
   name: '',
   category_id: '',
   type: 'singles',
+  team_size: 4,
   format: 'groups_knockout',
   points_per_set: 11,
   qualified_per_group: 2,
@@ -25,6 +26,7 @@ export function competitionToFormValues(competition) {
     name: competition.name ?? '',
     category_id: competition.category_id ?? competition.category_ref?.id ?? '',
     type: competition.type ?? 'singles',
+    team_size: competition.team_size ?? 4,
     format: competition.format ?? 'groups_knockout',
     points_per_set: competition.points_per_set ?? 11,
     qualified_per_group: competition.qualified_per_group ?? 2,
@@ -45,8 +47,9 @@ export function buildCompetitionPayload(form, { structureEditable = true } = {})
   }
 
   const hasGroupStage = showGroupStageFields(form.format)
+  const isTeam = form.type === 'team'
 
-  return {
+  const payload = {
     name: form.name,
     category_id: form.category_id === '' ? null : Number(form.category_id),
     type: form.type,
@@ -59,4 +62,10 @@ export function buildCompetitionPayload(form, { structureEditable = true } = {})
     final_best_of: Number(form.final_best_of),
     third_place_mode: form.third_place_mode,
   }
+
+  if (isTeam) {
+    payload.team_size = Number(form.team_size)
+  }
+
+  return payload
 }

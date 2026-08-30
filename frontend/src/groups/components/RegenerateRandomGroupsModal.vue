@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 
+import { participantPluralForKind } from '../../shared/constants/competitionType'
 import { extractApiErrorMessage } from '../../shared/utils/extractApiErrorMessage'
 import GroupService from '../services/GroupService'
 import { buildRegenerateRandomGroupsSuccessMessage } from '../utils/buildRegenerateRandomGroupsSuccessMessage'
@@ -32,9 +33,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
-  isDoubles: {
-    type: Boolean,
-    default: false,
+  participantKind: {
+    type: String,
+    default: 'player',
+    validator: (value) => ['player', 'pair', 'team'].includes(value),
   },
 })
 
@@ -61,21 +63,19 @@ const confirmDisabledReason = computed(() => {
   }
 
   if (props.registeredCount < 2) {
-    return props.isDoubles
-      ? 'Se requieren al menos 2 parejas inscriptas.'
-      : 'Se requieren al menos 2 jugadores inscriptos.'
+    return `Se requieren al menos 2 ${participantPluralForKind(props.participantKind)} inscriptos.`
   }
 
   if (groupsCount.value < 1 || groupsCount.value > maxGroups.value) {
     const maxLabel = maxGroups.value === 1 ? '1 grupo' : `${maxGroups.value} grupos`
-    const participantLabel = props.isDoubles ? 'parejas' : 'jugadores'
+    const participantLabel = participantPluralForKind(props.participantKind)
 
     return `Con ${props.registeredCount} ${participantLabel}, el máximo es ${maxLabel}.`
   }
 
   if (!isValidGroupDistribution(props.registeredCount, groupsCount.value)) {
     const maxLabel = maxGroups.value === 1 ? '1 grupo' : `${maxGroups.value} grupos`
-    const participantLabel = props.isDoubles ? 'parejas' : 'jugadores'
+    const participantLabel = participantPluralForKind(props.participantKind)
 
     return `Con ${props.registeredCount} ${participantLabel}, el máximo es ${maxLabel}.`
   }
@@ -123,7 +123,7 @@ const handleConfirm = async () => {
     })
 
     successMessage.value = buildRegenerateRandomGroupsSuccessMessage(result, {
-      isDoubles: props.isDoubles,
+      participantKind: props.participantKind,
     })
 
     emit('saved', result)
@@ -196,7 +196,7 @@ watch(
             v-if="registeredCount < 2"
             class="rounded-md bg-amber-50 px-3 py-2 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
           >
-            {{ isDoubles ? 'Se requieren al menos 2 parejas inscriptas para regenerar grupos.' : 'Se requieren al menos 2 jugadores inscriptos para regenerar grupos.' }}
+            Se requieren al menos 2 {{ participantPluralForKind(participantKind) }} inscriptos para regenerar grupos.
           </p>
 
           <p
