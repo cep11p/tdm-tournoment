@@ -2,40 +2,40 @@
 
 namespace App\Support\Group;
 
-use App\Data\Competition\CompetitionStandingData;
 use App\Enums\GameStatus;
 use App\Enums\GroupPlayerStatus;
 use App\Models\Game;
 use App\Models\Group;
-use App\Models\GroupManualTiebreak;
 use App\Support\Competition\BuildGroupEntryIndexForGroup;
 use App\Support\Competition\GroupEntryIndex;
-use Illuminate\Support\Collection;
+use App\Support\Group\Concerns\AppliesGroupManualTiebreaks;
 
 final class GroupStandingsCalculator
 {
+    use AppliesGroupManualTiebreaks;
+
     public function __construct(
         private readonly BuildGroupEntryIndexForGroup $buildGroupEntryIndexForGroup,
     ) {}
 
     public function calculate(Group $group): GroupStandingsResult
     {
-        $gamesProgress = $this->resolveGroupGamesProgress($group);
+        $scheduleProgress = $this->resolveGroupGamesProgress($group);
         $automatic = $this->calculateAutomatic($group);
 
-        if ($gamesProgress['is_provisional']) {
+        if ($scheduleProgress['is_provisional']) {
             $automatic['pending_manual_tie_entry_groups'] = [];
         }
 
-        return $this->applyPersistedManualTiebreaks($group, $automatic, $gamesProgress);
+        return $this->applyPersistedManualTiebreaks($group, $automatic, $scheduleProgress);
     }
 
     public function calculateAutomaticOnly(Group $group): GroupStandingsResult
     {
-        $gamesProgress = $this->resolveGroupGamesProgress($group);
+        $scheduleProgress = $this->resolveGroupGamesProgress($group);
         $automatic = $this->calculateAutomatic($group);
 
-        if ($gamesProgress['is_provisional']) {
+        if ($scheduleProgress['is_provisional']) {
             $automatic['pending_manual_tie_entry_groups'] = [];
         }
 
@@ -43,7 +43,7 @@ final class GroupStandingsCalculator
             automatic: $automatic,
             appliedManualTiebreaks: [],
             staleManualTiebreaks: [],
-            gamesProgress: $gamesProgress,
+            scheduleProgress: $scheduleProgress,
         );
     }
 
@@ -193,281 +193,6 @@ final class GroupStandingsCalculator
     }
 
     /**
-     * @param  array{
-     *     stats_by_entry: array<int, array{won: int, lost: int}>,
-     *     ordered_entry_ids: array<int, int>,
-     *     pending_manual_tie_entry_groups: array<int, array<int, int>>,
-     *     index: GroupEntryIndex
-     * }  $automatic
-     */
-    private function applyPersistedManualTiebreaks(Group $group, array $automatic, array $gamesProgress): GroupStandingsResult
-    {
-        $orderedEntryIds = $automatic['ordered_entry_ids'];
-        $pendingManualTieEntryGroups = $automatic['pending_manual_tie_entry_groups'];
-        $index = $automatic['index'];
-
-        $persistedTiebreaks = $group->manualTiebreaks()
-            ->with(['entries'])
-            ->orderBy('id')
-            ->get();
-
-        $appliedManualTiebreaks = [];
-        $staleManualTiebreaks = [];
-        $manualPositionByEntryId = [];
-        $appliedEntryFlags = [];
-
-        $remainingPendingGroups = [];
-
-        foreach ($pendingManualTieEntryGroups as $pendingGroup) {
-            $matchingTiebreak = $this->findMatchingTiebreak($persistedTiebreaks, $pendingGroup);
-
-            if ($matchingTiebreak === null) {
-                $remainingPendingGroups[] = $pendingGroup;
-
-                continue;
-            }
-
-            $manualOrder = $matchingTiebreak->orderedCompetitionEntryIds();
-            $orderedEntryIds = $this->replaceContiguousBlock(
-                orderedIds: $orderedEntryIds,
-                blockEntryIds: $pendingGroup,
-                manualOrder: $manualOrder,
-            );
-
-            foreach ($manualOrder as $positionIndex => $entryId) {
-                $manualPositionByEntryId[$entryId] = $positionIndex + 1;
-                $appliedEntryFlags[$entryId] = true;
-            }
-
-            $appliedManualTiebreaks[] = $this->formatPublicTiebreakRecord($matchingTiebreak, $index);
-            $persistedTiebreaks = $persistedTiebreaks->reject(
-                fn (GroupManualTiebreak $tiebreak): bool => $tiebreak->id === $matchingTiebreak->id
-            );
-        }
-
-        if (! $gamesProgress['is_provisional']) {
-            foreach ($persistedTiebreaks as $staleTiebreak) {
-                $staleManualTiebreaks[] = $this->formatPublicTiebreakRecord($staleTiebreak, $index);
-            }
-        }
-
-        return $this->buildStandingsResult(
-            automatic: [
-                ...$automatic,
-                'ordered_entry_ids' => $orderedEntryIds,
-                'pending_manual_tie_entry_groups' => $remainingPendingGroups,
-            ],
-            appliedManualTiebreaks: $appliedManualTiebreaks,
-            staleManualTiebreaks: $staleManualTiebreaks,
-            manualPositionByEntryId: $manualPositionByEntryId,
-            appliedEntryFlags: $appliedEntryFlags,
-            gamesProgress: $gamesProgress,
-        );
-    }
-
-    /**
-     * @param  array{
-     *     stats_by_entry: array<int, array{won: int, lost: int}>,
-     *     ordered_entry_ids: array<int, int>,
-     *     pending_manual_tie_entry_groups: array<int, array<int, int>>,
-     *     index: GroupEntryIndex
-     * }  $automatic
-     * @param  array<int, array<string, mixed>>  $appliedManualTiebreaks
-     * @param  array<int, array<string, mixed>>  $staleManualTiebreaks
-     * @param  array<int, int>  $manualPositionByEntryId
-     * @param  array<int, bool>  $appliedEntryFlags
-     * @param  array{
-     *     is_complete: bool,
-     *     is_provisional: bool,
-     *     completed_games_count: int,
-     *     total_games_count: int
-     * }  $gamesProgress
-     */
-    private function buildStandingsResult(
-        array $automatic,
-        array $appliedManualTiebreaks,
-        array $staleManualTiebreaks,
-        array $manualPositionByEntryId = [],
-        array $appliedEntryFlags = [],
-        array $gamesProgress = [
-            'is_complete' => true,
-            'is_provisional' => false,
-            'completed_games_count' => 0,
-            'total_games_count' => 0,
-        ],
-    ): GroupStandingsResult {
-        $statsByEntry = $automatic['stats_by_entry'];
-        $orderedEntryIds = $automatic['ordered_entry_ids'];
-        $pendingManualTieEntryGroups = $automatic['pending_manual_tie_entry_groups'];
-        $index = $automatic['index'];
-
-        $manualEntryFlags = [];
-
-        foreach ($pendingManualTieEntryGroups as $manualTieGroup) {
-            foreach ($manualTieGroup as $entryId) {
-                $manualEntryFlags[$entryId] = true;
-            }
-        }
-
-        $standings = collect($orderedEntryIds)
-            ->map(function (int $entryId) use (
-                $index,
-                $statsByEntry,
-                $manualEntryFlags,
-                $appliedEntryFlags,
-                $manualPositionByEntryId,
-            ): CompetitionStandingData {
-                $stats = $statsByEntry[$entryId] ?? ['won' => 0, 'lost' => 0];
-                $status = $index->statusForEntry($entryId);
-                $isActive = $status === GroupPlayerStatus::Active;
-
-                return new CompetitionStandingData(
-                    competitionEntryId: $entryId,
-                    displayName: $index->displayNameForEntry($entryId),
-                    members: $index->membersForEntry($entryId),
-                    playerId: $index->playerIdForEntry($entryId),
-                    playerName: $index->playerNameForEntry($entryId),
-                    won: (int) $stats['won'],
-                    lost: (int) $stats['lost'],
-                    requiresManualTiebreak: $isActive && (bool) ($manualEntryFlags[$entryId] ?? false),
-                    manualTiebreakApplied: (bool) ($appliedEntryFlags[$entryId] ?? false),
-                    manualPosition: $appliedEntryFlags[$entryId] ?? false
-                        ? ($manualPositionByEntryId[$entryId] ?? null)
-                        : null,
-                    eligibleForQualification: $isActive,
-                    groupPlayerStatus: $status->value,
-                );
-            })
-            ->values();
-
-        $manualTiebreakGroups = array_map(
-            fn (array $entryIds): array => $this->formatTiebreakGroupMeta($entryIds, $index),
-            $pendingManualTieEntryGroups
-        );
-
-        return new GroupStandingsResult(
-            standings: $standings,
-            pendingManualTieEntryGroups: $pendingManualTieEntryGroups,
-            manualTiebreakGroups: $manualTiebreakGroups,
-            appliedManualTiebreaks: $appliedManualTiebreaks,
-            staleManualTiebreaks: $staleManualTiebreaks,
-            isProvisional: (bool) $gamesProgress['is_provisional'],
-            completedGamesCount: (int) $gamesProgress['completed_games_count'],
-            totalGamesCount: (int) $gamesProgress['total_games_count'],
-        );
-    }
-
-    /**
-     * @param  Collection<int, GroupManualTiebreak>  $persistedTiebreaks
-     * @param  array<int, int>  $pendingGroup
-     */
-    private function findMatchingTiebreak($persistedTiebreaks, array $pendingGroup): ?GroupManualTiebreak
-    {
-        foreach ($persistedTiebreaks as $tiebreak) {
-            if ($this->entrySetsMatch($tiebreak->orderedCompetitionEntryIds(), $pendingGroup)) {
-                return $tiebreak;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @param  array<int, int>  $left
-     * @param  array<int, int>  $right
-     */
-    private function entrySetsMatch(array $left, array $right): bool
-    {
-        $leftSorted = array_map('intval', $left);
-        $rightSorted = array_map('intval', $right);
-        sort($leftSorted);
-        sort($rightSorted);
-
-        return $leftSorted === $rightSorted;
-    }
-
-    /**
-     * @param  array<int, int>  $orderedIds
-     * @param  array<int, int>  $blockEntryIds
-     * @param  array<int, int>  $manualOrder
-     * @return array<int, int>
-     */
-    private function replaceContiguousBlock(array $orderedIds, array $blockEntryIds, array $manualOrder): array
-    {
-        $blockIndex = $this->findContiguousBlockIndex($orderedIds, $blockEntryIds);
-
-        if ($blockIndex === null) {
-            return $orderedIds;
-        }
-
-        $blockLength = count($blockEntryIds);
-
-        return [
-            ...array_slice($orderedIds, 0, $blockIndex),
-            ...$manualOrder,
-            ...array_slice($orderedIds, $blockIndex + $blockLength),
-        ];
-    }
-
-    /**
-     * @param  array<int, int>  $orderedIds
-     * @param  array<int, int>  $entryIds
-     */
-    private function findContiguousBlockIndex(array $orderedIds, array $entryIds): ?int
-    {
-        $blockLength = count($entryIds);
-
-        if ($blockLength === 0 || count($orderedIds) < $blockLength) {
-            return null;
-        }
-
-        for ($index = 0; $index <= count($orderedIds) - $blockLength; $index++) {
-            $window = array_slice($orderedIds, $index, $blockLength);
-
-            if ($this->entrySetsMatch($window, $entryIds)) {
-                return $index;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @param  array<int, int>  $entryIds
-     * @return array{entry_ids: array<int, int>, display_names: array<int, string>, player_ids?: array<int, int>, player_names?: array<int, string>}
-     */
-    private function formatTiebreakGroupMeta(array $entryIds, GroupEntryIndex $index): array
-    {
-        $meta = [
-            'entry_ids' => array_values(array_map('intval', $entryIds)),
-            'display_names' => $index->displayNamesForEntries($entryIds),
-        ];
-
-        if ($index->isSingles()) {
-            $meta['player_ids'] = $index->playerIdsForEntries($entryIds);
-            $meta['player_names'] = $index->playerNamesForEntries($entryIds);
-        }
-
-        return $meta;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function formatPublicTiebreakRecord(GroupManualTiebreak $tiebreak, GroupEntryIndex $index): array
-    {
-        $entryIds = $tiebreak->orderedCompetitionEntryIds();
-
-        return [
-            'id' => (int) $tiebreak->id,
-            ...$this->formatTiebreakGroupMeta($entryIds, $index),
-            'reason' => $tiebreak->reason->value,
-            'notes' => $tiebreak->notes,
-            'applied_at' => $tiebreak->applied_at?->toIso8601String() ?? '',
-        ];
-    }
-
-    /**
      * @param  array<int, int>  $tiedEntryIds
      * @param  array<int, Game>  $finishedGames
      * @return array{
@@ -536,93 +261,5 @@ final class GroupStandingsCalculator
             criteria: ['mini_won', 'set_diff', 'point_diff'],
             currentCriterion: 0,
         );
-    }
-
-    /**
-     * @param  array<int, int>  $entryIds
-     * @param  array<int, array{mini_won: int, set_diff: int, point_diff: int}>  $miniStats
-     * @param  array<int, string>  $criteria
-     * @return array{
-     *     ordered_entry_ids: array<int, int>,
-     *     manual_groups: array<int, array<int, int>>
-     * }
-     */
-    private function rankByMiniCriteria(
-        array $entryIds,
-        array $miniStats,
-        GroupEntryIndex $index,
-        array $criteria,
-        int $currentCriterion,
-    ): array {
-        if (count($entryIds) <= 1) {
-            return [
-                'ordered_entry_ids' => $entryIds,
-                'manual_groups' => [],
-            ];
-        }
-
-        $criterion = $criteria[$currentCriterion] ?? null;
-
-        if ($criterion === null) {
-            $orderedByName = $this->sortEntriesByName($entryIds, $index);
-
-            return [
-                'ordered_entry_ids' => $orderedByName,
-                'manual_groups' => [$orderedByName],
-            ];
-        }
-
-        $groupsByCriterionValue = [];
-
-        foreach ($entryIds as $entryId) {
-            $value = (int) ($miniStats[$entryId][$criterion] ?? 0);
-            $groupsByCriterionValue[$value] ??= [];
-            $groupsByCriterionValue[$value][] = $entryId;
-        }
-
-        krsort($groupsByCriterionValue, SORT_NUMERIC);
-
-        $orderedEntryIds = [];
-        $manualGroups = [];
-
-        foreach ($groupsByCriterionValue as $entriesWithSameValue) {
-            if (count($entriesWithSameValue) === 1) {
-                $orderedEntryIds[] = $entriesWithSameValue[0];
-
-                continue;
-            }
-
-            $resolvedSubGroup = $this->rankByMiniCriteria(
-                entryIds: $entriesWithSameValue,
-                miniStats: $miniStats,
-                index: $index,
-                criteria: $criteria,
-                currentCriterion: $currentCriterion + 1,
-            );
-
-            $orderedEntryIds = [...$orderedEntryIds, ...$resolvedSubGroup['ordered_entry_ids']];
-            $manualGroups = [...$manualGroups, ...$resolvedSubGroup['manual_groups']];
-        }
-
-        return [
-            'ordered_entry_ids' => $orderedEntryIds,
-            'manual_groups' => $manualGroups,
-        ];
-    }
-
-    /**
-     * @param  array<int, int>  $entryIds
-     * @return array<int, int>
-     */
-    private function sortEntriesByName(array $entryIds, GroupEntryIndex $index): array
-    {
-        usort($entryIds, function (int $leftEntryId, int $rightEntryId) use ($index): int {
-            $leftName = strtolower($index->displayNameForEntry($leftEntryId));
-            $rightName = strtolower($index->displayNameForEntry($rightEntryId));
-
-            return [$leftName, $leftEntryId] <=> [$rightName, $rightEntryId];
-        });
-
-        return $entryIds;
     }
 }

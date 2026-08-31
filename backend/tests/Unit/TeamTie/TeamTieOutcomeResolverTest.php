@@ -140,6 +140,97 @@ class TeamTieOutcomeResolverTest extends TestCase
         $this->assertSame(3, $outcome['entry2_wins']);
     }
 
+    public function test_official_rubbers_returns_only_three_for_three_zero_with_five_finished(): void
+    {
+        $teamTie = $this->createScheduledTeamTie();
+
+        $this->finishRubberSlot($teamTie, 1, (int) $teamTie->entry1_id);
+        $this->finishRubberSlot($teamTie, 2, (int) $teamTie->entry1_id);
+        $this->finishRubberSlot($teamTie, 3, (int) $teamTie->entry1_id);
+        $this->finishRubberSlot($teamTie, 4, (int) $teamTie->entry2_id);
+        $this->finishRubberSlot($teamTie, 5, (int) $teamTie->entry2_id);
+
+        $officialRubbers = TeamTieOutcomeResolver::officialRubbers($teamTie->fresh());
+
+        $this->assertCount(3, $officialRubbers);
+        $this->assertSame([1, 2, 3], array_column($officialRubbers, 'slot_order'));
+    }
+
+    public function test_official_rubbers_ignores_not_needed_slots(): void
+    {
+        $teamTie = $this->createScheduledTeamTie();
+        $this->rubberAt($teamTie, 5)->game->update(['status' => GameStatus::NotNeeded]);
+
+        $this->finishRubberSlot($teamTie, 1, (int) $teamTie->entry1_id);
+        $this->finishRubberSlot($teamTie, 2, (int) $teamTie->entry2_id);
+
+        $officialRubbers = TeamTieOutcomeResolver::officialRubbers($teamTie->fresh());
+
+        $this->assertCount(2, $officialRubbers);
+        $this->assertSame([1, 2], array_column($officialRubbers, 'slot_order'));
+    }
+
+    public function test_official_rubbers_respects_slot_order_with_out_of_order_results(): void
+    {
+        $teamTie = $this->createScheduledTeamTie();
+
+        $this->finishRubberSlot($teamTie, 4, (int) $teamTie->entry2_id);
+        $this->finishRubberSlot($teamTie, 5, (int) $teamTie->entry2_id);
+        $this->finishRubberSlot($teamTie, 1, (int) $teamTie->entry1_id);
+        $this->finishRubberSlot($teamTie, 2, (int) $teamTie->entry1_id);
+        $this->finishRubberSlot($teamTie, 3, (int) $teamTie->entry1_id);
+
+        $officialRubbers = TeamTieOutcomeResolver::officialRubbers($teamTie->fresh());
+
+        $this->assertCount(3, $officialRubbers);
+        $this->assertSame([1, 2, 3], array_column($officialRubbers, 'slot_order'));
+    }
+
+    public function test_official_rubbers_returns_four_for_three_one_score(): void
+    {
+        $teamTie = $this->createScheduledTeamTie();
+
+        $this->finishRubberSlot($teamTie, 1, (int) $teamTie->entry1_id);
+        $this->finishRubberSlot($teamTie, 2, (int) $teamTie->entry2_id);
+        $this->finishRubberSlot($teamTie, 3, (int) $teamTie->entry1_id);
+        $this->finishRubberSlot($teamTie, 4, (int) $teamTie->entry1_id);
+
+        $officialRubbers = TeamTieOutcomeResolver::officialRubbers($teamTie->fresh());
+
+        $this->assertCount(4, $officialRubbers);
+        $this->assertSame([1, 2, 3, 4], array_column($officialRubbers, 'slot_order'));
+    }
+
+    public function test_official_rubbers_returns_five_for_three_two_score(): void
+    {
+        $teamTie = $this->createScheduledTeamTie();
+
+        $this->finishRubberSlot($teamTie, 1, (int) $teamTie->entry1_id);
+        $this->finishRubberSlot($teamTie, 2, (int) $teamTie->entry2_id);
+        $this->finishRubberSlot($teamTie, 3, (int) $teamTie->entry1_id);
+        $this->finishRubberSlot($teamTie, 4, (int) $teamTie->entry2_id);
+        $this->finishRubberSlot($teamTie, 5, (int) $teamTie->entry1_id);
+
+        $officialRubbers = TeamTieOutcomeResolver::officialRubbers($teamTie->fresh());
+
+        $this->assertCount(5, $officialRubbers);
+        $this->assertSame([1, 2, 3, 4, 5], array_column($officialRubbers, 'slot_order'));
+    }
+
+    public function test_official_rubbers_expose_game_and_entry_fields(): void
+    {
+        $teamTie = $this->createScheduledTeamTie();
+        $this->finishRubberSlot($teamTie, 1, (int) $teamTie->entry1_id);
+
+        $officialRubbers = TeamTieOutcomeResolver::officialRubbers($teamTie->fresh());
+
+        $this->assertArrayHasKey('game', $officialRubbers[0]);
+        $this->assertArrayHasKey('team_tie_game', $officialRubbers[0]);
+        $this->assertSame((int) $teamTie->entry1_id, $officialRubbers[0]['winner_entry_id']);
+        $this->assertSame((int) $teamTie->entry1_id, $officialRubbers[0]['entry1_id']);
+        $this->assertSame((int) $teamTie->entry2_id, $officialRubbers[0]['entry2_id']);
+    }
+
     private function createScheduledTeamTie(): TeamTie
     {
         $context = $this->tournamentContext();

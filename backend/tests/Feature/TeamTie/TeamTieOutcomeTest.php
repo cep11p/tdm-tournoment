@@ -223,7 +223,7 @@ class TeamTieOutcomeTest extends TestCase
             ->count());
     }
 
-    public function test_all_team_ties_finished_keeps_competition_in_group_stage_in_progress(): void
+    public function test_all_team_ties_finished_marks_competition_ready_for_bracket(): void
     {
         $context = $this->tournamentContext();
         $competition = $context->createTeamCompetition(4);
@@ -239,11 +239,7 @@ class TeamTieOutcomeTest extends TestCase
 
         $this->getJson($context->apiUrl("competitions/{$competition->id}"))
             ->assertOk()
-            ->assertJsonPath('data.status_summary.code', 'group_stage_in_progress')
-            ->assertJsonPath(
-                'data.status_summary.description',
-                'Los enfrentamientos finalizaron. La tabla de posiciones aún debe resolverse.',
-            );
+            ->assertJsonPath('data.status_summary.code', 'ready_for_bracket');
     }
 
     /**

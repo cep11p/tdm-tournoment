@@ -756,7 +756,7 @@ onMounted(async () => {
         <AppBackButton :fallback-to="competitionId ? `/competitions/${competitionId}` : '/competitions'" />
 
         <RouterLink
-          v-if="!isTeam"
+          v-if="hasGroupSchedule || standings.length > 0"
           :to="`/groups/${groupId}/standings?competitionId=${competitionId}&groupName=${encodeURIComponent(groupName)}`"
           class="text-sm font-medium text-slate-700 hover:underline dark:text-slate-300"
         >

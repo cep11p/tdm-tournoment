@@ -4,6 +4,7 @@ namespace App\Actions\Group;
 
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
+use App\Enums\CompetitionType;
 use App\Enums\ManualTiebreakReason;
 use App\Models\Group;
 use App\Models\GroupManualTiebreak;
@@ -12,7 +13,7 @@ use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\BuildGroupEntryIndexForGroup;
 use App\Support\Competition\CompetitionFormatGuard;
-use App\Support\Group\GroupStandingsCalculator;
+use App\Support\Group\GroupStandingsResolver;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -20,7 +21,7 @@ use Illuminate\Validation\ValidationException;
 final class ApplyGroupManualTiebreakAction
 {
     public function __construct(
-        private readonly GroupStandingsCalculator $groupStandingsCalculator,
+        private readonly GroupStandingsResolver $groupStandingsResolver,
         private readonly BuildGroupEntryIndexForGroup $buildGroupEntryIndexForGroup,
         private readonly AuditLogger $auditLogger,
     ) {}
@@ -41,9 +42,18 @@ final class ApplyGroupManualTiebreakAction
             ]);
         }
 
-        if (! $this->groupStandingsCalculator->isGroupComplete($group)) {
+        if (! $this->groupStandingsResolver->isGroupComplete($group)) {
+            $group->loadMissing('competition');
+            $type = $group->competition?->type instanceof CompetitionType
+                ? $group->competition->type
+                : CompetitionType::tryFrom((string) $group->competition?->type);
+            $scheduleLabel = $type === CompetitionType::Team ? 'enfrentamientos' : 'partidos';
+
             throw ValidationException::withMessages([
-                'group' => ['El desempate manual solo puede definirse cuando todos los partidos del grupo estén finalizados.'],
+                'group' => [sprintf(
+                    'El desempate manual solo puede definirse cuando todos los %s del grupo estén finalizados.',
+                    $scheduleLabel,
+                )],
             ]);
         }
 
@@ -66,7 +76,7 @@ final class ApplyGroupManualTiebreakAction
             }
         }
 
-        $automaticResult = $this->groupStandingsCalculator->calculateAutomaticOnly($group);
+        $automaticResult = $this->groupStandingsResolver->calculateAutomaticOnly($group);
         $pendingGroups = $automaticResult->pendingManualTieEntryGroups;
 
         if ($pendingGroups === []) {

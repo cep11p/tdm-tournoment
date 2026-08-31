@@ -7,7 +7,7 @@ import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import { usePermissions } from '../../composables/usePermissions'
 import CompetitionService from '../../competitions/services/CompetitionService'
-import { isDoublesCompetition } from '../../shared/constants/competitionType'
+import { isDoublesCompetition, isTeamCompetition, participantPlural } from '../../shared/constants/competitionType'
 import { getGroupPlayerStatusLabel } from '../../groups/constants/groupPlayerStatus'
 import GroupManualTiebreakPanel from '../components/GroupManualTiebreakPanel.vue'
 import StandingService from '../services/StandingService'
@@ -32,18 +32,36 @@ const hasBracket = ref(false)
 const qualifiedPerGroup = computed(() => competition.value?.qualified_per_group ?? 2)
 
 const isDoubles = computed(() => isDoublesCompetition(competition.value))
+const isTeam = computed(() => isTeamCompetition(competition.value))
 
-const participantColumnLabel = computed(() => (isDoubles.value ? 'Pareja' : 'Jugador'))
+const participantColumnLabel = computed(() => {
+  if (isTeam.value) {
+    return 'Equipo'
+  }
+
+  return isDoubles.value ? 'Pareja' : 'Jugador'
+})
 
 const participantsCountLabel = computed(() => {
   const count = standings.value.length
+  const label = participantPlural(competition.value)
 
-  if (isDoubles.value) {
-    return `${count} pareja${count === 1 ? '' : 's'}`
+  return `${count} ${label}`
+})
+
+const completedScheduleCount = computed(() => {
+  if (isTeam.value) {
+    const finished = Number(standingsMeta.value.finished_team_ties_count ?? completedGamesCount.value)
+
+    return finished
   }
 
-  return `${count} jugador${count === 1 ? '' : 'es'}`
+  return completedMatches.value
 })
+
+const completedScheduleLabel = computed(() =>
+  isTeam.value ? 'Enfrentamientos completados' : 'Partidos completados',
+)
 
 const standings = ref([])
 const standingsMeta = ref({})
@@ -89,10 +107,14 @@ const provisionalMessage = computed(() => {
   }
 
   if (completedGamesCount.value === 0) {
-    return 'Todavía no hay partidos completados en este grupo. El orden actual es provisorio.'
+    return isTeam.value
+      ? 'Todavía no hay enfrentamientos completados en este grupo. El orden actual es provisorio.'
+      : 'Todavía no hay partidos completados en este grupo. El orden actual es provisorio.'
   }
 
-  return 'Aún quedan partidos pendientes. El desempate se evaluará cuando finalicen todos los partidos del grupo.'
+  return isTeam.value
+    ? 'Aún quedan enfrentamientos pendientes. El desempate se evaluará cuando finalicen todos los enfrentamientos del grupo.'
+    : 'Aún quedan partidos pendientes. El desempate se evaluará cuando finalicen todos los partidos del grupo.'
 })
 
 const tiebreakGroupKey = (tiebreakGroup) =>
@@ -160,6 +182,28 @@ const playerStatusBadgeClasses = (status) => {
 
   return ''
 }
+
+const standingMembersLabel = (standing) => {
+  const count = standing?.members?.length ?? 0
+
+  if (!isTeam.value || count === 0) {
+    return null
+  }
+
+  return `${count} integrante${count === 1 ? '' : 's'}`
+}
+
+const formatSignedDifference = (value) => {
+  const numeric = Number(value ?? 0)
+
+  if (numeric > 0) {
+    return `+${numeric}`
+  }
+
+  return String(numeric)
+}
+
+const standingRecordLabel = (standing) => `${standing.won}-${standing.lost}`
 
 const standingDisplayName = (standing) =>
   standing.display_name || standing.player_name || `Participación #${standing.competition_entry_id}`
@@ -303,23 +347,107 @@ onMounted(async () => {
           </div>
 
           <div>
-            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Partidos completados
-            </dt>
-            <dd class="mt-1 font-medium text-slate-900 dark:text-slate-100">{{ completedMatches }}</dd>
+            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ completedScheduleLabel }}</dt>
+            <dd class="mt-1 font-medium text-slate-900 dark:text-slate-100">{{ completedScheduleCount }}</dd>
           </div>
         </dl>
       </div>
 
-      <div class="overflow-x-auto rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+      <div v-if="isTeam" class="space-y-3 md:hidden">
+        <article
+          v-for="standing in standingsWithPosition"
+          :key="`team-card-${standing.competition_entry_id}`"
+          class="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
+          :class="rowClasses(standing)"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span
+                  class="inline-flex min-w-[2.5rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold"
+                  :class="positionBadgeClasses(standing.position)"
+                >
+                  {{ standing.position }}°
+                </span>
+                <p class="font-medium text-slate-900 dark:text-slate-100">
+                  {{ standingDisplayName(standing) }}
+                </p>
+              </div>
+              <p v-if="standingMembersLabel(standing)" class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                {{ standingMembersLabel(standing) }}
+              </p>
+            </div>
+
+            <div class="text-right">
+              <p class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                {{ standingRecordLabel(standing) }}
+              </p>
+              <span
+                class="mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                :class="qualificationBadgeClasses(standing)"
+              >
+                <span v-if="qualificationIcon(standing)" aria-hidden="true">
+                  {{ qualificationIcon(standing) }}
+                </span>
+                {{ qualificationLabel(standing) }}
+              </span>
+            </div>
+          </div>
+
+          <details class="mt-3 text-sm text-slate-600 dark:text-slate-300">
+            <summary class="cursor-pointer font-medium text-slate-700 dark:text-slate-200">
+              Ver detalle
+            </summary>
+            <dl class="mt-2 grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <dt>Enfrentamientos</dt>
+                <dd class="font-medium text-slate-900 dark:text-slate-100">{{ standing.played }}</dd>
+              </div>
+              <div>
+                <dt>Rubbers</dt>
+                <dd class="font-medium text-slate-900 dark:text-slate-100">
+                  {{ formatSignedDifference(standing.rubber_difference) }}
+                </dd>
+              </div>
+              <div>
+                <dt>Sets</dt>
+                <dd class="font-medium text-slate-900 dark:text-slate-100">
+                  {{ formatSignedDifference(standing.set_difference) }}
+                </dd>
+              </div>
+              <div>
+                <dt>Puntos</dt>
+                <dd class="font-medium text-slate-900 dark:text-slate-100">
+                  {{ formatSignedDifference(standing.point_difference) }}
+                </dd>
+              </div>
+            </dl>
+          </details>
+        </article>
+      </div>
+
+      <div
+        class="overflow-x-auto rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+        :class="isTeam ? 'hidden md:block' : ''"
+      >
         <table class="min-w-full text-sm">
           <thead class="bg-slate-50 text-slate-700 dark:bg-slate-800/80 dark:text-slate-200">
             <tr>
               <th class="px-3 py-2 text-left font-medium">Posición</th>
               <th class="px-3 py-2 text-left font-medium">{{ participantColumnLabel }}</th>
-              <th class="px-3 py-2 text-left font-medium">PJ</th>
-              <th class="px-3 py-2 text-left font-medium">PG</th>
-              <th class="px-3 py-2 text-left font-medium">PP</th>
+              <template v-if="isTeam">
+                <th class="px-3 py-2 text-left font-medium">EJ</th>
+                <th class="px-3 py-2 text-left font-medium">EG</th>
+                <th class="px-3 py-2 text-left font-medium">EP</th>
+                <th class="px-3 py-2 text-left font-medium">Dif. rubbers</th>
+                <th class="px-3 py-2 text-left font-medium">Dif. sets</th>
+                <th class="px-3 py-2 text-left font-medium">Dif. puntos</th>
+              </template>
+              <template v-else>
+                <th class="px-3 py-2 text-left font-medium">PJ</th>
+                <th class="px-3 py-2 text-left font-medium">PG</th>
+                <th class="px-3 py-2 text-left font-medium">PP</th>
+              </template>
               <th class="px-3 py-2 text-left font-medium">Estado</th>
             </tr>
           </thead>
@@ -339,7 +467,15 @@ onMounted(async () => {
               </td>
               <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
                 <div class="flex flex-wrap items-center gap-2">
-                  <span>{{ standingDisplayName(standing) }}</span>
+                  <div>
+                    <span>{{ standingDisplayName(standing) }}</span>
+                    <p
+                      v-if="standingMembersLabel(standing)"
+                      class="mt-0.5 text-xs font-normal text-slate-500 dark:text-slate-400"
+                    >
+                      {{ standingMembersLabel(standing) }}
+                    </p>
+                  </div>
                   <span
                     v-if="standing.manual_tiebreak_applied && !standingsAreProvisional"
                     class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-200"
@@ -355,9 +491,25 @@ onMounted(async () => {
                   </span>
                 </div>
               </td>
-              <td class="px-3 py-2 text-slate-700 dark:text-slate-300">{{ standing.played }}</td>
-              <td class="px-3 py-2 text-slate-700 dark:text-slate-300">{{ standing.won }}</td>
-              <td class="px-3 py-2 text-slate-700 dark:text-slate-300">{{ standing.lost }}</td>
+              <template v-if="isTeam">
+                <td class="px-3 py-2 text-slate-700 dark:text-slate-300">{{ standing.played }}</td>
+                <td class="px-3 py-2 text-slate-700 dark:text-slate-300">{{ standing.won }}</td>
+                <td class="px-3 py-2 text-slate-700 dark:text-slate-300">{{ standing.lost }}</td>
+                <td class="px-3 py-2 text-slate-700 dark:text-slate-300">
+                  {{ formatSignedDifference(standing.rubber_difference) }}
+                </td>
+                <td class="px-3 py-2 text-slate-700 dark:text-slate-300">
+                  {{ formatSignedDifference(standing.set_difference) }}
+                </td>
+                <td class="px-3 py-2 text-slate-700 dark:text-slate-300">
+                  {{ formatSignedDifference(standing.point_difference) }}
+                </td>
+              </template>
+              <template v-else>
+                <td class="px-3 py-2 text-slate-700 dark:text-slate-300">{{ standing.played }}</td>
+                <td class="px-3 py-2 text-slate-700 dark:text-slate-300">{{ standing.won }}</td>
+                <td class="px-3 py-2 text-slate-700 dark:text-slate-300">{{ standing.lost }}</td>
+              </template>
               <td class="px-3 py-2">
                 <span
                   class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"

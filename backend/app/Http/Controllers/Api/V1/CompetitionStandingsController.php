@@ -13,11 +13,18 @@ use App\Support\Competition\CompetitionEntryDisplayName;
 use App\Support\Competition\CompetitionEntryMemberPayload;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 
 class CompetitionStandingsController extends Controller
 {
     public function index(Competition $competition): AnonymousResourceCollection
     {
+        if ($this->isTeamCompetition($competition)) {
+            throw ValidationException::withMessages([
+                'competition' => ['Las posiciones generales de competencias por equipos se consultan por grupo.'],
+            ]);
+        }
+
         $competition->loadMissing('entries.members.player');
 
         $entries = $competition->entries;
@@ -109,5 +116,14 @@ class CompetitionStandingsController extends Controller
             : CompetitionType::from((string) $competition->type);
 
         return $type === CompetitionType::Singles;
+    }
+
+    private function isTeamCompetition(Competition $competition): bool
+    {
+        $type = $competition->type instanceof CompetitionType
+            ? $competition->type
+            : CompetitionType::from((string) $competition->type);
+
+        return $type === CompetitionType::Team;
     }
 }

@@ -33,9 +33,17 @@ export function buildGroupPhaseAlert({ group, standings = [], meta = {}, games =
   const normalizedStandings = Array.isArray(standings) ? standings : []
   const normalizedMeta = meta ?? {}
   const normalizedGames = Array.isArray(games) ? games : []
+  const isTeamGroup = Number(normalizedMeta.total_team_ties_count ?? 0) > 0
+  const scheduleLabel = isTeamGroup ? 'enfrentamiento' : 'partido'
 
   const inactivePlayers = normalizedStandings.filter(isInactiveStanding)
-  const pendingGamesCount = normalizedGames.filter(isPendingGame).length
+  const pendingGamesCount = isTeamGroup
+    ? Math.max(
+        0,
+        Number(normalizedMeta.total_team_ties_count ?? 0) -
+          Number(normalizedMeta.finished_team_ties_count ?? 0),
+      )
+    : normalizedGames.filter(isPendingGame).length
 
   const isProvisional = Boolean(normalizedMeta.standings_are_provisional)
   const hasPendingManualTiebreak =
@@ -44,7 +52,9 @@ export function buildGroupPhaseAlert({ group, standings = [], meta = {}, games =
   const hasStaleManualTiebreaks = !isProvisional && staleManualTiebreaks.length > 0
   const hasAppliedManualTiebreaks = Boolean(normalizedMeta.has_manual_tiebreaks)
 
-  const hasGroupGames = normalizedGames.length > 0
+  const hasGroupGames = isTeamGroup
+    ? Number(normalizedMeta.total_team_ties_count ?? 0) > 0
+    : normalizedGames.length > 0
   const hasStandings = normalizedStandings.length > 0
 
   const alerts = []
@@ -71,7 +81,7 @@ export function buildGroupPhaseAlert({ group, standings = [], meta = {}, games =
 
   if (pendingGamesCount > 0) {
     alerts.push({
-      label: `${pendingGamesCount} partido${pendingGamesCount === 1 ? '' : 's'} pendiente${pendingGamesCount === 1 ? '' : 's'}`,
+      label: `${pendingGamesCount} ${scheduleLabel}${pendingGamesCount === 1 ? '' : 's'} pendiente${pendingGamesCount === 1 ? '' : 's'}`,
       type: 'info',
     })
   }
@@ -95,7 +105,7 @@ export function buildGroupPhaseAlert({ group, standings = [], meta = {}, games =
     isReady = false
     highlightLink = 'standings'
   } else if (pendingGamesCount > 0) {
-    primaryLabel = 'Partidos pendientes'
+    primaryLabel = isTeamGroup ? 'Enfrentamientos pendientes' : 'Partidos pendientes'
     primaryType = 'info'
     needsAttention = true
     isReady = false

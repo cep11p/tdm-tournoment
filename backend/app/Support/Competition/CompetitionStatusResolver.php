@@ -157,26 +157,6 @@ final class CompetitionStatusResolver
                 ->whereNotNull('group_id')
                 ->whereIn('status', [TeamTieStatus::Pending, TeamTieStatus::InProgress])
                 ->exists();
-
-            if (! $hasOpenGroupSchedule) {
-                $allTeamTiesFinished = ! TeamTie::query()
-                    ->where('competition_id', $competition->id)
-                    ->whereNotNull('group_id')
-                    ->where('status', '!=', TeamTieStatus::Finished)
-                    ->exists();
-
-                if ($allTeamTiesFinished && TeamTie::query()
-                    ->where('competition_id', $competition->id)
-                    ->whereNotNull('group_id')
-                    ->exists()) {
-                    return self::summary(
-                        'group_stage_in_progress',
-                        'Fase de grupos en curso',
-                        'Los enfrentamientos finalizaron. La tabla de posiciones aún debe resolverse.',
-                        'Completar enfrentamientos de grupos',
-                    );
-                }
-            }
         } else {
             $groupGamesQuery = Game::query()
                 ->where('competition_id', $competition->id)

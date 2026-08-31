@@ -4,17 +4,19 @@ namespace App\Support\Bracket;
 
 use App\Data\Competition\CompetitionStandingData;
 use App\Data\Competition\GroupQualifierData;
+use App\Enums\CompetitionType;
 use App\Enums\GameStatus;
+use App\Enums\TeamTieStatus;
 use App\Models\Competition;
 use App\Models\Group;
-use App\Support\Group\GroupStandingsCalculator;
+use App\Support\Group\GroupStandingsResolver;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 final class GroupQualifiersCollector
 {
     public function __construct(
-        private readonly GroupStandingsCalculator $groupStandingsCalculator,
+        private readonly GroupStandingsResolver $groupStandingsResolver,
         private readonly GroupBracketReadiness $groupBracketReadiness,
     ) {}
 
@@ -39,31 +41,54 @@ final class GroupQualifiersCollector
      */
     private function qualifiersFromGroup(Group $group, int $qualifiersPerGroup): Collection
     {
+        $group->loadMissing('competition');
+        $isTeam = $this->isTeamCompetition($group->competition);
+        $participantLabel = $isTeam ? 'equipos' : 'jugadores';
+        $scheduleLabel = $isTeam ? 'enfrentamientos' : 'partidos';
+
         $groupEntriesCount = $group->groupEntries()->count();
 
         if ($groupEntriesCount < 2) {
             throw ValidationException::withMessages([
-                'group' => [sprintf('El grupo "%s" necesita al menos 2 jugadores.', $group->name)],
+                'group' => [sprintf('El grupo "%s" necesita al menos 2 %s.', $group->name, $participantLabel)],
             ]);
         }
 
-        if (! $group->games()->exists()) {
-            throw ValidationException::withMessages([
-                'group' => [sprintf('El grupo "%s" no tiene partidos generados.', $group->name)],
-            ]);
+        if ($isTeam) {
+            if (! $group->teamTies()->exists()) {
+                throw ValidationException::withMessages([
+                    'group' => [sprintf('El grupo "%s" no tiene enfrentamientos generados.', $group->name)],
+                ]);
+            }
+
+            $hasUnfinishedTeamTies = $group->teamTies()
+                ->where('status', '!=', TeamTieStatus::Finished)
+                ->exists();
+
+            if ($hasUnfinishedTeamTies) {
+                throw ValidationException::withMessages([
+                    'group' => [sprintf('El grupo "%s" todavía tiene enfrentamientos sin finalizar.', $group->name)],
+                ]);
+            }
+        } else {
+            if (! $group->games()->exists()) {
+                throw ValidationException::withMessages([
+                    'group' => [sprintf('El grupo "%s" no tiene partidos generados.', $group->name)],
+                ]);
+            }
+
+            $hasUnfinishedGames = $group->games()
+                ->where('status', '!=', GameStatus::Finished)
+                ->exists();
+
+            if ($hasUnfinishedGames) {
+                throw ValidationException::withMessages([
+                    'group' => [sprintf('El grupo "%s" todavía tiene %s sin finalizar.', $group->name, $scheduleLabel)],
+                ]);
+            }
         }
 
-        $hasUnfinishedGames = $group->games()
-            ->where('status', '!=', GameStatus::Finished)
-            ->exists();
-
-        if ($hasUnfinishedGames) {
-            throw ValidationException::withMessages([
-                'group' => [sprintf('El grupo "%s" todavía tiene partidos sin finalizar.', $group->name)],
-            ]);
-        }
-
-        $standingsResult = $this->groupStandingsCalculator->calculate($group);
+        $standingsResult = $this->groupStandingsResolver->calculate($group);
         $eligibleStandings = $standingsResult->standings
             ->filter(fn (CompetitionStandingData $standing): bool => $standing->eligibleForQualification)
             ->values();
@@ -96,5 +121,14 @@ final class GroupQualifiersCollector
                 lost: $standing->lost,
             ),
         );
+    }
+
+    private function isTeamCompetition(Competition $competition): bool
+    {
+        $type = $competition->type instanceof CompetitionType
+            ? $competition->type
+            : CompetitionType::from((string) $competition->type);
+
+        return $type === CompetitionType::Team;
     }
 }

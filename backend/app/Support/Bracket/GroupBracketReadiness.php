@@ -5,13 +5,13 @@ namespace App\Support\Bracket;
 use App\Data\Competition\CompetitionStandingData;
 use App\Models\Competition;
 use App\Models\Group;
-use App\Support\Group\GroupStandingsCalculator;
+use App\Support\Group\GroupStandingsResolver;
 use Illuminate\Support\Collection;
 
 final class GroupBracketReadiness
 {
     public function __construct(
-        private readonly GroupStandingsCalculator $groupStandingsCalculator,
+        private readonly GroupStandingsResolver $groupStandingsResolver,
     ) {}
 
     public function requiresAttentionBeforeBracket(Competition $competition): bool
@@ -29,7 +29,7 @@ final class GroupBracketReadiness
 
     public function groupRequiresAttentionBeforeBracket(Group $group, int $qualifiersPerGroup): bool
     {
-        $standingsResult = $this->groupStandingsCalculator->calculate($group);
+        $standingsResult = $this->groupStandingsResolver->calculate($group);
 
         if ($standingsResult->staleManualTiebreaks !== []) {
             return true;

@@ -23,6 +23,8 @@ final class GroupStandingsResult
         public readonly bool $isProvisional = false,
         public readonly int $completedGamesCount = 0,
         public readonly int $totalGamesCount = 0,
+        public readonly ?int $finishedTeamTiesCount = null,
+        public readonly ?int $totalTeamTiesCount = null,
     ) {}
 
     public function requiresManualTiebreak(): bool
