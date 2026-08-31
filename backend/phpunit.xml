@@ -18,6 +18,7 @@
         </include>
     </source>
     <php>
+        <ini name="memory_limit" value="256M"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_LOCALE" value="es"/>
         <env name="APP_FALLBACK_LOCALE" value="es"/>

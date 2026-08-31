@@ -166,7 +166,12 @@ class GroupTeamRoundRobinTest extends TestCase
         ])->assertUnprocessable()
             ->assertJsonPath('errors.team_tie_format_id.0', TeamCompetitionStructureGuard::FORMAT_LOCK_MESSAGE);
 
-        $context->registerTeamViaApi($competition, 'Equipo extra', $context->createPlayers(4))
+        $extraPlayers = $context->createPlayers(4);
+        $context->registerTeamViaApi(
+            $competition,
+            'Equipo extra',
+            array_map(fn ($player) => $player->id, $extraPlayers),
+        )
             ->assertUnprocessable()
             ->assertJsonPath('errors.competition.0', TeamCompetitionStructureGuard::REGISTRATIONS_LOCK_MESSAGE);
     }

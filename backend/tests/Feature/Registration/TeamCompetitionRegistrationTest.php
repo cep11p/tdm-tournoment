@@ -284,22 +284,6 @@ class TeamCompetitionRegistrationTest extends TestCase
             ->assertJsonValidationErrors(['player_id']);
     }
 
-    public function test_round_robin_for_team_competition_is_blocked(): void
-    {
-        $context = $this->tournamentContext();
-        $competition = $context->createTeamCompetition(2);
-        $players = $context->createPlayers(4);
-        $entryA = $context->registerTeam($competition, 'Equipo A', [$players[0]->id, $players[1]->id]);
-        $entryB = $context->registerTeam($competition, 'Equipo B', [$players[2]->id, $players[3]->id]);
-        $group = $context->createGroup($competition);
-        $context->assignEntryToGroupViaApi($group, $entryA)->assertCreated();
-        $context->assignEntryToGroupViaApi($group, $entryB)->assertCreated();
-
-        $context->generateRoundRobin($group)
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['group']);
-    }
-
     public function test_team_registration_creates_audit_log(): void
     {
         $context = $this->tournamentContext();
