@@ -3,10 +3,12 @@
 namespace App\Support\Tournament;
 
 use App\Enums\GameStatus;
+use App\Enums\TeamTieStatus;
 use App\Enums\ThirdPlaceMode;
 use App\Enums\TournamentStatus;
 use App\Models\Competition;
 use App\Models\Game;
+use App\Models\TeamTie;
 use App\Models\Tournament;
 use App\Support\Bracket\BracketPodiumSupport;
 use App\Support\Competition\CompetitionResultResolver;
@@ -84,12 +86,20 @@ final class TournamentClosureGuard
                 ->whereIn('status', [GameStatus::Pending, GameStatus::InProgress])
                 ->exists();
 
-            if ($hasOpenGames) {
+            $hasOpenTeamTies = $competition->isTeam()
+                && TeamTie::query()
+                    ->where('competition_id', $competition->id)
+                    ->whereNotNull('bracket_id')
+                    ->whereIn('status', [TeamTieStatus::Pending, TeamTieStatus::InProgress])
+                    ->exists();
+
+            if ($hasOpenGames || $hasOpenTeamTies) {
                 throw ValidationException::withMessages([
                     'tournament' => [
                         sprintf(
-                            'La competencia «%s» tiene partidos pendientes.',
+                            'La competencia «%s» tiene %s pendientes.',
                             $competition->name,
+                            $competition->isTeam() ? 'enfrentamientos' : 'partidos',
                         ),
                     ],
                 ]);

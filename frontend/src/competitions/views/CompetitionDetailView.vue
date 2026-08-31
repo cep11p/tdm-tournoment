@@ -13,6 +13,7 @@ import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import { usePermissions } from '../../composables/usePermissions'
 import BracketService from '../../brackets/services/BracketService'
+import { getBracketMatches } from '../../brackets/utils/bracketMatchAdapter'
 import GameService from '../../games/services/GameService'
 import GroupService from '../../groups/services/GroupService'
 import RegistrationService from '../../registrations/services/RegistrationService'
@@ -27,6 +28,12 @@ import {
   competitionHasGroupStage,
   getCompetitionFormatLabel,
 } from '../constants/competitionFormats'
+import {
+  getCompetitionTypeLabel,
+  getParticipantKind,
+  isTeamCompetition,
+  participantPlural,
+} from '../../shared/constants/competitionType'
 import CompetitionContextHint from '../components/CompetitionContextHint.vue'
 import CompetitionFormModal from '../components/CompetitionFormModal.vue'
 import CompetitionParticipantsModal from '../components/CompetitionParticipantsModal.vue'
@@ -38,7 +45,6 @@ import {
   registrationsLockReason,
   structureLockReason,
 } from '../utils/competitionStructure'
-import { getCompetitionTypeLabel, getParticipantKind, participantPlural } from '../../shared/constants/competitionType'
 
 const route = useRoute()
 const { can } = usePermissions()
@@ -186,10 +192,18 @@ const bracketGenerationPreview = computed(() => {
   })
 })
 
-const bracketGameCount = computed(() => bracket.value?.games?.length ?? bracketGames.value.length)
+const bracketMatchList = computed(() =>
+  getBracketMatches(bracket.value, isTeamCompetition(competition.value)),
+)
+
+const bracketGameCount = computed(
+  () => bracketMatchList.value.length || bracketGames.value.length,
+)
 
 const bracketStatus = computed(() => {
-  const bracketGameList = bracket.value?.games?.length ? bracket.value.games : bracketGames.value
+  const bracketGameList = bracketMatchList.value.length
+    ? bracketMatchList.value
+    : bracketGames.value
 
   if (!hasBracket.value || bracketGameList.length === 0) {
     return null
@@ -1139,7 +1153,7 @@ const handleEditCompetitionSaved = async () => {
               </dd>
             </div>
 
-            <div v-if="resultSummary?.third_place_game_id && statusSummary?.code !== 'completed'">
+            <div v-if="(resultSummary?.third_place_game_id || resultSummary?.third_place_team_tie_id) && statusSummary?.code !== 'completed'">
               <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Tercer puesto</dt>
               <dd class="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
                 <RouterLink

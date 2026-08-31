@@ -20,7 +20,7 @@ const thirdPlaceEntries = (resultSummary) => resultSummary?.third_place ?? []
 
 const isPlayoffPendingThirdPlace = (resultSummary) =>
   resultSummary?.third_place_mode === 'playoff'
-  && resultSummary?.third_place_game_id
+  && (resultSummary?.third_place_game_id || resultSummary?.third_place_team_tie_id)
   && thirdPlaceEntries(resultSummary).length === 0
   && !resultSummary?.fourth_place
 

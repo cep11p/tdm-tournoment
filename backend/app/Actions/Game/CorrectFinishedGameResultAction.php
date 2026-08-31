@@ -2,6 +2,7 @@
 
 namespace App\Actions\Game;
 
+use App\Actions\TeamTie\PropagateTeamTieBracketCorrectionAction;
 use App\Actions\TeamTie\RecalculateTeamTieOutcomeAction;
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
@@ -28,6 +29,7 @@ final class CorrectFinishedGameResultAction
         private readonly GameSetScoreValidator $scoreValidator,
         private readonly AuditLogger $auditLogger,
         private readonly RecalculateTeamTieOutcomeAction $recalculateTeamTieOutcome,
+        private readonly PropagateTeamTieBracketCorrectionAction $propagateTeamTieBracketCorrection,
     ) {}
 
     /**
@@ -183,7 +185,31 @@ final class CorrectFinishedGameResultAction
             ));
 
             if ($game->teamTieGame !== null) {
-                ($this->recalculateTeamTieOutcome)((int) $game->teamTieGame->team_tie_id);
+                $teamTieId = (int) $game->teamTieGame->team_tie_id;
+                $teamTieBefore = \App\Models\TeamTie::query()
+                    ->lockForUpdate()
+                    ->findOrFail($teamTieId);
+                $previousTeamTieWinnerEntryId = $teamTieBefore->winner_entry_id !== null
+                    ? (int) $teamTieBefore->winner_entry_id
+                    : null;
+
+                $teamTieAfter = ($this->recalculateTeamTieOutcome)($teamTieId);
+                $newTeamTieWinnerEntryId = $teamTieAfter->winner_entry_id !== null
+                    ? (int) $teamTieAfter->winner_entry_id
+                    : null;
+
+                if (
+                    $teamTieAfter->bracket_id !== null
+                    && $previousTeamTieWinnerEntryId !== null
+                    && $newTeamTieWinnerEntryId !== null
+                    && $previousTeamTieWinnerEntryId !== $newTeamTieWinnerEntryId
+                ) {
+                    ($this->propagateTeamTieBracketCorrection)(
+                        source: $teamTieAfter->fresh(),
+                        previousWinnerEntryId: $previousTeamTieWinnerEntryId,
+                        newWinnerEntryId: $newTeamTieWinnerEntryId,
+                    );
+                }
             }
 
             return $game->fresh([

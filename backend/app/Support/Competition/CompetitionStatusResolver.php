@@ -6,6 +6,7 @@ use App\Enums\CompetitionType;
 use App\Enums\GameStatus;
 use App\Enums\TeamTieStatus;
 use App\Enums\ThirdPlaceMode;
+use App\Models\Bracket;
 use App\Models\Competition;
 use App\Models\Game;
 use App\Models\TeamTie;
@@ -200,6 +201,15 @@ final class CompetitionStatusResolver
 
     private static function isKnockoutCompleted(Competition $competition): bool
     {
+        if (self::isTeamCompetition($competition)) {
+            return self::isTeamKnockoutCompleted($competition);
+        }
+
+        return self::isGameKnockoutCompleted($competition);
+    }
+
+    private static function isGameKnockoutCompleted(Competition $competition): bool
+    {
         $finalFinished = Game::query()
             ->where('competition_id', $competition->id)
             ->whereNotNull('bracket_id')
@@ -213,6 +223,32 @@ final class CompetitionStatusResolver
             return false;
         }
 
+        return self::isPlayoffThirdPlaceCompleted($competition, fn (Bracket $bracket) => BracketPodiumSupport::findThirdPlaceGame($bracket));
+    }
+
+    private static function isTeamKnockoutCompleted(Competition $competition): bool
+    {
+        $finalFinished = TeamTie::query()
+            ->where('competition_id', $competition->id)
+            ->whereNotNull('bracket_id')
+            ->mainBracket()
+            ->where('round', 'Final')
+            ->where('status', TeamTieStatus::Finished)
+            ->whereNotNull('winner_entry_id')
+            ->exists();
+
+        if (! $finalFinished) {
+            return false;
+        }
+
+        return self::isPlayoffThirdPlaceCompleted($competition, fn (Bracket $bracket) => BracketPodiumSupport::findThirdPlaceTeamTie($bracket));
+    }
+
+    /**
+     * @param  callable(Bracket): (Game|TeamTie|null)  $findThirdPlace
+     */
+    private static function isPlayoffThirdPlaceCompleted(Competition $competition, callable $findThirdPlace): bool
+    {
         $thirdPlaceMode = $competition->third_place_mode instanceof ThirdPlaceMode
             ? $competition->third_place_mode
             : ThirdPlaceMode::from((string) $competition->third_place_mode);
@@ -227,14 +263,31 @@ final class CompetitionStatusResolver
             return true;
         }
 
-        $thirdPlaceGame = BracketPodiumSupport::findThirdPlaceGame($bracket);
+        $thirdPlaceMatch = $findThirdPlace($bracket);
 
-        return $thirdPlaceGame !== null
-            && $thirdPlaceGame->status === GameStatus::Finished
-            && $thirdPlaceGame->winner_entry_id !== null;
+        if ($thirdPlaceMatch === null) {
+            return false;
+        }
+
+        if ($thirdPlaceMatch instanceof Game) {
+            return $thirdPlaceMatch->status === GameStatus::Finished
+                && $thirdPlaceMatch->winner_entry_id !== null;
+        }
+
+        return $thirdPlaceMatch->status === TeamTieStatus::Finished
+            && $thirdPlaceMatch->winner_entry_id !== null;
     }
 
     private static function resolveKnockoutNextAction(Competition $competition): string
+    {
+        if (self::isTeamCompetition($competition)) {
+            return self::resolveTeamKnockoutNextAction($competition);
+        }
+
+        return self::resolveGameKnockoutNextAction($competition);
+    }
+
+    private static function resolveGameKnockoutNextAction(Competition $competition): string
     {
         $currentRound = (int) Game::query()
             ->where('competition_id', $competition->id)
@@ -294,6 +347,75 @@ final class CompetitionStatusResolver
             ->mainBracket()
             ->where('bracket_round', $currentRound)
             ->whereIn('status', [GameStatus::Pending, GameStatus::InProgress])
+            ->exists();
+
+        if ($currentRoundComplete) {
+            return 'Generar siguiente ronda';
+        }
+
+        return 'Ver llave';
+    }
+
+    private static function resolveTeamKnockoutNextAction(Competition $competition): string
+    {
+        $currentRound = (int) TeamTie::query()
+            ->where('competition_id', $competition->id)
+            ->whereNotNull('bracket_id')
+            ->mainBracket()
+            ->max('bracket_round');
+
+        if ($currentRound === 0) {
+            return 'Ver llave';
+        }
+
+        $finalTeamTie = TeamTie::query()
+            ->where('competition_id', $competition->id)
+            ->whereNotNull('bracket_id')
+            ->mainBracket()
+            ->where('round', 'Final')
+            ->first();
+
+        $thirdPlaceMode = $competition->third_place_mode instanceof ThirdPlaceMode
+            ? $competition->third_place_mode
+            : ThirdPlaceMode::from((string) $competition->third_place_mode);
+
+        $bracket = $competition->brackets()->first();
+        $requiresThirdPlace = $bracket !== null
+            && $thirdPlaceMode === ThirdPlaceMode::Playoff
+            && BracketPodiumSupport::requiresPlayoffThirdPlace($competition, $bracket);
+
+        if ($requiresThirdPlace) {
+            $thirdPlaceTeamTie = BracketPodiumSupport::findThirdPlaceTeamTie($bracket);
+            $finalFinished = $finalTeamTie !== null
+                && $finalTeamTie->status === TeamTieStatus::Finished
+                && $finalTeamTie->winner_entry_id !== null;
+            $thirdPlaceFinished = $thirdPlaceTeamTie !== null
+                && $thirdPlaceTeamTie->status === TeamTieStatus::Finished
+                && $thirdPlaceTeamTie->winner_entry_id !== null;
+
+            if ($finalFinished && ! $thirdPlaceFinished) {
+                return 'Completar partido por tercer puesto';
+            }
+
+            if (! $finalFinished && $thirdPlaceFinished) {
+                return 'Completar final';
+            }
+
+            if (! $finalFinished && $thirdPlaceTeamTie !== null) {
+                return 'Continuar fase eliminatoria';
+            }
+        }
+
+        if ($finalTeamTie !== null) {
+            return 'Ver llave';
+        }
+
+        $currentRoundComplete = ! TeamTie::query()
+            ->where('competition_id', $competition->id)
+            ->whereNotNull('bracket_id')
+            ->mainBracket()
+            ->where('bracket_round', $currentRound)
+            ->whereIn('status', [TeamTieStatus::Pending, TeamTieStatus::InProgress])
             ->exists();
 
         if ($currentRoundComplete) {

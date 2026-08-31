@@ -39,6 +39,17 @@ import {
   QUALIFYING_ROUND_BANNER,
   UNASSIGNED_PLAYER_LABEL,
 } from '../constants/bracketLabels'
+import {
+  bracketMatchDetailPath,
+  bracketMatchFormatLabel,
+  bracketMatchScoreLabel,
+  getBracketMatches,
+} from '../utils/bracketMatchAdapter'
+import { isTeamCompetition } from '../../shared/constants/competitionType'
+import {
+  getTeamTieStatusBadgeClasses,
+  getTeamTieStatusLabel,
+} from '../../team-ties/constants/teamTieStatus'
 
 const route = useRoute()
 const { can } = usePermissions()
@@ -48,6 +59,8 @@ const canRecordResults = computed(() => can('matches.record_result'))
 
 const competitionId = computed(() => route.params.id)
 const competition = ref(null)
+const isTeam = computed(() => isTeamCompetition(competition.value))
+const matchLabelPlural = computed(() => (isTeam.value ? 'enfrentamientos' : 'partidos'))
 const groups = ref(null)
 const games = ref(null)
 const groupStandingsByGroupId = ref({})
@@ -169,11 +182,16 @@ const initialRoundLabel = computed(() => {
 })
 
 const mainBracketGames = computed(() =>
-  (bracket.value?.games ?? []).filter((game) => game.bracket_purpose !== 'third_place'),
+  getBracketMatches(bracket.value, isTeam.value).filter(
+    (match) => match.bracket_purpose !== 'third_place',
+  ),
 )
 
-const thirdPlaceGame = computed(() =>
-  (bracket.value?.games ?? []).find((game) => game.bracket_purpose === 'third_place') ?? null,
+const thirdPlaceGame = computed(
+  () =>
+    getBracketMatches(bracket.value, isTeam.value).find(
+      (match) => match.bracket_purpose === 'third_place',
+    ) ?? null,
 )
 
 const refreshBracket = async () => {
@@ -276,6 +294,12 @@ const sideMembersHint = (game, sideNumber) => {
 }
 
 const matchFormatLabel = (game) => {
+  const teamLabel = bracketMatchFormatLabel(game)
+
+  if (teamLabel !== null) {
+    return teamLabel
+  }
+
   if (isByeGame(game)) {
     return null
   }
@@ -292,11 +316,14 @@ const matchFormatLabel = (game) => {
 }
 
 const canLoadResult = (game) =>
+  !isTeam.value &&
   canRecordResults.value &&
   !isByeGame(game) &&
   (game?.status === 'pending' || game?.status === 'in_progress')
 
 const isFinishedGame = (game) => !isByeGame(game) && game?.status === 'finished'
+
+const matchDetailPath = (game) => bracketMatchDetailPath(game)
 
 const openResultModal = (game) => {
   selectedGame.value = game
@@ -318,6 +345,10 @@ const statusLabel = (game) => {
     return isQualifyingRoundGame(game) ? BYE_BADGE_LABEL : 'Avance automático'
   }
 
+  if (game?.isTeamTie) {
+    return getTeamTieStatusLabel(game.status)
+  }
+
   return getGameStatusLabel(game?.status)
 }
 
@@ -325,7 +356,13 @@ const winnerName = (game) => getGameWinnerDisplayName(game)
 
 const statusBadgeClasses = (game) => {
   if (isByeGame(game) || game?.status === 'finished') {
-    return getGameStatusBadgeClasses('finished')
+    return game?.isTeamTie
+      ? getTeamTieStatusBadgeClasses('finished')
+      : getGameStatusBadgeClasses('finished')
+  }
+
+  if (game?.isTeamTie) {
+    return getTeamTieStatusBadgeClasses(game?.status ?? 'pending')
   }
 
   return getGameStatusBadgeClasses(game?.status ?? 'pending')
@@ -334,6 +371,12 @@ const statusBadgeClasses = (game) => {
 const setsResult = (game) => {
   if (isByeGame(game)) {
     return null
+  }
+
+  const teamScore = bracketMatchScoreLabel(game)
+
+  if (teamScore) {
+    return teamScore
   }
 
   const player1Sets = game?.sets_won?.player1
@@ -433,8 +476,14 @@ const compactSideRowClasses = (game, sideNumber) => {
 
   return 'text-slate-900 dark:text-slate-100'
 }
+
+const participantSetsWon = (game, playerNumber) => {
   if (isByeGame(game)) {
     return null
+  }
+
+  if (game?.isTeamTie && game?.score) {
+    return playerNumber === 1 ? game.score.entry1 : game.score.entry2
   }
 
   const key = playerNumber === 1 ? 'player1' : 'player2'
@@ -996,7 +1045,7 @@ onMounted(loadData)
                           <div v-if="isFinishedGame(game)" class="pt-0.5">
                             <RouterLink
                               :to="{
-                                path: `/games/${game.id}`,
+                                path: matchDetailPath(game),
                                 query: {
                                   competitionId,
                                   competitionName: competition?.name,

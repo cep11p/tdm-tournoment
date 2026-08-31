@@ -3,10 +3,12 @@
 namespace App\Support\Competition;
 
 use App\Enums\GameStatus;
+use App\Enums\TeamTieStatus;
 use App\Enums\ThirdPlaceMode;
 use App\Models\Competition;
 use App\Models\CompetitionEntry;
 use App\Models\Game;
+use App\Models\TeamTie;
 use App\Support\Bracket\BracketPodiumSupport;
 
 final class CompetitionResultResolver
@@ -27,7 +29,8 @@ final class CompetitionResultResolver
      *         id: int|null,
      *         name: string|null,
      *     },
-     *     final_game_id: int,
+     *     final_game_id: int|null,
+     *     final_team_tie_id: int|null,
      *     third_place_mode: string,
      *     third_place: list<array{
      *         competition_entry_id: int,
@@ -44,9 +47,22 @@ final class CompetitionResultResolver
      *         name: string|null,
      *     }|null,
      *     third_place_game_id: int|null,
+     *     third_place_team_tie_id: int|null,
      * }|null
      */
     public static function resolve(Competition $competition): ?array
+    {
+        if ($competition->isTeam()) {
+            return self::resolveForTeam($competition);
+        }
+
+        return self::resolveForGameBracket($competition);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private static function resolveForGameBracket(Competition $competition): ?array
     {
         $finalGame = Game::query()
             ->where('competition_id', $competition->id)
@@ -83,6 +99,85 @@ final class CompetitionResultResolver
             return null;
         }
 
+        [$thirdPlace, $fourthPlace, $thirdPlaceGameId] = self::resolveThirdPlaceForGameBracket($competition);
+
+        return [
+            'champion' => $champion,
+            'runner_up' => $runnerUp,
+            'final_game_id' => $finalGame->id,
+            'final_team_tie_id' => null,
+            'third_place_mode' => self::thirdPlaceModeValue($competition),
+            'third_place' => $thirdPlace,
+            'fourth_place' => $fourthPlace,
+            'third_place_game_id' => $thirdPlaceGameId,
+            'third_place_team_tie_id' => null,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private static function resolveForTeam(Competition $competition): ?array
+    {
+        $finalTeamTie = TeamTie::query()
+            ->where('competition_id', $competition->id)
+            ->whereNotNull('bracket_id')
+            ->mainBracket()
+            ->where('round', 'Final')
+            ->where('status', TeamTieStatus::Finished)
+            ->whereNotNull('winner_entry_id')
+            ->with(TeamTie::DISPLAY_RELATIONS)
+            ->first();
+
+        if ($finalTeamTie === null) {
+            return null;
+        }
+
+        $championEntry = $finalTeamTie->winnerEntry;
+
+        if ($championEntry === null) {
+            return null;
+        }
+
+        $runnerUpEntry = (int) $finalTeamTie->winner_entry_id === (int) $finalTeamTie->entry1_id
+            ? $finalTeamTie->entry2
+            : $finalTeamTie->entry1;
+
+        if ($runnerUpEntry === null) {
+            return null;
+        }
+
+        $champion = CompetitionEntrySummaryPayload::forEntry($championEntry, $competition);
+        $runnerUp = CompetitionEntrySummaryPayload::forEntry($runnerUpEntry, $competition);
+
+        if ($champion === null || $runnerUp === null) {
+            return null;
+        }
+
+        [$thirdPlace, $fourthPlace, $thirdPlaceTeamTieId] = self::resolveThirdPlaceForTeamBracket($competition);
+
+        return [
+            'champion' => $champion,
+            'runner_up' => $runnerUp,
+            'final_game_id' => null,
+            'final_team_tie_id' => $finalTeamTie->id,
+            'third_place_mode' => self::thirdPlaceModeValue($competition),
+            'third_place' => $thirdPlace,
+            'fourth_place' => $fourthPlace,
+            'third_place_game_id' => null,
+            'third_place_team_tie_id' => $thirdPlaceTeamTieId,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     0: list<array<string, mixed>>,
+     *     1: array<string, mixed>|null,
+     *     2: int|null,
+     * }
+     */
+    private static function resolveThirdPlaceForGameBracket(Competition $competition): array
+    {
         $thirdPlaceMode = $competition->third_place_mode instanceof ThirdPlaceMode
             ? $competition->third_place_mode
             : ThirdPlaceMode::from((string) $competition->third_place_mode);
@@ -144,14 +239,88 @@ final class CompetitionResultResolver
             }
         }
 
-        return [
-            'champion' => $champion,
-            'runner_up' => $runnerUp,
-            'final_game_id' => $finalGame->id,
-            'third_place_mode' => $thirdPlaceMode->value,
-            'third_place' => $thirdPlace,
-            'fourth_place' => $fourthPlace,
-            'third_place_game_id' => $thirdPlaceGameId,
-        ];
+        return [$thirdPlace, $fourthPlace, $thirdPlaceGameId];
+    }
+
+    /**
+     * @return array{
+     *     0: list<array<string, mixed>>,
+     *     1: array<string, mixed>|null,
+     *     2: int|null,
+     * }
+     */
+    private static function resolveThirdPlaceForTeamBracket(Competition $competition): array
+    {
+        $thirdPlaceMode = $competition->third_place_mode instanceof ThirdPlaceMode
+            ? $competition->third_place_mode
+            : ThirdPlaceMode::from((string) $competition->third_place_mode);
+
+        $thirdPlace = [];
+        $fourthPlace = null;
+        $thirdPlaceTeamTieId = null;
+
+        if ($thirdPlaceMode === ThirdPlaceMode::Shared) {
+            $bracket = $competition->brackets()->first();
+
+            if ($bracket !== null && BracketPodiumSupport::canDetermineThirdPlace($bracket)) {
+                $thirdPlace = array_values(array_filter(array_map(
+                    fn (CompetitionEntry $entry): ?array => CompetitionEntrySummaryPayload::forEntry($entry, $competition),
+                    BracketPodiumSupport::semifinalLosers($bracket),
+                )));
+            }
+        }
+
+        if ($thirdPlaceMode === ThirdPlaceMode::Playoff) {
+            $bracket = $competition->brackets()->first();
+
+            if ($bracket !== null && BracketPodiumSupport::requiresPlayoffThirdPlace($competition, $bracket)) {
+                $thirdPlaceTeamTie = BracketPodiumSupport::findThirdPlaceTeamTie($bracket);
+
+                if ($thirdPlaceTeamTie !== null) {
+                    $thirdPlaceTeamTieId = $thirdPlaceTeamTie->id;
+
+                    if (
+                        $thirdPlaceTeamTie->status === TeamTieStatus::Finished
+                        && $thirdPlaceTeamTie->winner_entry_id !== null
+                        && $thirdPlaceTeamTie->entry1_id !== null
+                        && $thirdPlaceTeamTie->entry2_id !== null
+                    ) {
+                        $thirdPlaceTeamTie->loadMissing(TeamTie::DISPLAY_RELATIONS);
+
+                        $thirdPlaceWinnerEntry = $thirdPlaceTeamTie->winnerEntry;
+
+                        if ($thirdPlaceWinnerEntry !== null) {
+                            $thirdPlaceSummary = CompetitionEntrySummaryPayload::forEntry(
+                                $thirdPlaceWinnerEntry,
+                                $competition,
+                            );
+
+                            if ($thirdPlaceSummary !== null) {
+                                $thirdPlace = [$thirdPlaceSummary];
+                            }
+
+                            $fourthPlaceEntry = (int) $thirdPlaceTeamTie->winner_entry_id === (int) $thirdPlaceTeamTie->entry1_id
+                                ? $thirdPlaceTeamTie->entry2
+                                : $thirdPlaceTeamTie->entry1;
+
+                            if ($fourthPlaceEntry !== null) {
+                                $fourthPlace = CompetitionEntrySummaryPayload::forEntry($fourthPlaceEntry, $competition);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return [$thirdPlace, $fourthPlace, $thirdPlaceTeamTieId];
+    }
+
+    private static function thirdPlaceModeValue(Competition $competition): string
+    {
+        $thirdPlaceMode = $competition->third_place_mode instanceof ThirdPlaceMode
+            ? $competition->third_place_mode
+            : ThirdPlaceMode::from((string) $competition->third_place_mode);
+
+        return $thirdPlaceMode->value;
     }
 }

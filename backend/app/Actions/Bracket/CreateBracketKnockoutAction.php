@@ -7,10 +7,12 @@ use App\Data\Audit\AuditEntry;
 use App\Data\Bracket\GroupKnockoutDrawResult;
 use App\Data\Competition\GroupQualifierData;
 use App\Enums\AuditAction;
+use App\Enums\BracketGamePurpose;
 use App\Enums\GameStatus;
 use App\Models\Bracket;
 use App\Models\Competition;
 use App\Models\Game;
+use App\Models\TeamTie;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionParticipantLabel;
@@ -26,6 +28,7 @@ final class CreateBracketKnockoutAction
 {
     public function __construct(
         private readonly CreateGameAction $createGame,
+        private readonly CreateBracketTeamTieAction $createBracketTeamTie,
         private readonly GroupQualifiersCollector $groupQualifiersCollector,
         private readonly GroupKnockoutDrawBuilder $groupKnockoutDrawBuilder,
         private readonly AuditLogger $auditLogger,
@@ -57,7 +60,18 @@ final class CreateBracketKnockoutAction
             ]);
         }
 
-        if (
+        if ($competition->isTeam()) {
+            if (
+                TeamTie::query()
+                    ->where('competition_id', $competition->id)
+                    ->whereNotNull('group_id')
+                    ->exists()
+            ) {
+                throw ValidationException::withMessages([
+                    'competition' => ['La competencia de eliminación directa no puede tener enfrentamientos de grupo.'],
+                ]);
+            }
+        } elseif (
             Game::query()
                 ->where('competition_id', $competition->id)
                 ->whereNotNull('group_id')
@@ -239,6 +253,21 @@ final class CreateBracketKnockoutAction
                     ? $entryIds[$bottomSeed - 1]
                     : null;
 
+                if ($competition->isTeam()) {
+                    ($this->createBracketTeamTie)(
+                        competition: $competition,
+                        bracket: $bracket,
+                        entry1Id: $topEntryId,
+                        entry2Id: $bottomEntryId,
+                        bracketRound: 1,
+                        bracketMatch: $matchIndex + 1,
+                        bracketPurpose: BracketGamePurpose::Main,
+                        roundLabel: $roundLabel,
+                    );
+
+                    continue;
+                }
+
                 if ($bottomEntryId === null) {
                     ($this->createGame)([
                         'competition_id' => $competition->id,
@@ -277,13 +306,10 @@ final class CreateBracketKnockoutAction
                 qualifiedPlayers: $qualifierCount,
                 bracketSize: $bracketSize,
                 byesCount: $byesCount,
-                gamesCreated: $matchCount,
+                matchesCreated: $matchCount,
             );
 
-            return $bracket->load(array_map(
-                fn (string $relation): string => 'games.'.$relation,
-                Game::DISPLAY_RELATIONS,
-            ));
+            return $this->loadBracket($bracket);
         });
     }
 
@@ -328,6 +354,21 @@ final class CreateBracketKnockoutAction
             ]);
 
             foreach ($draw->matches as $match) {
+                if ($competition->isTeam()) {
+                    ($this->createBracketTeamTie)(
+                        competition: $competition,
+                        bracket: $bracket,
+                        entry1Id: $match->entry1Id,
+                        entry2Id: $match->isBye ? null : $match->entry2Id,
+                        bracketRound: 1,
+                        bracketMatch: $match->bracketMatch,
+                        bracketPurpose: BracketGamePurpose::Main,
+                        roundLabel: $draw->firstRoundLabel,
+                    );
+
+                    continue;
+                }
+
                 if ($match->isBye) {
                     ($this->createGame)([
                         'competition_id' => $competition->id,
@@ -366,14 +407,28 @@ final class CreateBracketKnockoutAction
                 qualifiedPlayers: $draw->bracketSize - $draw->byesCount,
                 bracketSize: $draw->bracketSize,
                 byesCount: $draw->byesCount,
-                gamesCreated: count($draw->matches),
+                matchesCreated: count($draw->matches),
             );
 
-            return $bracket->load(array_map(
-                fn (string $relation): string => 'games.'.$relation,
-                Game::DISPLAY_RELATIONS,
-            ));
+            return $this->loadBracket($bracket);
         });
+    }
+
+    private function loadBracket(Bracket $bracket): Bracket
+    {
+        $bracket->loadMissing('competition');
+
+        if ($bracket->competition?->isTeam()) {
+            return $bracket->load(array_map(
+                fn (string $relation): string => 'teamTies.'.$relation,
+                TeamTie::BRACKET_OVERVIEW_RELATIONS,
+            ));
+        }
+
+        return $bracket->load(array_map(
+            fn (string $relation): string => 'games.'.$relation,
+            Game::DISPLAY_RELATIONS,
+        ));
     }
 
     private function auditBracketCreated(
@@ -382,8 +437,20 @@ final class CreateBracketKnockoutAction
         int $qualifiedPlayers,
         int $bracketSize,
         int $byesCount,
-        int $gamesCreated,
+        int $matchesCreated,
     ): void {
+        $summary = [
+            'qualified_players' => $qualifiedPlayers,
+            'bracket_size' => $bracketSize,
+            'byes_count' => $byesCount,
+            'games_created' => $matchesCreated,
+        ];
+
+        if ($competition->isTeam()) {
+            $summary['match_entity'] = 'team_tie';
+            $summary['team_ties_created'] = $matchesCreated;
+        }
+
         $this->auditLogger->log(new AuditEntry(
             action: AuditAction::BRACKET_CREATED,
             logName: 'bracket',
@@ -394,12 +461,7 @@ final class CreateBracketKnockoutAction
                 'bracket_size' => $bracketSize,
                 'round' => 1,
             ],
-            summary: [
-                'qualified_players' => $qualifiedPlayers,
-                'bracket_size' => $bracketSize,
-                'byes_count' => $byesCount,
-                'games_created' => $gamesCreated,
-            ],
+            summary: $summary,
         ));
     }
 }

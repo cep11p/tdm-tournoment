@@ -31,4 +31,9 @@ class Bracket extends Model
     {
         return $this->hasMany(Game::class);
     }
+
+    public function teamTies(): HasMany
+    {
+        return $this->hasMany(TeamTie::class);
+    }
 }

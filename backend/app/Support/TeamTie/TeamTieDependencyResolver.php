@@ -1,13 +1,13 @@
 <?php
 
-namespace App\Support\Game;
+namespace App\Support\TeamTie;
 
 use App\Enums\ThirdPlaceMode;
-use App\Models\Game;
+use App\Models\TeamTie;
 use App\Support\Bracket\BracketPodiumSupport;
 use App\Support\Bracket\BracketPositionSupport;
 
-final class GameDependencyResolver
+final class TeamTieDependencyResolver
 {
     public function destinationMatchNumber(int $sourceMatch): int
     {
@@ -22,7 +22,7 @@ final class GameDependencyResolver
         return BracketPositionSupport::winnerSlot($sourceMatch);
     }
 
-    public function hasRoundBeyondImmediate(Game $source): bool
+    public function hasRoundBeyondImmediate(TeamTie $source): bool
     {
         if ($source->bracket_id === null || $source->bracket_round === null) {
             return false;
@@ -30,7 +30,7 @@ final class GameDependencyResolver
 
         $nextRound = (int) $source->bracket_round + 1;
 
-        return Game::query()
+        return TeamTie::query()
             ->where('bracket_id', $source->bracket_id)
             ->mainBracket()
             ->where('bracket_round', '>', $nextRound)
@@ -39,14 +39,14 @@ final class GameDependencyResolver
 
     /**
      * @return array{
-     *     game: Game,
+     *     team_tie: TeamTie,
      *     slot: 'entry1_id'|'entry2_id',
      *     destination_round: int,
      *     destination_match: int,
      *     expected_entry_id: int,
      * }|null
      */
-    public function resolveWinnerDependency(Game $source): ?array
+    public function resolveWinnerDependency(TeamTie $source): ?array
     {
         if ($source->bracket_id === null || $source->bracket_round === null || $source->bracket_match === null) {
             return null;
@@ -60,19 +60,19 @@ final class GameDependencyResolver
         $destinationMatch = $this->destinationMatchNumber((int) $source->bracket_match);
         $slot = $this->winnerSlot((int) $source->bracket_match);
 
-        $destinationGame = Game::query()
+        $destinationTeamTie = TeamTie::query()
             ->where('bracket_id', $source->bracket_id)
             ->mainBracket()
             ->where('bracket_round', $destinationRound)
             ->where('bracket_match', $destinationMatch)
             ->first();
 
-        if ($destinationGame === null) {
+        if ($destinationTeamTie === null) {
             return null;
         }
 
         return [
-            'game' => $destinationGame,
+            'team_tie' => $destinationTeamTie,
             'slot' => $slot,
             'destination_round' => $destinationRound,
             'destination_match' => $destinationMatch,
@@ -82,12 +82,12 @@ final class GameDependencyResolver
 
     /**
      * @return array{
-     *     game: Game,
+     *     team_tie: TeamTie,
      *     slot: 'entry1_id'|'entry2_id',
      *     expected_entry_id: int,
      * }|null
      */
-    public function resolveLoserThirdPlaceDependency(Game $source): ?array
+    public function resolveLoserThirdPlaceDependency(TeamTie $source): ?array
     {
         if ($source->bracket_id === null || $source->bracket_round === null || $source->bracket_match === null) {
             return null;
@@ -118,9 +118,9 @@ final class GameDependencyResolver
             return null;
         }
 
-        $thirdPlaceGame = BracketPodiumSupport::findThirdPlaceGame($bracket);
+        $thirdPlaceTeamTie = BracketPodiumSupport::findThirdPlaceTeamTie($bracket);
 
-        if ($thirdPlaceGame === null) {
+        if ($thirdPlaceTeamTie === null) {
             return null;
         }
 
@@ -131,23 +131,9 @@ final class GameDependencyResolver
         }
 
         return [
-            'game' => $thirdPlaceGame,
+            'team_tie' => $thirdPlaceTeamTie,
             'slot' => $this->winnerSlot((int) $source->bracket_match),
             'expected_entry_id' => $loserEntryId,
         ];
-    }
-
-    /**
-     * @return array{
-     *     game: Game,
-     *     slot: 'entry1_id'|'entry2_id',
-     *     destination_round: int,
-     *     destination_match: int,
-     *     expected_entry_id: int,
-     * }|null
-     */
-    public function resolveNextRoundDependency(Game $source): ?array
-    {
-        return $this->resolveWinnerDependency($source);
     }
 }

@@ -100,6 +100,15 @@ class Competition extends Model
         return $this->hasMany(TeamTie::class);
     }
 
+    public function isTeam(): bool
+    {
+        $type = $this->type instanceof CompetitionType
+            ? $this->type
+            : CompetitionType::from((string) $this->type);
+
+        return $type === CompetitionType::Team;
+    }
+
     private function resolveTeamSize(): int
     {
         if ($this->team_size === null) {

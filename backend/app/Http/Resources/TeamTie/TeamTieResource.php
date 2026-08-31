@@ -28,6 +28,13 @@ class TeamTieResource extends JsonResource
             'id' => $this->id,
             'competition_id' => $this->competition_id,
             'group_id' => $this->group_id,
+            'bracket_id' => $this->bracket_id,
+            'bracket_round' => $this->bracket_round,
+            'bracket_match' => $this->bracket_match,
+            'bracket_purpose' => $this->bracket_purpose instanceof \App\Enums\BracketGamePurpose
+                ? $this->bracket_purpose->value
+                : $this->bracket_purpose,
+            'round' => $this->round,
             'status' => $status,
             'is_bye' => (bool) $this->is_bye,
             'entry1' => new CompetitionEntrySideResource($this->whenLoaded('entry1')),
