@@ -4,6 +4,7 @@ namespace App\Http\Resources\TeamTie;
 
 use App\Enums\TeamTieStatus;
 use App\Http\Resources\Game\CompetitionEntrySideResource;
+use App\Support\TeamTie\TeamTieScoreResolver;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -14,6 +15,9 @@ class TeamTieResource extends JsonResource
         $status = $this->status instanceof TeamTieStatus
             ? $this->status->value
             : (string) $this->status;
+
+        $score = TeamTieScoreResolver::resolve($this->resource);
+        $rubbersWithLineup = TeamTieScoreResolver::rubbersWithLineupCount($this->resource);
 
         return [
             'id' => $this->id,
@@ -32,6 +36,13 @@ class TeamTieResource extends JsonResource
             'group_round' => $this->group_round,
             'group_match' => $this->group_match,
             'finished_at' => optional($this->finished_at)->toISOString(),
+            'rubbers_total' => $score['rubbers_total'],
+            'rubbers_with_lineup' => $rubbersWithLineup,
+            'score' => $score,
+            'team_tie_games' => $this->when(
+                $request->routeIs('team-ties.show'),
+                TeamTieGameResource::collection($this->whenLoaded('teamTieGames')),
+            ),
             'created_at' => optional($this->created_at)->toISOString(),
             'updated_at' => optional($this->updated_at)->toISOString(),
         ];

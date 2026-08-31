@@ -28,6 +28,7 @@ enum AuditAction: string
     case GAME_RESULT_CORRECTED = 'game.result_corrected';
     case GROUP_PLAYER_STATUS_CHANGED = 'groups.player_status_changed';
     case GROUP_MANUAL_TIEBREAK_APPLIED = 'groups.manual_tiebreak_applied';
+    case TEAM_TIE_GAME_LINEUP_UPDATED = 'team_tie_game.lineup_updated';
 
     public function label(): string
     {
@@ -56,6 +57,7 @@ enum AuditAction: string
             self::GAME_RESULT_CORRECTED => 'Corrección de resultado',
             self::GROUP_PLAYER_STATUS_CHANGED => 'Cambio de estado de jugador',
             self::GROUP_MANUAL_TIEBREAK_APPLIED => 'Desempate manual',
+            self::TEAM_TIE_GAME_LINEUP_UPDATED => 'Actualización de lineup',
         };
     }
 
@@ -80,6 +82,7 @@ enum AuditAction: string
             self::GROUPS_REGENERATED,
             self::GROUP_PLAYER_STATUS_CHANGED,
             self::GROUP_MANUAL_TIEBREAK_APPLIED => 'Grupos',
+            self::TEAM_TIE_GAME_LINEUP_UPDATED => 'Enfrentamientos',
             self::BRACKET_CREATED,
             self::BRACKET_ROUND_ADVANCED => 'Llave',
             self::GAME_CREATED,
@@ -114,6 +117,7 @@ enum AuditAction: string
             'groups' => 'Grupos',
             'bracket' => 'Llave',
             'games' => 'Partidos',
+            'team_ties' => 'Enfrentamientos',
             default => 'Auditoría',
         };
     }

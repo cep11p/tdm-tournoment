@@ -17,6 +17,11 @@ import {
   getGameWinnerDisplayName,
   isGameBye,
 } from '../utils/gameDisplay'
+import {
+  getRubberMatchupLabel,
+  getRubberSideDisplayName,
+  getTeamContextLabel,
+} from '../../team-ties/utils/teamTieGameDisplay'
 
 const route = useRoute()
 const { can } = usePermissions()
@@ -38,8 +43,43 @@ const form = reactive({
   player2_score: '',
 })
 
-const side1Name = computed(() => getGameSideDisplayName(game.value, 1))
-const side2Name = computed(() => getGameSideDisplayName(game.value, 2))
+const side1Name = computed(() => {
+  if (game.value?.team_tie_game?.lineup_complete) {
+    return getRubberSideDisplayName(game.value.team_tie_game, 'entry1')
+  }
+
+  return getGameSideDisplayName(game.value, 1)
+})
+
+const side2Name = computed(() => {
+  if (game.value?.team_tie_game?.lineup_complete) {
+    return getRubberSideDisplayName(game.value.team_tie_game, 'entry2')
+  }
+
+  return getGameSideDisplayName(game.value, 2)
+})
+
+const pageTitle = computed(() => {
+  if (game.value?.team_tie_game?.lineup_complete) {
+    return getRubberMatchupLabel(game.value.team_tie_game)
+  }
+
+  return game.value ? gameMatchupLabel(game.value) : `Partido #${gameId.value}`
+})
+
+const teamRubberContext = computed(() => {
+  if (!game.value?.team_tie_game) {
+    return null
+  }
+
+  return getTeamContextLabel(
+    {
+      entry1: game.value.team_tie_game.entry1,
+      entry2: game.value.team_tie_game.entry2,
+    },
+    game.value.team_tie_game,
+  )
+})
 
 const isFinished = computed(() => game.value?.status === 'finished')
 
@@ -155,7 +195,7 @@ onMounted(loadGame)
 
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
-        {{ game ? gameMatchupLabel(game) : `Partido #${gameId}` }}
+        {{ pageTitle }}
       </h1>
       <AppBackButton
         :fallback-to="game?.competition_id ? `/competitions/${game.competition_id}/games` : '/'"
@@ -167,6 +207,10 @@ onMounted(loadGame)
     <p v-else-if="errorMessage" class="text-sm text-red-600 dark:text-red-400">{{ errorMessage }}</p>
 
     <template v-else-if="game">
+      <p v-if="teamRubberContext" class="text-sm text-slate-600 dark:text-slate-300">
+        {{ teamRubberContext }}
+      </p>
+
       <p v-if="matchFormatLabel" class="text-sm text-slate-600 dark:text-slate-300">
         {{ matchFormatLabel }}
       </p>

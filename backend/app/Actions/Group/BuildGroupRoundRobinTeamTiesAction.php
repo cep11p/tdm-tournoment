@@ -2,6 +2,7 @@
 
 namespace App\Actions\Group;
 
+use App\Actions\TeamTie\MaterializeTeamTieGamesAction;
 use App\Enums\TeamTieStatus;
 use App\Models\Group;
 use App\Models\TeamTie;
@@ -14,6 +15,7 @@ final class BuildGroupRoundRobinTeamTiesAction
 {
     public function __construct(
         private readonly RoundRobinScheduleBuilder $scheduleBuilder,
+        private readonly MaterializeTeamTieGamesAction $materializeTeamTieGames,
     ) {}
 
     /**
@@ -50,7 +52,7 @@ final class BuildGroupRoundRobinTeamTiesAction
                     continue;
                 }
 
-                $created->push(TeamTie::query()->create([
+                $teamTie = TeamTie::query()->create([
                     'competition_id' => $competitionId,
                     'group_id' => $group->id,
                     'entry1_id' => $entry1Id,
@@ -63,7 +65,11 @@ final class BuildGroupRoundRobinTeamTiesAction
                     'status' => TeamTieStatus::Pending,
                     'is_bye' => false,
                     'winner_entry_id' => null,
-                ]));
+                ]);
+
+                ($this->materializeTeamTieGames)($teamTie, $format);
+
+                $created->push($teamTie);
             }
         }
 

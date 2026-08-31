@@ -2,6 +2,7 @@
 
 namespace App\Actions\Group;
 
+use App\Actions\TeamTie\DeleteTeamTieWithRubbersAction;
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
 use App\Enums\CompetitionEntryStatus;
@@ -18,6 +19,7 @@ use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Competition\CompetitionParticipantLabel;
 use App\Support\Competition\CompetitionStructureGuard;
 use App\Support\Group\RandomGroupDistributionGuard;
+use App\Support\TeamTie\TeamTieRubberLifecycleGuard;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -26,6 +28,7 @@ final class RegenerateRandomGroupsForCompetitionAction
 {
     public function __construct(
         private readonly BuildRandomGroupsForCompetitionAction $buildRandomGroups,
+        private readonly DeleteTeamTieWithRubbersAction $deleteTeamTieWithRubbers,
         private readonly AuditLogger $auditLogger,
     ) {}
 
@@ -56,6 +59,7 @@ final class RegenerateRandomGroupsForCompetitionAction
         }
 
         $this->ensureNoNonPendingTeamTies($competition);
+        TeamTieRubberLifecycleGuard::ensureRegenerationAllowed($competition);
 
         $playerCount = $competition->entries()
             ->where('status', CompetitionEntryStatus::Active)
@@ -98,10 +102,15 @@ final class RegenerateRandomGroupsForCompetitionAction
                 ->where('status', GameStatus::Pending)
                 ->delete();
 
-            $teamTiesRemoved += TeamTie::query()
+            $pendingTeamTies = TeamTie::query()
                 ->where('competition_id', $competition->id)
                 ->where('status', TeamTieStatus::Pending)
-                ->delete();
+                ->get();
+
+            foreach ($pendingTeamTies as $teamTie) {
+                ($this->deleteTeamTieWithRubbers)($teamTie);
+                $teamTiesRemoved++;
+            }
 
             $competition->groups()->delete();
 

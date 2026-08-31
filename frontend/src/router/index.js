@@ -12,6 +12,7 @@ import RegistrationListView from '../registrations/views/RegistrationListView.vu
 import GroupDetailView from '../groups/views/GroupDetailView.vue'
 import GameListView from '../games/views/GameListView.vue'
 import GameDetailView from '../games/views/GameDetailView.vue'
+import TeamTieDetailView from '../team-ties/views/TeamTieDetailView.vue'
 import GroupStandingsView from '../standings/views/GroupStandingsView.vue'
 import CompetitionBracketView from '../brackets/views/CompetitionBracketView.vue'
 import PlayerListView from '../players/views/PlayerListView.vue'
@@ -95,6 +96,11 @@ const routes = [
     path: '/groups/:id/standings',
     name: 'groups-standings',
     component: GroupStandingsView,
+  },
+  {
+    path: '/team-ties/:id',
+    name: 'team-ties-detail',
+    component: TeamTieDetailView,
   },
   {
     path: '/games/:id',

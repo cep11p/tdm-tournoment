@@ -511,6 +511,37 @@ final class TournamentTestContext
         );
     }
 
+    public function showTeamTie(\App\Models\TeamTie $teamTie, array $roles = ['organizer']): TestResponse
+    {
+        return $this->test->getJson(
+            $this->apiUrl("team-ties/{$teamTie->id}"),
+            $this->authHeaders($roles),
+        );
+    }
+
+    /**
+     * @param  array{entry1_player_ids?: list<int>, entry2_player_ids?: list<int>}  $payload
+     */
+    public function setTeamTieGameLineup(
+        \App\Models\TeamTieGame $teamTieGame,
+        array $payload,
+        array $roles = ['organizer'],
+    ): TestResponse {
+        return $this->test->postJson(
+            $this->apiUrl("team-tie-games/{$teamTieGame->id}/lineup"),
+            $payload,
+            $this->authHeaders($roles),
+        );
+    }
+
+    public function listCompetitionGames(Competition $competition, array $roles = ['organizer']): TestResponse
+    {
+        return $this->test->getJson(
+            $this->apiUrl("competitions/{$competition->id}/games"),
+            $this->authHeaders($roles),
+        );
+    }
+
     /**
      * @param  list<CompetitionEntry>  $entries
      */

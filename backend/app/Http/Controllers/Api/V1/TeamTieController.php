@@ -8,9 +8,15 @@ use App\Models\TeamTie;
 
 class TeamTieController extends Controller
 {
+    private const SHOW_RELATIONS = [
+        ...TeamTie::DISPLAY_RELATIONS,
+        'teamTieGames.game',
+        'teamTieGames.members.competitionEntryMember.player:id,first_name,last_name,nickname',
+    ];
+
     public function show(TeamTie $teamTie): TeamTieResource
     {
-        $teamTie->load(TeamTie::DISPLAY_RELATIONS);
+        $teamTie->load(self::SHOW_RELATIONS);
 
         return new TeamTieResource($teamTie);
     }

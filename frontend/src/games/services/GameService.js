@@ -10,7 +10,13 @@ const GameService = {
 
   async show(gameId) {
     const response = await httpClient.get(`/games/${gameId}`)
-    return unwrap(response) ?? null
+    const game = unwrap(response) ?? null
+
+    if (game && response?.data?.team_tie_game) {
+      game.team_tie_game = response.data.team_tie_game
+    }
+
+    return game
   },
 
   async recordSet(gameId, payload) {

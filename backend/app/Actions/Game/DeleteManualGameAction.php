@@ -43,6 +43,12 @@ final class DeleteManualGameAction
                 ]);
             }
 
+            if ($game->teamTieGame()->exists()) {
+                throw ValidationException::withMessages([
+                    'game' => ['Este partido pertenece a un enfrentamiento por equipos y no puede eliminarse individualmente.'],
+                ]);
+            }
+
             $context = AuditContextBuilder::fromGame($game);
             $snapshot = $this->snapshot($game);
             $setsRemoved = count($snapshot['sets']);

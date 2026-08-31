@@ -11,8 +11,10 @@ use App\Http\Requests\Game\CorrectFinishedGameResultRequest;
 use App\Http\Requests\Game\StoreGameRequest;
 use App\Http\Requests\Game\StoreGameSetRequest;
 use App\Http\Resources\Game\GameResource;
+use App\Http\Resources\TeamTie\TeamTieGameResource;
 use App\Models\Competition;
 use App\Models\Game;
+use App\Models\TeamTieGame;
 use App\Support\Game\GameFormatResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -25,6 +27,7 @@ class GameController extends Controller
     public function index(Competition $competition): AnonymousResourceCollection
     {
         $games = $competition->games()
+            ->notRubber()
             ->with(self::GAME_RELATIONS)
             ->orderByRaw('group_round IS NULL')
             ->orderBy('group_round')
@@ -39,7 +42,19 @@ class GameController extends Controller
     {
         $game->load(self::GAME_RELATIONS);
 
-        return new GameResource($game);
+        $teamTieGame = $game->teamTieGame()
+            ->with(TeamTieGame::DISPLAY_RELATIONS)
+            ->first();
+
+        $resource = new GameResource($game);
+
+        if ($teamTieGame !== null) {
+            return $resource->additional([
+                'team_tie_game' => new TeamTieGameResource($teamTieGame),
+            ]);
+        }
+
+        return $resource;
     }
 
     public function store(

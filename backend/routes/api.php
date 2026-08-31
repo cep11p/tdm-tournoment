@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\V1\PlayerController;
 use App\Http\Controllers\Api\V1\RegistrationController;
 use App\Http\Controllers\Api\V1\TeamTieController;
 use App\Http\Controllers\Api\V1\TeamTieFormatController;
+use App\Http\Controllers\Api\V1\TeamTieGameLineupController;
 use App\Http\Controllers\Api\V1\TournamentController;
 use Illuminate\Support\Facades\Route;
 
@@ -145,6 +146,10 @@ Route::prefix(config('api.version_prefix', 'v1'))
         Route::get('games/{game}', [GameController::class, 'show'])->name('games.show');
 
         Route::get('team-ties/{team_tie}', [TeamTieController::class, 'show'])->name('team-ties.show');
+
+        Route::middleware(['auth.keycloak', 'permission:groups.manage'])
+            ->post('team-tie-games/{team_tie_game}/lineup', [TeamTieGameLineupController::class, 'store'])
+            ->name('team-tie-games.lineup.store');
 
         Route::middleware(['auth.keycloak', 'permission:matches.delete'])
             ->delete('games/{game}', [GameController::class, 'destroy'])

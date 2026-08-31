@@ -10,12 +10,12 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class GroupTeamTieController extends Controller
 {
-    private const TEAM_TIE_RELATIONS = TeamTie::DISPLAY_RELATIONS;
+    private const TEAM_TIE_INDEX_RELATIONS = TeamTie::DISPLAY_RELATIONS;
 
     public function index(Group $group): AnonymousResourceCollection
     {
         $teamTies = $group->teamTies()
-            ->with(self::TEAM_TIE_RELATIONS)
+            ->with(self::TEAM_TIE_INDEX_RELATIONS)
             ->orderByRaw('group_round IS NULL')
             ->orderBy('group_round')
             ->orderBy('group_match')

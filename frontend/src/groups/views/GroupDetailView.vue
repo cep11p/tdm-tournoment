@@ -382,6 +382,17 @@ const teamTieMatchupLabel = (teamTie) => {
   return `${entry1} vs ${entry2}`
 }
 
+const teamTieScoreLabel = (teamTie) => {
+  const score = teamTie?.score ?? { entry1: 0, entry2: 0 }
+  return `${score.entry1} - ${score.entry2}`
+}
+
+const teamTieLineupSummary = (teamTie) => {
+  const configured = teamTie?.rubbers_with_lineup ?? 0
+  const total = teamTie?.rubbers_total ?? 0
+  return `${configured}/${total} partidos configurados`
+}
+
 const teamTiesByRound = computed(() => {
   const rounds = new Map()
 
@@ -1007,6 +1018,22 @@ onMounted(async () => {
                 <p class="text-xs text-slate-500 dark:text-slate-400">
                   {{ teamTie.format?.name }} · gana con {{ teamTie.format?.victories_required }}
                 </p>
+
+                <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+                  <div class="text-sm text-slate-700 dark:text-slate-200">
+                    <p class="font-medium">{{ teamTieScoreLabel(teamTie) }}</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                      {{ teamTieLineupSummary(teamTie) }}
+                    </p>
+                  </div>
+
+                  <RouterLink
+                    :to="`/team-ties/${teamTie.id}`"
+                    class="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    Ver enfrentamiento
+                  </RouterLink>
+                </div>
               </li>
             </ul>
           </details>

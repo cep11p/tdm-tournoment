@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
@@ -56,6 +57,19 @@ class Game extends Model
     public function scopeMainBracket(Builder $query): Builder
     {
         return $query->where('bracket_purpose', BracketGamePurpose::Main);
+    }
+
+    /**
+     * @param  Builder<Game>  $query
+     */
+    public function scopeNotRubber(Builder $query): Builder
+    {
+        return $query->whereDoesntHave('teamTieGame');
+    }
+
+    public function teamTieGame(): HasOne
+    {
+        return $this->hasOne(TeamTieGame::class);
     }
 
     public function competition(): BelongsTo

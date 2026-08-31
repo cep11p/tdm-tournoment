@@ -6,6 +6,7 @@ use App\Enums\TeamTieStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TeamTie extends Model
 {
@@ -60,5 +61,10 @@ class TeamTie extends Model
     public function format(): BelongsTo
     {
         return $this->belongsTo(TeamTieFormat::class, 'team_tie_format_id');
+    }
+
+    public function teamTieGames(): HasMany
+    {
+        return $this->hasMany(TeamTieGame::class)->orderBy('slot_order');
     }
 }
