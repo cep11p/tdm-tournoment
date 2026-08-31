@@ -2,6 +2,7 @@
 
 namespace App\Actions\Game;
 
+use App\Actions\TeamTie\RecalculateTeamTieOutcomeAction;
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
 use App\Enums\CompetitionType;
@@ -26,6 +27,7 @@ final class CorrectFinishedGameResultAction
         private readonly GameDependencyResolver $dependencyResolver,
         private readonly GameSetScoreValidator $scoreValidator,
         private readonly AuditLogger $auditLogger,
+        private readonly RecalculateTeamTieOutcomeAction $recalculateTeamTieOutcome,
     ) {}
 
     /**
@@ -39,6 +41,7 @@ final class CorrectFinishedGameResultAction
                     'competition.tournament',
                     'sets',
                     'bracket',
+                    'teamTieGame',
                     ...Game::DISPLAY_RELATIONS,
                 ])
                 ->lockForUpdate()
@@ -179,7 +182,14 @@ final class CorrectFinishedGameResultAction
                 reason: $payload['reason'],
             ));
 
-            return $game;
+            if ($game->teamTieGame !== null) {
+                ($this->recalculateTeamTieOutcome)((int) $game->teamTieGame->team_tie_id);
+            }
+
+            return $game->fresh([
+                'competition',
+                ...Game::DISPLAY_RELATIONS,
+            ]);
         });
     }
 

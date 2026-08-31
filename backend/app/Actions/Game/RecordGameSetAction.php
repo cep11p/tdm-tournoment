@@ -2,6 +2,7 @@
 
 namespace App\Actions\Game;
 
+use App\Actions\TeamTie\RecalculateTeamTieOutcomeAction;
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
 use App\Enums\CompetitionType;
@@ -22,13 +23,14 @@ final class RecordGameSetAction
     public function __construct(
         private readonly AuditLogger $auditLogger,
         private readonly GameSetScoreValidator $scoreValidator,
+        private readonly RecalculateTeamTieOutcomeAction $recalculateTeamTieOutcome,
     ) {}
 
     public function __invoke(Game $game, array $payload): Game
     {
         return DB::transaction(function () use ($game, $payload): Game {
             $game = Game::query()
-                ->with(['competition.tournament', 'sets'])
+                ->with(['competition.tournament', 'sets', 'teamTieGame'])
                 ->lockForUpdate()
                 ->findOrFail($game->id);
 
@@ -43,6 +45,12 @@ final class RecordGameSetAction
             if ($game->status === GameStatus::Finished) {
                 throw ValidationException::withMessages([
                     'game' => ['El partido ya finalizó.'],
+                ]);
+            }
+
+            if ($game->status === GameStatus::NotNeeded) {
+                throw ValidationException::withMessages([
+                    'game' => ['Este partido ya no es necesario para el enfrentamiento.'],
                 ]);
             }
 
@@ -149,7 +157,11 @@ final class RecordGameSetAction
                 ], $this->legacyWinnerAuditFields($game)),
             ));
 
-            return $game;
+            if ($game->teamTieGame !== null) {
+                ($this->recalculateTeamTieOutcome)((int) $game->teamTieGame->team_tie_id);
+            }
+
+            return $game->fresh(Game::DISPLAY_RELATIONS);
         });
     }
 

@@ -4,6 +4,7 @@ namespace App\Http\Resources\TeamTie;
 
 use App\Enums\TeamTieStatus;
 use App\Http\Resources\Game\CompetitionEntrySideResource;
+use App\Models\CompetitionEntry;
 use App\Support\TeamTie\TeamTieScoreResolver;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -19,6 +20,10 @@ class TeamTieResource extends JsonResource
         $score = TeamTieScoreResolver::resolve($this->resource);
         $rubbersWithLineup = TeamTieScoreResolver::rubbersWithLineupCount($this->resource);
 
+        $winnerEntry = $this->winner_entry_id !== null
+            ? $this->resolveWinnerEntry()
+            : null;
+
         return [
             'id' => $this->id,
             'competition_id' => $this->competition_id,
@@ -28,6 +33,9 @@ class TeamTieResource extends JsonResource
             'entry1' => new CompetitionEntrySideResource($this->whenLoaded('entry1')),
             'entry2' => new CompetitionEntrySideResource($this->whenLoaded('entry2')),
             'winner_entry_id' => $this->winner_entry_id,
+            'winner' => $winnerEntry !== null
+                ? new CompetitionEntrySideResource($winnerEntry)
+                : null,
             'format' => [
                 'id' => $this->team_tie_format_id,
                 'name' => $this->format_name,
@@ -46,5 +54,24 @@ class TeamTieResource extends JsonResource
             'created_at' => optional($this->created_at)->toISOString(),
             'updated_at' => optional($this->updated_at)->toISOString(),
         ];
+    }
+
+    private function resolveWinnerEntry(): ?CompetitionEntry
+    {
+        if ($this->relationLoaded('winnerEntry') && $this->winnerEntry !== null) {
+            return $this->winnerEntry;
+        }
+
+        $winnerEntryId = (int) $this->winner_entry_id;
+
+        if ($this->relationLoaded('entry1') && (int) $this->entry1?->id === $winnerEntryId) {
+            return $this->entry1;
+        }
+
+        if ($this->relationLoaded('entry2') && (int) $this->entry2?->id === $winnerEntryId) {
+            return $this->entry2;
+        }
+
+        return $this->winnerEntry;
     }
 }

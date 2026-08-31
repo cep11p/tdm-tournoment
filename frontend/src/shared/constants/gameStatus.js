@@ -2,6 +2,7 @@ export const GAME_STATUS_LABELS = {
   pending: 'Pendiente',
   in_progress: 'En curso',
   finished: 'Finalizado',
+  not_needed: 'No necesario',
 }
 
 export function getGameStatusLabel(status) {
@@ -19,6 +20,10 @@ export function getGameStatusBadgeClasses(status) {
 
   if (status === 'in_progress') {
     return 'bg-sky-100 text-sky-800 dark:bg-sky-900/60 dark:text-sky-200'
+  }
+
+  if (status === 'not_needed') {
+    return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
   }
 
   return 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200'

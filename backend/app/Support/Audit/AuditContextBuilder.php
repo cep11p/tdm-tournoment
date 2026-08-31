@@ -11,6 +11,7 @@ use App\Models\Group;
 use App\Models\GroupEntry;
 use App\Models\Player;
 use App\Models\Tournament;
+use App\Models\TeamTie;
 use App\Support\Competition\CompetitionEntryDisplayName;
 use App\Support\Competition\CompetitionEntryMemberPayload;
 use Illuminate\Support\Collection;
@@ -194,6 +195,42 @@ final class AuditContextBuilder
             competitionId: $bracket->competition_id,
             competitionName: $bracket->competition?->name,
             bracketId: $bracket->id,
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function fromTeamTie(TeamTie $teamTie): array
+    {
+        $teamTie->loadMissing([
+            'competition.tournament',
+            'group',
+            'entry1',
+            'entry2',
+            'winnerEntry',
+        ]);
+
+        return array_merge(
+            self::baseContext(
+                tournamentId: $teamTie->competition?->tournament_id,
+                tournamentName: $teamTie->competition?->tournament?->name,
+                competitionId: $teamTie->competition_id,
+                competitionName: $teamTie->competition?->name,
+                groupId: $teamTie->group_id,
+                groupName: $teamTie->group?->name,
+            ),
+            [
+                'team_tie_id' => $teamTie->id,
+            ],
+            self::entrySideAuditFields($teamTie->entry1, 'entry1'),
+            self::entrySideAuditFields($teamTie->entry2, 'entry2'),
+            [
+                'winner_entry_id' => $teamTie->winner_entry_id,
+                'winner_display_name' => $teamTie->winnerEntry !== null
+                    ? CompetitionEntryDisplayName::for($teamTie->winnerEntry)
+                    : null,
+            ],
         );
     }
 

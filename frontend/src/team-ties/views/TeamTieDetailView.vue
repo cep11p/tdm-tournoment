@@ -9,6 +9,10 @@ import GameService from '../../games/services/GameService'
 import TeamTieService from '../services/TeamTieService'
 import TeamTieLineupEditor from '../components/TeamTieLineupEditor.vue'
 import TeamTieRubberCard from '../components/TeamTieRubberCard.vue'
+import {
+  getTeamTieStatusBadgeClasses,
+  getTeamTieStatusLabel,
+} from '../constants/teamTieStatus'
 
 const route = useRoute()
 const teamTieId = computed(() => route.params.id)
@@ -34,12 +38,28 @@ const formatLabel = computed(() => {
   return `${name} · primero en llegar a ${victories}`
 })
 
+const score = computed(() => teamTie.value?.score ?? { entry1: 0, entry2: 0 })
+
 const scoreLabel = computed(() => {
   const entry1 = teamTie.value?.entry1?.display_name ?? 'Equipo 1'
   const entry2 = teamTie.value?.entry2?.display_name ?? 'Equipo 2'
-  const score = teamTie.value?.score ?? { entry1: 0, entry2: 0 }
-  return `${entry1} ${score.entry1} - ${score.entry2} ${entry2}`
+  return `${entry1} ${score.value.entry1} - ${score.value.entry2} ${entry2}`
 })
+
+const isFinished = computed(() => teamTie.value?.status === 'finished')
+
+const winnerLabel = computed(() => teamTie.value?.winner?.display_name ?? null)
+
+const finishedAtLabel = computed(() => {
+  const finishedAt = teamTie.value?.finished_at
+  if (!finishedAt) {
+    return null
+  }
+
+  return new Date(finishedAt).toLocaleString()
+})
+
+const statusLabel = computed(() => getTeamTieStatusLabel(teamTie.value?.status))
 
 const rubbers = computed(() => {
   const items = teamTie.value?.team_tie_games ?? []
@@ -111,9 +131,23 @@ onMounted(loadTeamTie)
 
     <template v-else-if="teamTie">
       <header class="space-y-2">
-        <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">{{ matchupLabel }}</h1>
+        <div class="flex flex-wrap items-center gap-2">
+          <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">{{ matchupLabel }}</h1>
+          <span
+            class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+            :class="getTeamTieStatusBadgeClasses(teamTie.status)"
+          >
+            {{ statusLabel }}
+          </span>
+        </div>
         <p class="text-sm text-slate-600 dark:text-slate-300">{{ formatLabel }}</p>
         <p class="text-lg font-medium text-slate-800 dark:text-slate-100">{{ scoreLabel }}</p>
+        <p v-if="isFinished && winnerLabel" class="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+          Ganador: {{ winnerLabel }}
+        </p>
+        <p v-if="isFinished && finishedAtLabel" class="text-xs text-slate-500 dark:text-slate-400">
+          Finalizado el {{ finishedAtLabel }}
+        </p>
       </header>
 
       <section class="space-y-3">

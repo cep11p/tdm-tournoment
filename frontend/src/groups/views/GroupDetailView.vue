@@ -384,7 +384,10 @@ const teamTieMatchupLabel = (teamTie) => {
 
 const teamTieScoreLabel = (teamTie) => {
   const score = teamTie?.score ?? { entry1: 0, entry2: 0 }
-  return `${score.entry1} - ${score.entry2}`
+  const entry1 = teamTie?.entry1?.display_name ?? 'Equipo 1'
+  const entry2 = teamTie?.entry2?.display_name ?? 'Equipo 2'
+
+  return `${entry1} ${score.entry1} - ${score.entry2} ${entry2}`
 }
 
 const teamTieLineupSummary = (teamTie) => {
@@ -1021,7 +1024,12 @@ onMounted(async () => {
 
                 <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
                   <div class="text-sm text-slate-700 dark:text-slate-200">
-                    <p class="font-medium">{{ teamTieScoreLabel(teamTie) }}</p>
+                    <p
+                      class="font-medium"
+                      :class="teamTie.status === 'finished' ? 'text-emerald-800 dark:text-emerald-200' : ''"
+                    >
+                      {{ teamTieScoreLabel(teamTie) }}
+                    </p>
                     <p class="text-xs text-slate-500 dark:text-slate-400">
                       {{ teamTieLineupSummary(teamTie) }}
                     </p>

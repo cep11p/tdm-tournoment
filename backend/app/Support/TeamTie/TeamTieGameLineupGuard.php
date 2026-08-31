@@ -36,7 +36,7 @@ final class TeamTieGameLineupGuard
 
         if ($game->status !== GameStatus::Pending) {
             throw ValidationException::withMessages([
-                'game' => ['No se puede modificar el lineup porque el partido ya comenzó o finalizó.'],
+                'game' => ['No se puede modificar el lineup porque el partido ya comenzó, finalizó o ya no es necesario.'],
             ]);
         }
 

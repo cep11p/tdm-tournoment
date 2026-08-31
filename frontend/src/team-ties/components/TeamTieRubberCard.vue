@@ -5,6 +5,7 @@ import { usePermissions } from '../../composables/usePermissions'
 import { getTeamTieModalityLabel } from '../constants/teamTieModality'
 import {
   getRubberMatchupLabel,
+  getRubberNotNeededMessage,
   getRubberSideDisplayName,
   getRubberStatusBadgeClasses,
   getRubberStatusLabel,
@@ -27,21 +28,24 @@ const { can } = usePermissions()
 const canManageGroups = computed(() => can('groups.manage'))
 const canRecordResults = computed(() => can('matches.record_result'))
 
+const gameStatus = computed(() => props.rubber?.game?.status)
+const isNotNeeded = computed(() => gameStatus.value === 'not_needed')
+const isTieFinished = computed(() => props.teamTie?.status === 'finished')
+
 const canEditLineup = computed(() => {
-  if (!canManageGroups.value) {
+  if (!canManageGroups.value || isNotNeeded.value || isTieFinished.value) {
     return false
   }
 
-  const status = props.rubber?.game?.status
-  return status === 'pending'
+  return gameStatus.value === 'pending'
 })
 
 const canRecordResult = computed(() => {
-  if (!canRecordResults.value || !props.rubber?.lineup_complete) {
+  if (!canRecordResults.value || !props.rubber?.lineup_complete || isNotNeeded.value || isTieFinished.value) {
     return false
   }
 
-  return props.rubber?.game?.status !== 'finished'
+  return gameStatus.value !== 'finished'
 })
 
 const matchupLabel = computed(() => {
@@ -70,6 +74,13 @@ const matchupLabel = computed(() => {
           <p>{{ getRubberSideDisplayName(rubber, 'entry2') }}</p>
         </div>
         <p v-else class="mt-2 text-sm text-slate-600 dark:text-slate-300">{{ matchupLabel }}</p>
+
+        <p
+          v-if="isNotNeeded"
+          class="mt-2 text-xs text-slate-500 dark:text-slate-400"
+        >
+          {{ getRubberNotNeededMessage() }}
+        </p>
       </div>
 
       <span
@@ -80,7 +91,7 @@ const matchupLabel = computed(() => {
       </span>
     </div>
 
-    <div class="mt-3 flex flex-wrap gap-2">
+    <div v-if="!isNotNeeded" class="mt-3 flex flex-wrap gap-2">
       <button
         v-if="canEditLineup"
         type="button"

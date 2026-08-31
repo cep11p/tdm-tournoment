@@ -38,11 +38,15 @@ export function getTeamContextLabel(teamTie, rubber) {
 }
 
 export function getRubberStatusLabel(rubber) {
+  const status = rubber?.game?.status
+
+  if (status === 'not_needed') {
+    return 'No necesario'
+  }
+
   if (!rubber?.lineup_complete) {
     return 'Definir jugadores'
   }
-
-  const status = rubber?.game?.status
 
   if (status === 'finished') {
     return 'Finalizado'
@@ -56,11 +60,15 @@ export function getRubberStatusLabel(rubber) {
 }
 
 export function getRubberStatusBadgeClasses(rubber) {
+  const status = rubber?.game?.status
+
+  if (status === 'not_needed') {
+    return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+  }
+
   if (!rubber?.lineup_complete) {
     return 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
   }
-
-  const status = rubber?.game?.status
 
   if (status === 'finished') {
     return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200'
@@ -71,4 +79,8 @@ export function getRubberStatusBadgeClasses(rubber) {
   }
 
   return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
+}
+
+export function getRubberNotNeededMessage() {
+  return 'El enfrentamiento ya estaba definido; este partido no fue necesario.'
 }
