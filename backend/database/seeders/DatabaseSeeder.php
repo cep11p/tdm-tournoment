@@ -10,18 +10,32 @@ class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
-
         User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
 
-        $this->call(TeamTieFormatSeeder::class);
+        $this->call([
+            TeamTieFormatSeeder::class,
+        ]);
+
+        if ($this->shouldSeedDemo()) {
+            $this->call([
+                DemoPlayersSeeder::class,
+                DemoTournamentSeeder::class,
+                DemoArchivedTournamentSeeder::class,
+            ]);
+        }
+    }
+
+    private function shouldSeedDemo(): bool
+    {
+        if (! app()->environment(['local', 'development'])) {
+            return false;
+        }
+
+        return (bool) config('demo.seed_data', false);
     }
 }
