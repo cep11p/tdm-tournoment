@@ -296,6 +296,22 @@ const hasGroupSchedule = computed(() =>
   isTeam.value ? hasGroupTeamTies.value : hasGroupGames.value,
 )
 
+const printGroupHref = computed(() => {
+  const params = new URLSearchParams()
+
+  if (competitionId.value) {
+    params.set('competitionId', String(competitionId.value))
+  }
+
+  if (groupName.value) {
+    params.set('groupName', String(groupName.value))
+  }
+
+  const query = params.toString()
+
+  return `/groups/${groupId.value}/print${query ? `?${query}` : ''}`
+})
+
 const scheduleSectionTitle = computed(() =>
   isTeam.value ? 'Enfrentamientos del grupo' : 'Partidos del grupo',
 )
@@ -755,6 +771,16 @@ onMounted(async () => {
 
       <div class="flex items-center gap-3">
         <AppBackButton :fallback-to="competitionId ? `/competitions/${competitionId}` : '/competitions'" />
+
+        <a
+          v-if="hasGroupGames && !isTeam"
+          :href="printGroupHref"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          Imprimir grupo
+        </a>
 
         <RouterLink
           v-if="hasGroupSchedule || standings.length > 0"

@@ -18,6 +18,11 @@ const GroupService = {
     return unwrap(response) ?? []
   },
 
+  async printSheet(groupId) {
+    const response = await httpClient.get(`/groups/${groupId}/print`)
+    return unwrap(response) ?? null
+  },
+
   async generateRoundRobin(groupId) {
     const response = await httpClient.post(`/groups/${groupId}/round-robin-games`)
     return unwrap(response) ?? []

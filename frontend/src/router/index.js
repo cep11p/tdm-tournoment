@@ -10,6 +10,7 @@ import CompetitionDetailView from '../competitions/views/CompetitionDetailView.v
 import CompetitionEditView from '../competitions/views/CompetitionEditView.vue'
 import RegistrationListView from '../registrations/views/RegistrationListView.vue'
 import GroupDetailView from '../groups/views/GroupDetailView.vue'
+import GroupPrintView from '../groups/views/GroupPrintView.vue'
 import GameListView from '../games/views/GameListView.vue'
 import GameDetailView from '../games/views/GameDetailView.vue'
 import TeamTieDetailView from '../team-ties/views/TeamTieDetailView.vue'
@@ -91,6 +92,12 @@ const routes = [
     path: '/groups/:id',
     name: 'groups-detail',
     component: GroupDetailView,
+  },
+  {
+    path: '/groups/:id/print',
+    name: 'groups-print',
+    component: GroupPrintView,
+    meta: { print: true },
   },
   {
     path: '/groups/:id/standings',

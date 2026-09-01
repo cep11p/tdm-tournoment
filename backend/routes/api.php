@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\GroupRandomRegenerateController;
 use App\Http\Controllers\Api\V1\GroupPlayerController;
 use App\Http\Controllers\Api\V1\GroupManualTiebreakController;
 use App\Http\Controllers\Api\V1\GroupPlayerStatusController;
+use App\Http\Controllers\Api\V1\GroupPrintController;
 use App\Http\Controllers\Api\V1\GroupRoundRobinGameController;
 use App\Http\Controllers\Api\V1\GroupTeamTieController;
 use App\Http\Controllers\Api\V1\GroupStandingsController;
@@ -115,6 +116,8 @@ Route::prefix(config('api.version_prefix', 'v1'))
 
         Route::get('groups/{group}/players', [GroupPlayerController::class, 'index'])
             ->name('groups.players.index');
+        Route::get('groups/{group}/print', [GroupPrintController::class, 'show'])
+            ->name('groups.print.show');
         Route::middleware(['auth.keycloak', 'permission:groups.manage'])
             ->post('groups/{group}/players', [GroupPlayerController::class, 'store'])
             ->name('groups.players.store');

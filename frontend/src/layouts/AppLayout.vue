@@ -82,23 +82,32 @@ const closeSidebar = () => {
 
 watch(() => route.path, closeSidebar)
 
+const isPrintView = computed(() => Boolean(route.meta.print))
+
 const handleLogout = async () => {
   await authStore.logout()
 }
 </script>
 
 <template>
-  <div class="min-h-screen overflow-x-hidden bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+  <div
+    class="min-h-screen overflow-x-hidden bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100 print:bg-white print:text-black"
+    :class="isPrintView ? 'print-layout' : ''"
+  >
     <div
       v-show="isSidebarOpen"
-      class="fixed inset-0 z-40 bg-black/50 lg:hidden"
+      class="fixed inset-0 z-40 bg-black/50 lg:hidden print:hidden"
       aria-hidden="true"
       @click="closeSidebar"
     />
 
-    <div class="mx-auto flex min-h-screen min-w-0 max-w-7xl">
+    <div
+      class="min-h-screen min-w-0"
+      :class="isPrintView ? 'block' : 'mx-auto flex max-w-7xl'"
+    >
       <aside
-        class="fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-slate-200 bg-white p-4 transition-transform duration-200 ease-in-out dark:border-slate-800 dark:bg-slate-900 lg:static lg:z-auto lg:translate-x-0"
+        v-if="!isPrintView"
+        class="fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-slate-200 bg-white p-4 transition-transform duration-200 ease-in-out dark:border-slate-800 dark:bg-slate-900 lg:static lg:z-auto lg:translate-x-0 print:hidden"
         :class="isSidebarOpen ? 'translate-x-0' : '-translate-x-full'"
       >
         <div class="mb-6 flex items-center justify-between">
@@ -128,7 +137,8 @@ const handleLogout = async () => {
 
       <div class="flex min-h-screen min-w-0 flex-1 flex-col">
         <header
-          class="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4 dark:border-slate-800 dark:bg-slate-900 md:px-6"
+          v-if="!isPrintView"
+          class="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-4 dark:border-slate-800 dark:bg-slate-900 md:px-6 print:hidden"
         >
           <div class="flex min-w-0 items-center gap-3">
             <button
@@ -175,7 +185,10 @@ const handleLogout = async () => {
           </div>
         </header>
 
-        <main class="min-w-0 flex-1 bg-slate-100 p-4 dark:bg-slate-950 md:p-6">
+        <main
+          class="min-w-0 flex-1"
+          :class="isPrintView ? 'bg-slate-200 p-4 print:bg-white print:p-0' : 'bg-slate-100 p-4 dark:bg-slate-950 md:p-6'"
+        >
           <slot />
         </main>
       </div>

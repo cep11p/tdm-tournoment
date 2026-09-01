@@ -14,8 +14,10 @@ body {
   color-scheme: dark;
 }
 
-* {
-  box-sizing: border-box;
+@media print {
+  .no-print {
+    display: none !important;
+  }
 }
 
 .dark input:not([type='radio']):not([type='checkbox']),
