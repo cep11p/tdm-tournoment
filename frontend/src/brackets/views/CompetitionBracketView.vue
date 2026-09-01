@@ -45,7 +45,7 @@ import {
   bracketMatchScoreLabel,
   getBracketMatches,
 } from '../utils/bracketMatchAdapter'
-import { isTeamCompetition } from '../../shared/constants/competitionType'
+import { isTeamCompetition, participantPlural } from '../../shared/constants/competitionType'
 import {
   getTeamTieStatusBadgeClasses,
   getTeamTieStatusLabel,
@@ -117,7 +117,7 @@ const bracketCreationBlockMessage = computed(() => {
 
   if (!hasGroupStage.value) {
     if (code === 'awaiting_registrations') {
-      return 'Se necesitan al menos 2 jugadores inscriptos para generar la llave.'
+      return `Se necesitan al menos 2 ${registeredParticipantsLabel.value} inscriptos para generar la llave.`
     }
 
     return null
@@ -185,6 +185,18 @@ const mainBracketGames = computed(() =>
   getBracketMatches(bracket.value, isTeam.value).filter(
     (match) => match.bracket_purpose !== 'third_place',
   ),
+)
+
+const bracketMatchCount = computed(() => mainBracketGames.value.length)
+
+const bracketMatchCountLabel = computed(() =>
+  isTeam.value ? 'Enfrentamientos' : 'Partidos',
+)
+
+const registeredParticipantsLabel = computed(() => participantPlural(competition.value))
+
+const thirdPlaceHeading = computed(() =>
+  isTeam.value ? 'Enfrentamiento por tercer puesto' : 'Partido por tercer puesto',
 )
 
 const thirdPlaceGame = computed(
@@ -324,6 +336,18 @@ const canLoadResult = (game) =>
 const isFinishedGame = (game) => !isByeGame(game) && game?.status === 'finished'
 
 const matchDetailPath = (game) => bracketMatchDetailPath(game)
+
+const matchDetailRoute = (game) => ({
+  path: matchDetailPath(game),
+  query: {
+    competitionId,
+    competitionName: competition?.name,
+    tournamentId: competition?.tournament_id,
+  },
+})
+
+const canShowMatchDetailLink = (game) =>
+  !isByeGame(game) && (isFinishedGame(game) || game?.isTeamTie)
 
 const openResultModal = (game) => {
   selectedGame.value = game
@@ -733,7 +757,7 @@ onMounted(loadData)
         </p>
 
         <p v-else class="text-slate-600 dark:text-slate-300">
-          La llave se genera directamente con los jugadores inscriptos.
+          La llave se genera directamente con los {{ registeredParticipantsLabel }} inscriptos.
         </p>
 
         <p v-if="createError" class="text-red-600 dark:text-red-400">{{ createError }}</p>
@@ -803,8 +827,8 @@ onMounted(loadData)
           </div>
 
           <div>
-            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Partidos</dt>
-            <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ bracket.games?.length ?? 0 }}</dd>
+            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ bracketMatchCountLabel }}</dt>
+            <dd class="mt-1 font-semibold text-slate-900 dark:text-slate-100">{{ bracketMatchCount }}</dd>
           </div>
         </dl>
       </div>
@@ -873,7 +897,7 @@ onMounted(loadData)
             class="mb-4 rounded-md border border-amber-300/80 bg-amber-50/50 p-4 dark:border-amber-600/50 dark:bg-amber-950/30"
           >
             <p class="text-sm font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-200">
-              Partido por tercer puesto
+              {{ thirdPlaceHeading }}
             </p>
 
             <div
@@ -1042,19 +1066,12 @@ onMounted(loadData)
                           <p v-if="isByeGame(game) || game?.status === 'finished'">
                             Ganador: {{ winnerName(game) }}
                           </p>
-                          <div v-if="isFinishedGame(game)" class="pt-0.5">
+                          <div v-if="canShowMatchDetailLink(game)" class="pt-0.5">
                             <RouterLink
-                              :to="{
-                                path: matchDetailPath(game),
-                                query: {
-                                  competitionId,
-                                  competitionName: competition?.name,
-                                  tournamentId: competition?.tournament_id,
-                                },
-                              }"
+                              :to="matchDetailRoute(game)"
                               class="font-medium text-slate-700 hover:underline dark:text-slate-300"
                             >
-                              Ver detalle
+                              {{ game?.isTeamTie ? 'Ver enfrentamiento' : 'Ver detalle' }}
                             </RouterLink>
                           </div>
                         </div>
@@ -1175,19 +1192,12 @@ onMounted(loadData)
                       </button>
                     </div>
 
-                    <div v-else-if="isFinishedGame(game)" class="pt-1">
+                    <div v-else-if="canShowMatchDetailLink(game)" class="pt-1">
                       <RouterLink
-                        :to="{
-                          path: `/games/${game.id}`,
-                          query: {
-                            competitionId,
-                            competitionName: competition?.name,
-                            tournamentId: competition?.tournament_id,
-                          },
-                        }"
+                        :to="matchDetailRoute(game)"
                         class="text-xs font-medium text-slate-700 hover:underline dark:text-slate-300"
                       >
-                        Ver detalle
+                        {{ game?.isTeamTie ? 'Ver enfrentamiento' : 'Ver detalle' }}
                       </RouterLink>
                     </div>
                   </li>

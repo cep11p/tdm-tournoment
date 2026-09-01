@@ -24,3 +24,8 @@ export const getTeamTieStatusBadgeClasses = (status) => {
 
   return 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200'
 }
+
+export const isTeamTieFinished = (status) => status === 'finished'
+
+export const isTeamTiePending = (status) =>
+  status !== 'finished' && status !== 'cancelled'

@@ -37,7 +37,11 @@ final class TournamentClosureGuard
 
         /** @var Collection<int, Competition> $competitions */
         $competitions = $tournament->competitions()
-            ->withCount(['entries as registrations_count', 'games'])
+            ->withCount([
+                'entries as registrations_count',
+                'games',
+                'teamTies as team_ties_count',
+            ])
             ->orderBy('id')
             ->get();
 
@@ -81,19 +85,23 @@ final class TournamentClosureGuard
                 ]);
             }
 
-            $hasOpenGames = Game::query()
-                ->where('competition_id', $competition->id)
-                ->whereIn('status', [GameStatus::Pending, GameStatus::InProgress])
-                ->exists();
-
-            $hasOpenTeamTies = $competition->isTeam()
-                && TeamTie::query()
+            if ($competition->isTeam()) {
+                $hasOpenGames = TeamTie::query()
                     ->where('competition_id', $competition->id)
-                    ->whereNotNull('bracket_id')
-                    ->whereIn('status', [TeamTieStatus::Pending, TeamTieStatus::InProgress])
+                    ->whereIn('status', [
+                        TeamTieStatus::Pending,
+                        TeamTieStatus::Ready,
+                        TeamTieStatus::InProgress,
+                    ])
                     ->exists();
+            } else {
+                $hasOpenGames = Game::query()
+                    ->where('competition_id', $competition->id)
+                    ->whereIn('status', [GameStatus::Pending, GameStatus::InProgress])
+                    ->exists();
+            }
 
-            if ($hasOpenGames || $hasOpenTeamTies) {
+            if ($hasOpenGames) {
                 throw ValidationException::withMessages([
                     'tournament' => [
                         sprintf(
@@ -137,7 +145,11 @@ final class TournamentClosureGuard
 
         /** @var Collection<int, Competition> $competitions */
         $competitions = $tournament->competitions()
-            ->withCount(['entries as registrations_count', 'games'])
+            ->withCount([
+                'entries as registrations_count',
+                'games',
+                'teamTies as team_ties_count',
+            ])
             ->orderBy('id')
             ->get();
 
@@ -179,6 +191,11 @@ final class TournamentClosureGuard
 
     private static function isUnusedCompetition(Competition $competition): bool
     {
+        if ($competition->isTeam()) {
+            return (int) $competition->registrations_count === 0
+                && (int) ($competition->team_ties_count ?? 0) === 0;
+        }
+
         return (int) $competition->registrations_count === 0
             && (int) $competition->games_count === 0;
     }
@@ -235,24 +252,46 @@ final class TournamentClosureGuard
             $bracket = $competition->brackets()->first();
 
             if ($bracket !== null && BracketPodiumSupport::requiresPlayoffThirdPlace($competition, $bracket)) {
-                $finalFinished = Game::query()
-                    ->where('competition_id', $competition->id)
-                    ->whereNotNull('bracket_id')
-                    ->mainBracket()
-                    ->where('round', 'Final')
-                    ->where('status', GameStatus::Finished)
-                    ->whereNotNull('winner_entry_id')
-                    ->exists();
+                if ($competition->isTeam()) {
+                    $finalFinished = TeamTie::query()
+                        ->where('competition_id', $competition->id)
+                        ->where('bracket_id', $bracket->id)
+                        ->mainBracket()
+                        ->where('round', 'Final')
+                        ->where('status', TeamTieStatus::Finished)
+                        ->whereNotNull('winner_entry_id')
+                        ->exists();
 
-                $thirdPlaceGame = BracketPodiumSupport::findThirdPlaceGame($bracket);
-                $thirdPlacePending = $thirdPlaceGame !== null
-                    && ($thirdPlaceGame->status !== GameStatus::Finished || $thirdPlaceGame->winner_entry_id === null);
+                    $thirdPlaceTeamTie = BracketPodiumSupport::findThirdPlaceTeamTie($bracket);
+                    $thirdPlacePending = $thirdPlaceTeamTie !== null
+                        && ($thirdPlaceTeamTie->status !== TeamTieStatus::Finished || $thirdPlaceTeamTie->winner_entry_id === null);
 
-                if ($finalFinished && $thirdPlacePending) {
-                    return sprintf(
-                        'La competencia «%s» aún tiene pendiente el partido por tercer puesto.',
-                        $competition->name,
-                    );
+                    if ($finalFinished && $thirdPlacePending) {
+                        return sprintf(
+                            'La competencia «%s» aún tiene pendiente el enfrentamiento por el tercer puesto.',
+                            $competition->name,
+                        );
+                    }
+                } else {
+                    $finalFinished = Game::query()
+                        ->where('competition_id', $competition->id)
+                        ->whereNotNull('bracket_id')
+                        ->mainBracket()
+                        ->where('round', 'Final')
+                        ->where('status', GameStatus::Finished)
+                        ->whereNotNull('winner_entry_id')
+                        ->exists();
+
+                    $thirdPlaceGame = BracketPodiumSupport::findThirdPlaceGame($bracket);
+                    $thirdPlacePending = $thirdPlaceGame !== null
+                        && ($thirdPlaceGame->status !== GameStatus::Finished || $thirdPlaceGame->winner_entry_id === null);
+
+                    if ($finalFinished && $thirdPlacePending) {
+                        return sprintf(
+                            'La competencia «%s» aún tiene pendiente el partido por tercer puesto.',
+                            $competition->name,
+                        );
+                    }
                 }
             }
         }

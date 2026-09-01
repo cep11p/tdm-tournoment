@@ -85,7 +85,7 @@ const saveLineup = async () => {
       error?.response?.data?.message ||
       error?.response?.data?.errors?.entry1_player_ids?.[0] ||
       error?.response?.data?.errors?.entry2_player_ids?.[0] ||
-      'No se pudo guardar el lineup.'
+      'No se pudo guardar el plantel.'
   } finally {
     isSaving.value = false
   }
@@ -100,7 +100,7 @@ const saveLineup = async () => {
   >
     <div class="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
       <h3 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
-        Lineup · {{ getTeamTieModalityLabel(modality) }}
+        Plantel · {{ getTeamTieModalityLabel(modality) }}
       </h3>
       <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
         Partido {{ rubber?.slot_order }} · {{ teamTie?.entry1?.display_name }} vs
@@ -171,7 +171,7 @@ const saveLineup = async () => {
           :disabled="isSaving"
           @click="saveLineup"
         >
-          {{ isSaving ? 'Guardando...' : 'Guardar lineup' }}
+          {{ isSaving ? 'Guardando...' : 'Guardar plantel' }}
         </button>
       </div>
     </div>

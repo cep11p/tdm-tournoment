@@ -43,6 +43,7 @@ import TeamTieService from '../../team-ties/services/TeamTieService'
 import {
   getTeamTieStatusBadgeClasses,
   getTeamTieStatusLabel,
+  isTeamTiePending,
 } from '../../team-ties/constants/teamTieStatus'
 
 const route = useRoute()
@@ -113,7 +114,7 @@ const loadGroupPlayers = async () => {
     groupPlayers.value = await GroupService.listPlayers(groupId.value)
   } catch (error) {
     groupPlayersError.value =
-      error?.response?.data?.message || 'No se pudo cargar los jugadores del grupo.'
+      error?.response?.data?.message || `No se pudo cargar los ${participantPlural(competition.value)} del grupo.`
   } finally {
     isLoadingGroupPlayers.value = false
   }
@@ -393,7 +394,7 @@ const teamTieScoreLabel = (teamTie) => {
 const teamTieLineupSummary = (teamTie) => {
   const configured = teamTie?.rubbers_with_lineup ?? 0
   const total = teamTie?.rubbers_total ?? 0
-  return `${configured}/${total} partidos configurados`
+  return `${configured}/${total} partidos con plantel definido`
 }
 
 const teamTiesByRound = computed(() => {
@@ -474,7 +475,7 @@ const compareByGroupSchedule = (left, right) => {
 }
 
 const pendingTeamTies = computed(() =>
-  teamTies.value.filter((teamTie) => teamTie.status === 'pending'),
+  teamTies.value.filter((teamTie) => isTeamTiePending(teamTie.status)),
 )
 
 const scheduleCount = computed(() =>
@@ -677,7 +678,7 @@ const handleResultSaved = async () => {
   resultError.value = ''
 
   try {
-    await Promise.all([loadGroupSchedule(), isTeam.value ? Promise.resolve() : loadStandings()])
+    await Promise.all([loadGroupSchedule(), loadStandings()])
     resultSuccessMessage.value = 'Resultado registrado correctamente.'
   } catch (error) {
     resultError.value =
@@ -698,7 +699,7 @@ const handleGenerateRoundRobin = async () => {
       : `Todos contra todos generado. Partidos creados: ${createdCount}.`
     await Promise.all([
       loadGroupSchedule(),
-      isTeam.value ? Promise.resolve() : loadStandings(),
+      loadStandings(),
     ])
   } catch (error) {
     roundRobinError.value =
@@ -721,7 +722,7 @@ const closePlayerStatusModal = () => {
 
 const handlePlayerStatusSaved = async () => {
   closePlayerStatusModal()
-  await Promise.all([loadGroupPlayers(), isTeam.value ? Promise.resolve() : loadStandings(), loadGroupSchedule()])
+  await Promise.all([loadGroupPlayers(), loadStandings(), loadGroupSchedule()])
   playerStatusSuccessMessage.value = `Estado del ${participantSingular(competition.value)} actualizado correctamente.`
 }
 
@@ -729,7 +730,7 @@ onMounted(async () => {
   await loadCompetition()
   await Promise.all([
     loadGroupPlayers(),
-    isTeam.value ? Promise.resolve() : loadStandings(),
+    loadStandings(),
     loadGroupSchedule(),
   ])
 })
@@ -849,7 +850,7 @@ onMounted(async () => {
         </p>
 
         <p v-if="isLoadingGroupPlayers || isLoadingStandings" class="text-slate-600 dark:text-slate-300">
-          Cargando jugadores del grupo...
+          Cargando {{ isTeam ? 'equipos' : participantPlural(competition) }} del grupo...
         </p>
         <p v-else-if="groupPlayersError" class="text-red-600 dark:text-red-400">{{ groupPlayersError }}</p>
 

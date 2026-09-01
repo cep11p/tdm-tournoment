@@ -50,7 +50,7 @@ const canRecordResult = computed(() => {
 
 const matchupLabel = computed(() => {
   if (!props.rubber?.lineup_complete) {
-    return 'Lineup pendiente'
+    return 'Integrantes pendientes'
   }
 
   return getRubberMatchupLabel(props.rubber)
@@ -98,7 +98,7 @@ const matchupLabel = computed(() => {
         class="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 dark:border-slate-600 dark:text-slate-200"
         @click="emit('edit-lineup', rubber)"
       >
-        {{ rubber.lineup_complete ? 'Editar jugadores' : 'Definir jugadores' }}
+        {{ rubber.lineup_complete ? 'Editar integrantes' : 'Definir integrantes' }}
       </button>
 
       <button

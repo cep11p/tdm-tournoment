@@ -81,6 +81,8 @@ class CompetitionResource extends JsonResource
             'result_summary' => CompetitionResultResolver::resolve($this->resource),
             'registrations_count' => (int) ($this->registrations_count ?? 0),
             'games_count' => (int) ($this->games_count ?? 0),
+            'team_ties_count' => (int) ($this->team_ties_count ?? 0),
+            'finished_team_ties_count' => (int) ($this->finished_team_ties_count ?? 0),
             'created_at' => optional($this->created_at)->toISOString(),
             'updated_at' => optional($this->updated_at)->toISOString(),
         ];

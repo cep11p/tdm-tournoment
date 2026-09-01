@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Competition\StoreCompetitionRequest;
 use App\Http\Requests\Competition\UpdateCompetitionRequest;
 use App\Http\Resources\Competition\CompetitionResource;
+use App\Enums\TeamTieStatus;
 use App\Models\Competition;
 use App\Models\Tournament;
 use Illuminate\Http\JsonResponse;
@@ -31,7 +32,12 @@ class CompetitionController extends Controller
     {
         $competition->load('categoryModel:id,name,slug');
         $competition->load(['teamTieFormat.slots' => fn ($query) => $query->orderBy('slot_order')]);
-        $competition->loadCount(['entries as registrations_count', 'games']);
+        $competition->loadCount([
+            'entries as registrations_count',
+            'games',
+            'teamTies as team_ties_count',
+            'teamTies as finished_team_ties_count' => fn ($query) => $query->where('status', TeamTieStatus::Finished),
+        ]);
 
         return new CompetitionResource($competition);
     }

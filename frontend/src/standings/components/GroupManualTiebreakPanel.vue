@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 
-import { MANUAL_TIEBREAK_REASONS } from '../constants/manualTiebreakReasons'
+import { getManualTiebreakReasons } from '../constants/manualTiebreakReasons'
 import StandingService from '../services/StandingService'
 
 const props = defineProps({
@@ -14,6 +14,10 @@ const props = defineProps({
     required: true,
   },
   disabled: {
+    type: Boolean,
+    default: false,
+  },
+  isTeam: {
     type: Boolean,
     default: false,
   },
@@ -44,6 +48,8 @@ const tiebreakGroupKey = computed(() =>
     .sort((left, right) => left - right)
     .join('-'),
 )
+
+const manualTiebreakReasons = computed(() => getManualTiebreakReasons(props.isTeam))
 
 watch(tiebreakGroupKey, () => {
   entryIds.value = [...(props.tiebreakGroup.entry_ids ?? props.tiebreakGroup.player_ids ?? [])]
@@ -148,7 +154,7 @@ const handleSubmit = async () => {
           class="w-full rounded-md border border-slate-300 px-3 py-2 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           :disabled="disabled || isSaving"
         >
-          <option v-for="option in MANUAL_TIEBREAK_REASONS" :key="option.value" :value="option.value">
+          <option v-for="option in manualTiebreakReasons" :key="option.value" :value="option.value">
             {{ option.label }}
           </option>
         </select>

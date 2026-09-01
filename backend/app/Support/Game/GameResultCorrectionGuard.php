@@ -57,11 +57,37 @@ final class GameResultCorrectionGuard
             }
         }
 
-        if ($game->group_id !== null && $competition !== null && $competition->brackets()->exists()) {
+        $groupId = self::resolveGroupId($game);
+
+        if ($groupId !== null && $competition !== null && $competition->brackets()->exists()) {
             throw ValidationException::withMessages([
                 'game' => ['No se puede corregir el resultado porque la llave ya fue generada.'],
             ]);
         }
+    }
+
+    public static function resolveGroupId(Game $game): ?int
+    {
+        if ($game->group_id !== null) {
+            return (int) $game->group_id;
+        }
+
+        $game->loadMissing('teamTieGame.teamTie');
+        $groupId = $game->teamTieGame?->teamTie?->group_id;
+
+        return $groupId !== null ? (int) $groupId : null;
+    }
+
+    public static function resolveBracketId(Game $game): ?int
+    {
+        if ($game->bracket_id !== null) {
+            return (int) $game->bracket_id;
+        }
+
+        $game->loadMissing('teamTieGame.teamTie');
+        $bracketId = $game->teamTieGame?->teamTie?->bracket_id;
+
+        return $bracketId !== null ? (int) $bracketId : null;
     }
 
     public function assertNoRoundBeyondImmediate(Game $game): void

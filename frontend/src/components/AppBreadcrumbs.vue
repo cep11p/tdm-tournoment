@@ -145,6 +145,39 @@ const breadcrumbItems = computed(() => {
       items.push({ label: BREADCRUMB_BRACKET })
       break
 
+    case 'team-ties-detail': {
+      const teamTieLabel = context.teamTieLabel || 'Enfrentamiento'
+
+      if (tournamentId) {
+        items.push({
+          label: tournamentName || `Torneo #${tournamentId}`,
+          to: `/tournaments/${tournamentId}`,
+        })
+      }
+
+      if (competitionId) {
+        items.push({
+          label: competitionName || `Competencia #${competitionId}`,
+          to: `/competitions/${competitionId}`,
+        })
+      }
+
+      if (context.groupId) {
+        items.push({
+          label: context.groupName || `Grupo #${context.groupId}`,
+          to: `/groups/${context.groupId}`,
+        })
+      } else if (route.name === 'team-ties-detail' && competitionId) {
+        items.push({
+          label: BREADCRUMB_BRACKET,
+          to: `/competitions/${competitionId}/bracket`,
+        })
+      }
+
+      items.push({ label: teamTieLabel })
+      break
+    }
+
     default:
       break
   }

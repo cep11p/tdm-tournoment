@@ -19,6 +19,7 @@ import {
 } from '../utils/gameDisplay'
 import {
   getRubberMatchupLabel,
+  getRubberNotNeededMessage,
   getRubberSideDisplayName,
   getTeamContextLabel,
 } from '../../team-ties/utils/teamTieGameDisplay'
@@ -82,9 +83,10 @@ const teamRubberContext = computed(() => {
 })
 
 const isFinished = computed(() => game.value?.status === 'finished')
+const isNotNeeded = computed(() => game.value?.status === 'not_needed')
 
 const canShowCorrectionAction = computed(
-  () => isFinished.value && !isGameBye(game.value) && canCorrectResults.value,
+  () => isFinished.value && !isGameBye(game.value) && !isNotNeeded.value && canCorrectResults.value,
 )
 
 const winnerName = computed(() => getGameWinnerDisplayName(game.value))
@@ -216,6 +218,15 @@ onMounted(loadGame)
       </p>
 
       <div
+        v-if="isNotNeeded"
+        class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300"
+      >
+        <p class="font-medium text-slate-900 dark:text-slate-100">No necesario</p>
+        <p class="mt-1">{{ getRubberNotNeededMessage() }}</p>
+      </div>
+
+      <div
+        v-else
         class="space-y-2 rounded-md border p-4 text-sm"
         :class="
           isFinished
@@ -272,13 +283,19 @@ onMounted(loadGame)
         </p>
       </div>
 
-      <div class="space-y-2 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900">
+      <div
+        v-if="!isNotNeeded"
+        class="space-y-2 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
+      >
         <p class="font-medium text-slate-700 dark:text-slate-200">Resultado actual</p>
         <p class="text-slate-700 dark:text-slate-200">{{ side1Name }}: {{ setsSummary.player1Sets }} sets</p>
         <p class="text-slate-700 dark:text-slate-200">{{ side2Name }}: {{ setsSummary.player2Sets }} sets</p>
       </div>
 
-      <div class="space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900">
+      <div
+        v-if="!isNotNeeded"
+        class="space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
+      >
         <p class="font-medium text-slate-700 dark:text-slate-200">Sets registrados</p>
 
         <div
@@ -312,7 +329,7 @@ onMounted(loadGame)
       </div>
 
       <form
-        v-if="!isFinished && canRecordResults && !isGameBye(game)"
+        v-if="!isNotNeeded && !isFinished && canRecordResults && !isGameBye(game)"
         class="max-w-xl space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
         @submit.prevent="handleRecordSet"
       >

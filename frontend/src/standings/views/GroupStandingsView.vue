@@ -318,6 +318,7 @@ onMounted(async () => {
           :key="tiebreakGroupKey(tiebreakGroup)"
           :group-id="groupId"
           :tiebreak-group="tiebreakGroup"
+          :is-team="isTeam"
           :disabled="hasBracket"
           @saved="handleManualTiebreakSaved"
         />
@@ -337,7 +338,7 @@ onMounted(async () => {
 
         <dl class="mt-3 grid gap-3 sm:grid-cols-3">
           <div>
-            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ isDoubles ? 'Parejas' : 'Jugadores' }}</dt>
+            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ isTeam ? 'Equipos' : (isDoubles ? 'Parejas' : 'Jugadores') }}</dt>
             <dd class="mt-1 font-medium text-slate-900 dark:text-slate-100">{{ participantsCountLabel }}</dd>
           </div>
 
@@ -404,7 +405,7 @@ onMounted(async () => {
                 <dd class="font-medium text-slate-900 dark:text-slate-100">{{ standing.played }}</dd>
               </div>
               <div>
-                <dt>Rubbers</dt>
+                <dt>Partidos</dt>
                 <dd class="font-medium text-slate-900 dark:text-slate-100">
                   {{ formatSignedDifference(standing.rubber_difference) }}
                 </dd>
@@ -439,7 +440,7 @@ onMounted(async () => {
                 <th class="px-3 py-2 text-left font-medium">EJ</th>
                 <th class="px-3 py-2 text-left font-medium">EG</th>
                 <th class="px-3 py-2 text-left font-medium">EP</th>
-                <th class="px-3 py-2 text-left font-medium">Dif. rubbers</th>
+                <th class="px-3 py-2 text-left font-medium">Dif. partidos</th>
                 <th class="px-3 py-2 text-left font-medium">Dif. sets</th>
                 <th class="px-3 py-2 text-left font-medium">Dif. puntos</th>
               </template>

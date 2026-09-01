@@ -16,7 +16,11 @@ class TeamTieController extends Controller
 
     public function show(TeamTie $teamTie): TeamTieResource
     {
-        $teamTie->load(self::SHOW_RELATIONS);
+        $teamTie->load([
+            ...self::SHOW_RELATIONS,
+            'competition.tournament:id,name',
+            'group:id,name',
+        ]);
 
         return new TeamTieResource($teamTie);
     }

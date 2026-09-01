@@ -159,14 +159,56 @@ const existingGroupsCount = computed(() => groups.value?.length ?? 0)
 
 const groupCount = computed(() => (groups.value === null ? '-' : groups.value.length))
 
-const gameCount = computed(() => (games.value === null ? '-' : games.value.length))
+const isTeam = computed(() => isTeamCompetition(competition.value))
+
+const gameCount = computed(() => {
+  if (isTeam.value) {
+    if (competition.value?.team_ties_count == null) {
+      return '-'
+    }
+
+    return competition.value.team_ties_count
+  }
+
+  return games.value === null ? '-' : games.value.length
+})
 
 const finishedGameCount = computed(() => {
+  if (isTeam.value) {
+    if (competition.value?.finished_team_ties_count == null) {
+      return '-'
+    }
+
+    return competition.value.finished_team_ties_count
+  }
+
   if (games.value === null) {
     return '-'
   }
 
   return games.value.filter((game) => game.status === 'finished').length
+})
+
+const scheduleSummaryLabel = computed(() => (isTeam.value ? 'Enfrentamientos' : 'Partidos'))
+
+const finishedScheduleLabel = computed(() =>
+  isTeam.value ? 'Enfrentamientos finalizados' : 'Finalizados',
+)
+
+const firstGroupRoute = computed(() => {
+  const group = groups.value?.[0]
+
+  if (!group) {
+    return null
+  }
+
+  return {
+    path: `/groups/${group.id}`,
+    query: {
+      competitionId: competitionId.value,
+      groupName: group.name,
+    },
+  }
 })
 
 const bracketGames = computed(() => {
@@ -540,11 +582,14 @@ const loadCompetitionSummary = async () => {
   errorMessage.value = ''
 
   try {
-    const [competitionData, registrationsData, groupsData, gamesData, bracketData] = await Promise.all([
-      CompetitionService.show(competitionId.value),
+    const competitionData = await CompetitionService.show(competitionId.value)
+
+    const [registrationsData, groupsData, gamesData, bracketData] = await Promise.all([
       RegistrationService.listByCompetition(competitionId.value).catch(() => null),
       GroupService.listByCompetition(competitionId.value).catch(() => null),
-      GameService.listByCompetition(competitionId.value).catch(() => null),
+      isTeamCompetition(competitionData)
+        ? Promise.resolve(null)
+        : GameService.listByCompetition(competitionId.value).catch(() => null),
       BracketService.show(competitionId.value).catch(() => null),
     ])
 
@@ -692,14 +737,14 @@ const handleEditCompetitionSaved = async () => {
           </div>
 
           <div>
-            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Partidos</dt>
+            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ scheduleSummaryLabel }}</dt>
             <dd class="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
               {{ formatCount(gameCount) }}
             </dd>
           </div>
 
           <div>
-            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Finalizados</dt>
+            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ finishedScheduleLabel }}</dt>
             <dd class="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
               {{ formatCount(finishedGameCount) }}
             </dd>
@@ -707,18 +752,43 @@ const handleEditCompetitionSaved = async () => {
         </dl>
 
         <p
-          v-if="games !== null && games.length === 0"
+          v-if="!isTeam && games !== null && games.length === 0"
           class="mt-3 text-sm text-slate-600 dark:text-slate-300"
         >
           No hay partidos generados
         </p>
 
-        <p v-if="games !== null && games.length > 0" class="mt-3">
+        <p
+          v-if="isTeam && competition.team_ties_count === 0"
+          class="mt-3 text-sm text-slate-600 dark:text-slate-300"
+        >
+          No hay enfrentamientos generados
+        </p>
+
+        <p v-if="!isTeam && games !== null && games.length > 0" class="mt-3">
           <RouterLink
             :to="`/competitions/${competitionId}/games`"
             class="text-xs text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline dark:text-slate-400 dark:hover:text-slate-300"
           >
             Ver todos los partidos
+          </RouterLink>
+        </p>
+
+        <p v-else-if="isTeam && hasGroupStage && firstGroupRoute" class="mt-3">
+          <RouterLink
+            :to="firstGroupRoute"
+            class="text-xs text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline dark:text-slate-400 dark:hover:text-slate-300"
+          >
+            Ver grupos
+          </RouterLink>
+        </p>
+
+        <p v-else-if="isTeam && hasBracket" class="mt-3">
+          <RouterLink
+            :to="`/competitions/${competitionId}/bracket`"
+            class="text-xs text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline dark:text-slate-400 dark:hover:text-slate-300"
+          >
+            Ver llave
           </RouterLink>
         </p>
       </div>
@@ -954,8 +1024,7 @@ const handleEditCompetitionSaved = async () => {
                 class="text-sm text-slate-600 dark:text-slate-400"
               >
                 Esta competencia es de eliminación directa. La llave se generará con los
-                {{ registeredCount }} jugador{{ registeredCount === 1 ? '' : 'es' }}
-                inscripto{{ registeredCount === 1 ? '' : 's' }}.
+                {{ participantsCountLabel }} inscriptos.
               </p>
 
               <p
@@ -1160,7 +1229,7 @@ const handleEditCompetitionSaved = async () => {
                   :to="bracketRoute"
                   class="text-slate-700 underline hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
                 >
-                  {{ statusSummary?.next_action ?? 'Ver partido por tercer puesto' }}
+                  {{ statusSummary?.next_action ?? (isTeam ? 'Ver enfrentamiento por tercer puesto' : 'Ver partido por tercer puesto') }}
                 </RouterLink>
               </dd>
             </div>

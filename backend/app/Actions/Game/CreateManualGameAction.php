@@ -30,6 +30,12 @@ final class CreateManualGameAction
         $competition = Competition::query()->findOrFail($payload['competition_id']);
         TournamentLifecycleGuard::ensureMutableForCompetition($competition);
 
+        if ($competition->type === CompetitionType::Team) {
+            throw ValidationException::withMessages([
+                'competition' => ['Los partidos de una competencia por equipos se gestionan dentro de sus enfrentamientos.'],
+            ]);
+        }
+
         [$entry1, $entry2] = $this->resolveEntries($competition, $payload);
 
         return DB::transaction(function () use ($payload, $entry1, $entry2): Game {

@@ -54,6 +54,17 @@ class TeamTieResource extends JsonResource
             'rubbers_total' => $score['rubbers_total'],
             'rubbers_with_lineup' => $rubbersWithLineup,
             'score' => $score,
+            'navigation' => [
+                'competition_id' => $this->competition_id,
+                'competition_name' => $this->relationLoaded('competition') ? $this->competition?->name : null,
+                'tournament_id' => $this->relationLoaded('competition') ? $this->competition?->tournament_id : null,
+                'tournament_name' => $this->relationLoaded('competition') && $this->competition?->relationLoaded('tournament')
+                    ? $this->competition->tournament?->name
+                    : null,
+                'group_id' => $this->group_id,
+                'group_name' => $this->relationLoaded('group') ? $this->group?->name : null,
+                'bracket_id' => $this->bracket_id,
+            ],
             'team_tie_games' => $this->when(
                 $request->routeIs('team-ties.show'),
                 TeamTieGameResource::collection($this->whenLoaded('teamTieGames')),
