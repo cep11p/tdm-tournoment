@@ -2,6 +2,7 @@
 import {
   ChevronDownIcon,
   Cog6ToothIcon,
+  PrinterIcon,
   Squares2X2Icon,
   TrophyIcon,
   UserGroupIcon,
@@ -316,6 +317,18 @@ const groupStandingsRoute = (group) => ({
     groupName: group.name,
   },
 })
+
+const canPrintAllGroups = computed(() => {
+  if (isTeam.value || !hasExistingGroups.value || !Array.isArray(games.value)) {
+    return false
+  }
+
+  return groups.value.every((group) =>
+    games.value.some((game) => Number(game.group_id) === Number(group.id)),
+  )
+})
+
+const printAllGroupsHref = computed(() => `/competitions/${competitionId.value}/groups/print`)
 
 const groupPhasePrimaryBadgeClasses = (type) => {
   switch (type) {
@@ -914,6 +927,17 @@ const handleEditCompetitionSaved = async () => {
                   : 'Fase de grupos en orden'
               }}
             </p>
+
+            <a
+              v-if="canPrintAllGroups"
+              :href="printAllGroupsHref"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              <PrinterIcon class="h-4 w-4" />
+              Imprimir todos los grupos
+            </a>
 
             <div class="space-y-3">
               <article

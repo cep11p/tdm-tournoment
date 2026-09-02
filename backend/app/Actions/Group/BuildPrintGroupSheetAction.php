@@ -16,6 +16,10 @@ use Illuminate\Validation\ValidationException;
 
 final class BuildPrintGroupSheetAction
 {
+    public const TEAM_NOT_AVAILABLE_MESSAGE = 'La impresión de grupos por equipos todavía no está disponible.';
+
+    public const MISSING_FIXTURE_MESSAGE = 'Los partidos del round robin aún no fueron generados.';
+
     public function __construct(
         private readonly GroupRefereeAssigner $refereeAssigner,
     ) {}
@@ -30,7 +34,7 @@ final class BuildPrintGroupSheetAction
 
         if ($type === CompetitionType::Team) {
             throw ValidationException::withMessages([
-                'group' => ['La impresión de grupos por equipos todavía no está disponible.'],
+                'group' => [self::TEAM_NOT_AVAILABLE_MESSAGE],
             ]);
         }
 
@@ -41,7 +45,7 @@ final class BuildPrintGroupSheetAction
 
         if ($games->isEmpty()) {
             throw ValidationException::withMessages([
-                'group' => ['Los partidos del round robin aún no fueron generados.'],
+                'group' => [self::MISSING_FIXTURE_MESSAGE],
             ]);
         }
 

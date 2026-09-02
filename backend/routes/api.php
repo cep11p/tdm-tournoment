@@ -2,23 +2,24 @@
 
 use App\Http\Controllers\Api\V1\AuditLogController;
 use App\Http\Controllers\Api\V1\AuthenticatedUserController;
+use App\Http\Controllers\Api\V1\BracketNextRoundController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\ClubController;
-use App\Http\Controllers\Api\V1\BracketNextRoundController;
 use App\Http\Controllers\Api\V1\CompetitionBracketController;
 use App\Http\Controllers\Api\V1\CompetitionController;
+use App\Http\Controllers\Api\V1\CompetitionGroupsPrintController;
 use App\Http\Controllers\Api\V1\CompetitionStandingsController;
 use App\Http\Controllers\Api\V1\GameController;
 use App\Http\Controllers\Api\V1\GroupController;
-use App\Http\Controllers\Api\V1\GroupRandomGenerateController;
-use App\Http\Controllers\Api\V1\GroupRandomRegenerateController;
-use App\Http\Controllers\Api\V1\GroupPlayerController;
 use App\Http\Controllers\Api\V1\GroupManualTiebreakController;
+use App\Http\Controllers\Api\V1\GroupPlayerController;
 use App\Http\Controllers\Api\V1\GroupPlayerStatusController;
 use App\Http\Controllers\Api\V1\GroupPrintController;
+use App\Http\Controllers\Api\V1\GroupRandomGenerateController;
+use App\Http\Controllers\Api\V1\GroupRandomRegenerateController;
 use App\Http\Controllers\Api\V1\GroupRoundRobinGameController;
-use App\Http\Controllers\Api\V1\GroupTeamTieController;
 use App\Http\Controllers\Api\V1\GroupStandingsController;
+use App\Http\Controllers\Api\V1\GroupTeamTieController;
 use App\Http\Controllers\Api\V1\PlayerController;
 use App\Http\Controllers\Api\V1\RegistrationController;
 use App\Http\Controllers\Api\V1\TeamTieController;
@@ -104,6 +105,8 @@ Route::prefix(config('api.version_prefix', 'v1'))
 
         Route::get('competitions/{competition}/groups', [GroupController::class, 'index'])
             ->name('competitions.groups.index');
+        Route::get('competitions/{competition}/groups/print', CompetitionGroupsPrintController::class)
+            ->name('competitions.groups.print');
         Route::middleware(['auth.keycloak', 'permission:groups.manage'])
             ->post('competitions/{competition}/groups', [GroupController::class, 'store'])
             ->name('competitions.groups.store');

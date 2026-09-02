@@ -7,6 +7,7 @@ import TournamentCreateView from '../tournaments/views/TournamentCreateView.vue'
 import TournamentDetailView from '../tournaments/views/TournamentDetailView.vue'
 import CompetitionCreateView from '../competitions/views/CompetitionCreateView.vue'
 import CompetitionDetailView from '../competitions/views/CompetitionDetailView.vue'
+import CompetitionGroupsPrintView from '../competitions/views/CompetitionGroupsPrintView.vue'
 import CompetitionEditView from '../competitions/views/CompetitionEditView.vue'
 import RegistrationListView from '../registrations/views/RegistrationListView.vue'
 import GroupDetailView from '../groups/views/GroupDetailView.vue'
@@ -77,6 +78,12 @@ const routes = [
   {
     path: '/competitions/:id/groups',
     redirect: (to) => `/competitions/${to.params.id}`,
+  },
+  {
+    path: '/competitions/:id/groups/print',
+    name: 'competitions-groups-print',
+    component: CompetitionGroupsPrintView,
+    meta: { print: true },
   },
   {
     path: '/competitions/:id/games',
