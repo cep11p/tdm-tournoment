@@ -26,7 +26,7 @@ final class SinglesRegistrationScenario
             ),
         );
 
-        if ($competition->entries()->count() >= count(DemoPlayerCatalog::definitions())) {
+        if ($competition->entries()->count() >= count(DemoPlayerCatalog::SINGLES_SEEDS)) {
             return;
         }
 

@@ -7,9 +7,16 @@ use Illuminate\Support\Collection;
 
 final class DemoPlayerCatalog
 {
-  /**
-   * @var array<int, array{first_name: string, last_name: string, nickname: string}>
-   */
+    /**
+     * Historical singles/doubles universe. Team demo may add later seeds; these stay 1–8.
+     *
+     * @var list<int>
+     */
+    public const SINGLES_SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
+
+    /**
+     * @var array<int, array{first_name: string, last_name: string, nickname: string}>
+     */
     private const PLAYERS = [
         1 => ['first_name' => 'Carlos', 'last_name' => 'Perez', 'nickname' => 'demo-carlos-perez'],
         2 => ['first_name' => 'Juan', 'last_name' => 'Gomez', 'nickname' => 'demo-juan-gomez'],
@@ -19,6 +26,14 @@ final class DemoPlayerCatalog
         6 => ['first_name' => 'Martin', 'last_name' => 'Castro', 'nickname' => 'demo-martin-castro'],
         7 => ['first_name' => 'Diego', 'last_name' => 'Silva', 'nickname' => 'demo-diego-silva'],
         8 => ['first_name' => 'Nicolas', 'last_name' => 'Torres', 'nickname' => 'demo-nicolas-torres'],
+        9 => ['first_name' => 'Pablo', 'last_name' => 'Romero', 'nickname' => 'demo-pablo-romero'],
+        10 => ['first_name' => 'Andres', 'last_name' => 'Vega', 'nickname' => 'demo-andres-vega'],
+        11 => ['first_name' => 'Javier', 'last_name' => 'Soto', 'nickname' => 'demo-javier-soto'],
+        12 => ['first_name' => 'Tomas', 'last_name' => 'Herrera', 'nickname' => 'demo-tomas-herrera'],
+        13 => ['first_name' => 'Hernan', 'last_name' => 'Molina', 'nickname' => 'demo-hernan-molina'],
+        14 => ['first_name' => 'Felipe', 'last_name' => 'Rios', 'nickname' => 'demo-felipe-rios'],
+        15 => ['first_name' => 'Sergio', 'last_name' => 'Aguilar', 'nickname' => 'demo-sergio-aguilar'],
+        16 => ['first_name' => 'Bruno', 'last_name' => 'Medina', 'nickname' => 'demo-bruno-medina'],
     ];
 
     /**
@@ -51,9 +66,9 @@ final class DemoPlayerCatalog
         return self::PLAYERS;
     }
 
-  /**
-   * @return Collection<int, Player>
-   */
+    /**
+     * @return Collection<int, Player>
+     */
     public static function all(): Collection
     {
         return collect(self::PLAYERS)

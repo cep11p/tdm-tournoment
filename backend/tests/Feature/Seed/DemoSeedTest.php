@@ -3,7 +3,10 @@
 namespace Tests\Feature\Seed;
 
 use App\Enums\BracketGamePurpose;
+use App\Enums\CompetitionFormat;
+use App\Enums\CompetitionType;
 use App\Enums\GameStatus;
+use App\Enums\TeamTieStatus;
 use App\Enums\TournamentStatus;
 use App\Models\Competition;
 use App\Models\CompetitionEntry;
@@ -12,22 +15,25 @@ use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupEntry;
 use App\Models\Player;
+use App\Models\TeamTie;
 use App\Models\Tournament;
+use App\Support\Competition\CompetitionResultResolver;
+use App\Support\Competition\CompetitionStatusResolver;
+use App\Support\Group\GroupStandingsResolver;
 use Database\Seeders\DemoArchivedTournamentSeeder;
 use Database\Seeders\DemoPlayersSeeder;
 use Database\Seeders\DemoTournamentSeeder;
 use Database\Seeders\Support\DemoPlayerCatalog;
 use Database\Seeders\Support\DemoScenarioRunner;
 use Database\Seeders\Support\Scenarios\DoublesCompletedScenario;
+use Database\Seeders\Support\Scenarios\SinglesCompletedScenario;
 use Database\Seeders\Support\Scenarios\SinglesGroupsInProgressScenario;
 use Database\Seeders\Support\Scenarios\SinglesKnockoutInProgressScenario;
 use Database\Seeders\Support\Scenarios\SinglesRegistrationScenario;
+use Database\Seeders\Support\Scenarios\TeamKnockoutInProgressScenario;
 use Database\Seeders\TeamTieFormatSeeder;
-use Database\Seeders\Support\Scenarios\SinglesCompletedScenario;
-use App\Support\Competition\CompetitionResultResolver;
-use App\Support\Competition\CompetitionStatusResolver;
-use App\Support\Group\GroupStandingsResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use Tests\TestCase;
 
 class DemoSeedTest extends TestCase
@@ -51,15 +57,22 @@ class DemoSeedTest extends TestCase
         $this->assertTrue(true);
     }
 
-    public function test_creates_exactly_eight_historical_players_by_nickname(): void
+    public function test_creates_exactly_sixteen_demo_players_and_preserves_historical_singles_seeds(): void
     {
         $nicknames = collect(DemoPlayerCatalog::definitions())
             ->pluck('nickname')
             ->all();
 
-        $this->assertCount(8, $nicknames);
-        $this->assertSame(8, Player::query()->whereIn('nickname', $nicknames)->count());
-        $this->assertSame(8, Player::query()->where('nickname', 'like', 'demo-%')->count());
+        $this->assertCount(16, $nicknames);
+        $this->assertCount(8, DemoPlayerCatalog::SINGLES_SEEDS);
+        $this->assertSame(16, Player::query()->whereIn('nickname', $nicknames)->count());
+        $this->assertSame(16, Player::query()->where('nickname', 'like', 'demo-%')->count());
+
+        foreach (DemoPlayerCatalog::SINGLES_SEEDS as $seed) {
+            $this->assertDatabaseHas('players', [
+                'nickname' => DemoPlayerCatalog::nicknameForSeed($seed),
+            ]);
+        }
     }
 
     public function test_demo_tournaments_exist_with_expected_names(): void
@@ -204,6 +217,187 @@ class DemoSeedTest extends TestCase
         );
     }
 
+    public function test_team_knockout_in_progress_covers_stage_c_and_print_smoke(): void
+    {
+        $competition = $this->competitionInActiveTournament(TeamKnockoutInProgressScenario::COMPETITION_NAME);
+
+        $this->assertSame(CompetitionType::Team, $competition->type);
+        $this->assertSame(CompetitionFormat::GroupsKnockout, $competition->format);
+        $this->assertSame(4, $competition->team_size);
+        $this->assertSame(2, $competition->qualified_per_group);
+        $this->assertSame('shared', $competition->third_place_mode->value);
+
+        $competition->load('teamTieFormat');
+        $this->assertSame(TeamKnockoutInProgressScenario::TEAM_TIE_FORMAT_NAME, $competition->teamTieFormat?->name);
+
+        $entries = $competition->entries()->with('members.player')->orderBy('id')->get();
+        $this->assertCount(4, $entries);
+
+        $byName = $entries->keyBy('display_name');
+        $this->assertTrue($byName->has(TeamKnockoutInProgressScenario::TEAM_ANDES));
+        $this->assertTrue($byName->has(TeamKnockoutInProgressScenario::TEAM_PATAGONIA));
+        $this->assertTrue($byName->has(TeamKnockoutInProgressScenario::TEAM_LAGOS));
+        $this->assertTrue($byName->has(TeamKnockoutInProgressScenario::TEAM_VALLE));
+
+        $this->assertSame(
+            ['Carlos Perez', 'Martin Castro', 'Pablo Romero', 'Felipe Rios'],
+            $this->rosterNames($byName[TeamKnockoutInProgressScenario::TEAM_ANDES]),
+        );
+        $this->assertSame(
+            ['Juan Gomez', 'Luis Lopez', 'Andres Vega', 'Sergio Aguilar'],
+            $this->rosterNames($byName[TeamKnockoutInProgressScenario::TEAM_PATAGONIA]),
+        );
+        $this->assertSame(
+            ['Pedro Ruiz', 'Nicolas Torres', 'Javier Soto', 'Bruno Medina'],
+            $this->rosterNames($byName[TeamKnockoutInProgressScenario::TEAM_LAGOS]),
+        );
+        $this->assertSame(
+            ['Marcos Diaz', 'Diego Silva', 'Tomas Herrera', 'Hernan Molina'],
+            $this->rosterNames($byName[TeamKnockoutInProgressScenario::TEAM_VALLE]),
+        );
+
+        $this->assertSame(1, $competition->groups()->count());
+
+        $group = Group::query()
+            ->where('competition_id', $competition->id)
+            ->where('name', TeamKnockoutInProgressScenario::GROUP_NAME)
+            ->firstOrFail();
+
+        $groupTies = TeamTie::query()->where('group_id', $group->id)->get();
+        $this->assertCount(6, $groupTies);
+        $this->assertTrue($groupTies->every(fn (TeamTie $teamTie): bool => $teamTie->status === TeamTieStatus::Finished));
+
+        $this->assertSame(0, Game::query()->where('competition_id', $competition->id)->whereNotNull('group_id')->count());
+
+        $rubberGames = Game::query()
+            ->where('competition_id', $competition->id)
+            ->whereHas('teamTieGame')
+            ->get();
+
+        $this->assertGreaterThan(0, $rubberGames->count());
+        $rubberGames->each(function (Game $game): void {
+            $this->assertNull($game->group_id);
+            $this->assertNull($game->bracket_id);
+        });
+
+        $andesValle = $this->teamTieBetween(
+            $groupTies,
+            (int) $byName[TeamKnockoutInProgressScenario::TEAM_ANDES]->id,
+            (int) $byName[TeamKnockoutInProgressScenario::TEAM_VALLE]->id,
+        );
+
+        $notNeededCount = Game::query()
+            ->whereHas('teamTieGame', fn ($query) => $query->where('team_tie_id', $andesValle->id))
+            ->where('status', GameStatus::NotNeeded)
+            ->count();
+
+        $this->assertSame(2, $notNeededCount);
+
+        $standings = app(GroupStandingsResolver::class)->calculate($group);
+        $this->assertFalse($standings->requiresManualTiebreak());
+        $this->assertSame(
+            [
+                TeamKnockoutInProgressScenario::TEAM_ANDES,
+                TeamKnockoutInProgressScenario::TEAM_PATAGONIA,
+                TeamKnockoutInProgressScenario::TEAM_LAGOS,
+                TeamKnockoutInProgressScenario::TEAM_VALLE,
+            ],
+            $standings->standings->pluck('displayName')->all(),
+        );
+        $this->assertSame([3, 2, 1, 0], $standings->standings->pluck('won')->all());
+        $this->assertSame([0, 1, 2, 3], $standings->standings->pluck('lost')->all());
+
+        $this->assertTrue($competition->brackets()->exists());
+
+        $final = TeamTie::query()
+            ->where('competition_id', $competition->id)
+            ->where('round', 'Final')
+            ->firstOrFail();
+
+        $finalParticipantIds = [(int) $final->entry1_id, (int) $final->entry2_id];
+        $this->assertContains((int) $byName[TeamKnockoutInProgressScenario::TEAM_ANDES]->id, $finalParticipantIds);
+        $this->assertContains((int) $byName[TeamKnockoutInProgressScenario::TEAM_PATAGONIA]->id, $finalParticipantIds);
+        $this->assertSame(TeamTieStatus::InProgress, $final->status);
+        $this->assertNull($final->winner_entry_id);
+
+        $finalScore = $this->officialScoreByTeamName($final, $byName);
+        $this->assertSame(1, $finalScore[TeamKnockoutInProgressScenario::TEAM_ANDES]);
+        $this->assertSame(0, $finalScore[TeamKnockoutInProgressScenario::TEAM_PATAGONIA]);
+
+        $this->assertSame('knockout_in_progress', CompetitionStatusResolver::resolve($competition)['code']);
+        $this->assertSame(0, TeamTie::query()->where('competition_id', $competition->id)->thirdPlace()->count());
+    }
+
+    public function test_team_print_endpoints_return_contractual_payloads(): void
+    {
+        $competition = $this->competitionInActiveTournament(TeamKnockoutInProgressScenario::COMPETITION_NAME);
+        $andes = $competition->entries()->where('display_name', TeamKnockoutInProgressScenario::TEAM_ANDES)->firstOrFail();
+        $valle = $competition->entries()->where('display_name', TeamKnockoutInProgressScenario::TEAM_VALLE)->firstOrFail();
+
+        $group = Group::query()
+            ->where('competition_id', $competition->id)
+            ->where('name', TeamKnockoutInProgressScenario::GROUP_NAME)
+            ->firstOrFail();
+
+        $andesValle = $this->teamTieBetween(
+            TeamTie::query()->where('group_id', $group->id)->get(),
+            (int) $andes->id,
+            (int) $valle->id,
+        );
+
+        $final = TeamTie::query()
+            ->where('competition_id', $competition->id)
+            ->where('round', 'Final')
+            ->firstOrFail();
+
+        $bracketPrint = $this->getJson("/api/v1/competitions/{$competition->id}/bracket/print")
+            ->assertOk()
+            ->assertJsonPath('data.competition.type', 'team')
+            ->json('data');
+
+        $this->assertSame('Final', $bracketPrint['rounds'][0]['label']);
+        $finalMatch = $bracketPrint['rounds'][0]['matches'][0];
+        $sideNames = [
+            $finalMatch['side1']['display_name'] ?? null,
+            $finalMatch['side2']['display_name'] ?? null,
+        ];
+        $this->assertContains(TeamKnockoutInProgressScenario::TEAM_ANDES, $sideNames);
+        $this->assertContains(TeamKnockoutInProgressScenario::TEAM_PATAGONIA, $sideNames);
+        $this->assertNull($bracketPrint['champion']);
+
+        $groupPrint = $this->getJson("/api/v1/team-ties/{$andesValle->id}/print")
+            ->assertOk()
+            ->assertJsonPath('data.format.name', TeamKnockoutInProgressScenario::TEAM_TIE_FORMAT_NAME)
+            ->assertJsonPath('data.team_tie.status', 'finished')
+            ->json('data');
+
+        $groupScores = [$groupPrint['score']['side1'], $groupPrint['score']['side2']];
+        sort($groupScores);
+        $this->assertSame([0, 3], $groupScores);
+        $this->assertSame(TeamKnockoutInProgressScenario::TEAM_ANDES, $groupPrint['winner']['display_name']);
+        $this->assertSame('doubles', $groupPrint['rubbers'][2]['type']);
+        $this->assertSame('not_needed', $groupPrint['rubbers'][3]['status']);
+        $this->assertSame('not_needed', $groupPrint['rubbers'][4]['status']);
+        $this->assertNotEmpty($groupPrint['rubbers'][3]['side1']['players']);
+        $this->assertNotEmpty($groupPrint['rubbers'][3]['side2']['players']);
+        $this->assertNotEmpty($groupPrint['rubbers'][4]['side1']['players']);
+        $this->assertNotEmpty($groupPrint['rubbers'][4]['side2']['players']);
+
+        $finalPrint = $this->getJson("/api/v1/team-ties/{$final->id}/print")
+            ->assertOk()
+            ->assertJsonPath('data.team_tie.status', 'in_progress')
+            ->json('data');
+
+        $finalScores = [$finalPrint['score']['side1'], $finalPrint['score']['side2']];
+        sort($finalScores);
+        $this->assertSame([0, 1], $finalScores);
+        $this->assertSame('finished', $finalPrint['rubbers'][0]['status']);
+        $this->assertSame('pending', $finalPrint['rubbers'][1]['status']);
+        $this->assertSame('pending', $finalPrint['rubbers'][2]['status']);
+        $this->assertSame('pending', $finalPrint['rubbers'][3]['status']);
+        $this->assertSame('pending', $finalPrint['rubbers'][4]['status']);
+    }
+
     private function competitionInActiveTournament(string $name): Competition
     {
         $tournament = Tournament::query()
@@ -226,5 +420,77 @@ class DemoSeedTest extends TestCase
             ->where('tournament_id', $tournament->id)
             ->where('name', $name)
             ->firstOrFail();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function rosterNames(CompetitionEntry $entry): array
+    {
+        return $entry->members
+            ->sortBy('member_order')
+            ->values()
+            ->map(fn (CompetitionEntryMember $member): string => trim(sprintf(
+                '%s %s',
+                $member->player?->first_name,
+                $member->player?->last_name,
+            )))
+            ->all();
+    }
+
+    /**
+     * @param  Collection<int, TeamTie>  $teamTies
+     */
+    private function teamTieBetween($teamTies, int $entry1Id, int $entry2Id): TeamTie
+    {
+        $teamTie = $teamTies->first(
+            fn (TeamTie $candidate): bool => (
+                (int) $candidate->entry1_id === $entry1Id && (int) $candidate->entry2_id === $entry2Id
+            ) || (
+                (int) $candidate->entry1_id === $entry2Id && (int) $candidate->entry2_id === $entry1Id
+            )
+        );
+
+        $this->assertNotNull($teamTie);
+
+        return $teamTie;
+    }
+
+    /**
+     * @param  Collection<string, CompetitionEntry>  $entriesByName
+     * @return array<string, int>
+     */
+    private function officialScoreByTeamName(TeamTie $teamTie, $entriesByName): array
+    {
+        $teamTie->loadMissing(['teamTieGames.game', 'entry1', 'entry2']);
+
+        $scores = [
+            (string) $teamTie->entry1?->display_name => 0,
+            (string) $teamTie->entry2?->display_name => 0,
+        ];
+
+        foreach ($teamTie->teamTieGames as $rubber) {
+            $game = $rubber->game;
+
+            if ($game === null || $game->status !== GameStatus::Finished || $game->winner_entry_id === null) {
+                continue;
+            }
+
+            $winnerName = (int) $game->winner_entry_id === (int) $entriesByName[TeamKnockoutInProgressScenario::TEAM_ANDES]->id
+                ? TeamKnockoutInProgressScenario::TEAM_ANDES
+                : (
+                    (int) $game->winner_entry_id === (int) $entriesByName[TeamKnockoutInProgressScenario::TEAM_PATAGONIA]->id
+                        ? TeamKnockoutInProgressScenario::TEAM_PATAGONIA
+                        : (string) $game->winnerEntry?->display_name
+                );
+
+            if ($winnerName === '') {
+                continue;
+            }
+
+            $scores[$winnerName] = ($scores[$winnerName] ?? 0) + 1;
+        }
+
+        return $scores;
     }
 }

@@ -8,6 +8,7 @@ use Database\Seeders\Support\DemoScenarioRunner;
 use Database\Seeders\Support\Scenarios\SinglesGroupsInProgressScenario;
 use Database\Seeders\Support\Scenarios\SinglesKnockoutInProgressScenario;
 use Database\Seeders\Support\Scenarios\SinglesRegistrationScenario;
+use Database\Seeders\Support\Scenarios\TeamKnockoutInProgressScenario;
 use Illuminate\Database\Seeder;
 
 class DemoTournamentSeeder extends Seeder
@@ -25,5 +26,6 @@ class DemoTournamentSeeder extends Seeder
         (new SinglesRegistrationScenario($runner))->seed($tournament);
         (new SinglesGroupsInProgressScenario($runner, $results))->seed($tournament);
         (new SinglesKnockoutInProgressScenario($runner, $results))->seed($tournament);
+        (new TeamKnockoutInProgressScenario($runner, $results))->seed($tournament);
     }
 }

@@ -4,7 +4,7 @@ namespace Database\Seeders\Support;
 
 use App\Actions\Competition\CreateCompetitionAction;
 use App\Actions\Group\CreateGroupAction;
-use App\Actions\Group\GenerateGroupRoundRobinGamesAction;
+use App\Actions\Group\GenerateGroupRoundRobinScheduleAction;
 use App\Actions\Group\PersistGroupEntryAction;
 use App\Actions\Registration\RegisterCompetitionEntryAction;
 use App\Actions\Tournament\CreateTournamentAction;
@@ -30,7 +30,7 @@ final class DemoScenarioRunner
         private readonly RegisterCompetitionEntryAction $registerEntry,
         private readonly CreateGroupAction $createGroup,
         private readonly PersistGroupEntryAction $persistGroupEntry,
-        private readonly GenerateGroupRoundRobinGamesAction $generateRoundRobin,
+        private readonly GenerateGroupRoundRobinScheduleAction $generateSchedule,
     ) {}
 
     public function findOrCreateTournament(string $name, TournamentStatus $status = TournamentStatus::InProgress): Tournament
@@ -122,7 +122,7 @@ final class DemoScenarioRunner
     {
         $entries = [];
 
-        foreach (DemoPlayerCatalog::definitions() as $seed => $definition) {
+        foreach (DemoPlayerCatalog::SINGLES_SEEDS as $seed) {
             $entries[$seed] = $this->registerSinglesPlayer(
                 $competition,
                 DemoPlayerCatalog::bySeed($seed),
@@ -130,6 +130,31 @@ final class DemoScenarioRunner
         }
 
         return $entries;
+    }
+
+    /**
+     * @param  list<string>  $nicknames
+     */
+    public function registerTeamByNicknames(Competition $competition, string $name, array $nicknames): CompetitionEntry
+    {
+        $existing = $competition->entries()
+            ->where('display_name', $name)
+            ->first();
+
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $playerIds = array_map(
+            fn (string $nickname): int => DemoPlayerCatalog::byNickname($nickname)->id,
+            $nicknames,
+        );
+
+        return ($this->registerEntry)([
+            'competition_id' => $competition->id,
+            'name' => $name,
+            'player_ids' => $playerIds,
+        ]);
     }
 
     /**
@@ -211,11 +236,17 @@ final class DemoScenarioRunner
 
     public function generateGroupRoundRobinIfNeeded(Group $group): void
     {
-        if ($group->games()->exists()) {
+        $group->loadMissing('competition');
+
+        if ($group->competition?->isTeam()) {
+            if ($group->teamTies()->exists()) {
+                return;
+            }
+        } elseif ($group->games()->exists()) {
             return;
         }
 
-        ($this->generateRoundRobin)($group);
+        ($this->generateSchedule)($group);
     }
 
     /**
