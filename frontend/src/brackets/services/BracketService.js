@@ -25,6 +25,11 @@ const BracketService = {
     const response = await httpClient.post(`/brackets/${bracketId}/next-round`)
     return unwrap(response) ?? null
   },
+
+  async print(competitionId) {
+    const response = await httpClient.get(`/competitions/${competitionId}/bracket/print`)
+    return unwrap(response) ?? null
+  },
 }
 
 export default BracketService

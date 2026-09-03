@@ -16,4 +16,15 @@ final class BracketPositionSupport
     {
         return $sourceMatch % 2 === 1 ? 'entry1_id' : 'entry2_id';
     }
+
+    /**
+     * @return array{0: int, 1: int}
+     */
+    public static function sourceMatchNumbers(int $destinationMatch): array
+    {
+        return [
+            ($destinationMatch * 2) - 1,
+            $destinationMatch * 2,
+        ];
+    }
 }

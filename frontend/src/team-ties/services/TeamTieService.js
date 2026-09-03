@@ -12,6 +12,11 @@ const TeamTieService = {
     const response = await httpClient.get(`/team-ties/${id}`)
     return unwrap(response) ?? null
   },
+
+  async print(id) {
+    const response = await httpClient.get(`/team-ties/${id}/print`)
+    return unwrap(response) ?? null
+  },
 }
 
 export default TeamTieService

@@ -136,6 +136,8 @@ const backButtonLabel = computed(() => {
   return 'Volver'
 })
 
+const printHref = computed(() => `/team-ties/${teamTieId.value}/print`)
+
 const rubbers = computed(() => {
   const items = teamTie.value?.team_tie_games ?? []
   return [...items].sort((left, right) => left.slot_order - right.slot_order)
@@ -209,6 +211,14 @@ onMounted(loadTeamTie)
           >
             {{ statusLabel }}
           </span>
+          <a
+            :href="printHref"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="ml-auto rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            Imprimir encuentro
+          </a>
         </div>
 
         <template v-if="isBye">

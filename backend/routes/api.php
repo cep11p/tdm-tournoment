@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\BracketNextRoundController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\ClubController;
 use App\Http\Controllers\Api\V1\CompetitionBracketController;
+use App\Http\Controllers\Api\V1\CompetitionBracketPrintController;
 use App\Http\Controllers\Api\V1\CompetitionController;
 use App\Http\Controllers\Api\V1\CompetitionGroupsPrintController;
 use App\Http\Controllers\Api\V1\CompetitionStandingsController;
@@ -25,6 +26,7 @@ use App\Http\Controllers\Api\V1\RegistrationController;
 use App\Http\Controllers\Api\V1\TeamTieController;
 use App\Http\Controllers\Api\V1\TeamTieFormatController;
 use App\Http\Controllers\Api\V1\TeamTieGameLineupController;
+use App\Http\Controllers\Api\V1\TeamTiePrintController;
 use App\Http\Controllers\Api\V1\TournamentController;
 use Illuminate\Support\Facades\Route;
 
@@ -63,6 +65,8 @@ Route::prefix(config('api.version_prefix', 'v1'))
 
         Route::get('competitions/{competition}/bracket', [CompetitionBracketController::class, 'show'])
             ->name('competitions.bracket.show');
+        Route::get('competitions/{competition}/bracket/print', CompetitionBracketPrintController::class)
+            ->name('competitions.bracket.print');
         Route::middleware(['auth.keycloak', 'permission:brackets.manage'])
             ->post('competitions/{competition}/bracket', [CompetitionBracketController::class, 'store'])
             ->name('competitions.bracket.store');
@@ -152,6 +156,8 @@ Route::prefix(config('api.version_prefix', 'v1'))
         Route::get('games/{game}', [GameController::class, 'show'])->name('games.show');
 
         Route::get('team-ties/{team_tie}', [TeamTieController::class, 'show'])->name('team-ties.show');
+        Route::get('team-ties/{team_tie}/print', TeamTiePrintController::class)
+            ->name('team-ties.print');
 
         Route::middleware(['auth.keycloak', 'permission:groups.manage'])
             ->post('team-tie-games/{team_tie_game}/lineup', [TeamTieGameLineupController::class, 'store'])

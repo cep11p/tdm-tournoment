@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+import { PrinterIcon } from '@heroicons/vue/24/outline'
 
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
@@ -839,15 +840,27 @@ onMounted(loadData)
         <div class="flex flex-wrap items-center justify-between gap-2">
           <p class="font-medium text-slate-700 dark:text-slate-200">Rondas eliminatorias</p>
 
-          <button
-            v-if="canGenerateNextRound"
-            type="button"
-            class="rounded-md bg-emerald-700 px-3 py-2 font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
-            :disabled="isGeneratingNextRound"
-            @click="handleGenerateNextRound"
-          >
-            {{ isGeneratingNextRound ? 'Generando...' : 'Generar siguiente ronda' }}
-          </button>
+          <div class="flex flex-wrap items-center gap-2">
+            <a
+              v-if="hasBracket"
+              :href="`/competitions/${competitionId}/bracket/print`"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              <PrinterIcon class="h-4 w-4" />
+              Imprimir llave
+            </a>
+            <button
+              v-if="canGenerateNextRound"
+              type="button"
+              class="rounded-md bg-emerald-700 px-3 py-2 font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+              :disabled="isGeneratingNextRound"
+              @click="handleGenerateNextRound"
+            >
+              {{ isGeneratingNextRound ? 'Generando...' : 'Generar siguiente ronda' }}
+            </button>
+          </div>
         </div>
 
         <p v-if="nextRoundError" class="text-red-600 dark:text-red-400">{{ nextRoundError }}</p>

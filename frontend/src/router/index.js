@@ -15,8 +15,10 @@ import GroupPrintView from '../groups/views/GroupPrintView.vue'
 import GameListView from '../games/views/GameListView.vue'
 import GameDetailView from '../games/views/GameDetailView.vue'
 import TeamTieDetailView from '../team-ties/views/TeamTieDetailView.vue'
+import TeamTiePrintView from '../team-ties/views/TeamTiePrintView.vue'
 import GroupStandingsView from '../standings/views/GroupStandingsView.vue'
 import CompetitionBracketView from '../brackets/views/CompetitionBracketView.vue'
+import BracketPrintView from '../brackets/views/BracketPrintView.vue'
 import PlayerListView from '../players/views/PlayerListView.vue'
 import PlayerCreateView from '../players/views/PlayerCreateView.vue'
 import PlayerEditView from '../players/views/PlayerEditView.vue'
@@ -96,6 +98,12 @@ const routes = [
     component: CompetitionBracketView,
   },
   {
+    path: '/competitions/:id/bracket/print',
+    name: 'competitions-bracket-print',
+    component: BracketPrintView,
+    meta: { print: true },
+  },
+  {
     path: '/groups/:id',
     name: 'groups-detail',
     component: GroupDetailView,
@@ -115,6 +123,12 @@ const routes = [
     path: '/team-ties/:id',
     name: 'team-ties-detail',
     component: TeamTieDetailView,
+  },
+  {
+    path: '/team-ties/:id/print',
+    name: 'team-ties-print',
+    component: TeamTiePrintView,
+    meta: { print: true },
   },
   {
     path: '/games/:id',
