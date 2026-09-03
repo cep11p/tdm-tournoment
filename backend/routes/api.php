@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\CompetitionBracketController;
 use App\Http\Controllers\Api\V1\CompetitionBracketPrintController;
 use App\Http\Controllers\Api\V1\CompetitionController;
 use App\Http\Controllers\Api\V1\CompetitionGroupsPrintController;
+use App\Http\Controllers\Api\V1\CompetitionFinalStandingsController;
 use App\Http\Controllers\Api\V1\CompetitionStandingsController;
 use App\Http\Controllers\Api\V1\GameController;
 use App\Http\Controllers\Api\V1\GroupController;
@@ -62,6 +63,8 @@ Route::prefix(config('api.version_prefix', 'v1'))
 
         Route::get('competitions/{competition}/standings', [CompetitionStandingsController::class, 'index'])
             ->name('competitions.standings.index');
+        Route::get('competitions/{competition}/final-standings', [CompetitionFinalStandingsController::class, 'index'])
+            ->name('competitions.final-standings.index');
 
         Route::get('competitions/{competition}/bracket', [CompetitionBracketController::class, 'show'])
             ->name('competitions.bracket.show');

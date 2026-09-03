@@ -2,6 +2,7 @@
 
 namespace App\Actions\Game;
 
+use App\Actions\Competition\PersistCompetitionFinalStandingsAction;
 use App\Actions\TeamTie\RecalculateTeamTieOutcomeAction;
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
@@ -24,6 +25,7 @@ final class RecordGameSetAction
         private readonly AuditLogger $auditLogger,
         private readonly GameSetScoreValidator $scoreValidator,
         private readonly RecalculateTeamTieOutcomeAction $recalculateTeamTieOutcome,
+        private readonly PersistCompetitionFinalStandingsAction $persistFinalStandings,
     ) {}
 
     public function __invoke(Game $game, array $payload): Game
@@ -159,6 +161,8 @@ final class RecordGameSetAction
 
             if ($game->teamTieGame !== null) {
                 ($this->recalculateTeamTieOutcome)((int) $game->teamTieGame->team_tie_id);
+            } elseif ($matchFinished) {
+                $this->persistFinalStandings->persistIfCompleted($game->competition);
             }
 
             return $game->fresh(Game::DISPLAY_RELATIONS);

@@ -11,6 +11,7 @@ use App\Enums\TournamentStatus;
 use App\Models\Competition;
 use App\Models\CompetitionEntry;
 use App\Models\CompetitionEntryMember;
+use App\Models\CompetitionFinalStanding;
 use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupEntry;
@@ -170,6 +171,8 @@ class DemoSeedTest extends TestCase
 
         $this->assertSame(GameStatus::Finished, $thirdPlace->status);
         $this->assertNotNull($thirdPlace->winner_entry_id);
+
+        $this->assertSame(8, $competition->finalStandings()->count());
     }
 
     public function test_doubles_completed_has_four_pair_entries_and_is_completed(): void
@@ -189,6 +192,7 @@ class DemoSeedTest extends TestCase
         $result = CompetitionResultResolver::resolve($competition);
         $this->assertNotNull($result);
         $this->assertCount(2, $result['champion']['members']);
+        $this->assertSame(4, $competition->finalStandings()->count());
     }
 
     public function test_domain_integrity_for_entries_groups_and_games(): void
@@ -326,6 +330,8 @@ class DemoSeedTest extends TestCase
 
         $this->assertSame('knockout_in_progress', CompetitionStatusResolver::resolve($competition)['code']);
         $this->assertSame(0, TeamTie::query()->where('competition_id', $competition->id)->thirdPlace()->count());
+        $this->assertSame(0, $competition->finalStandings()->count());
+        $this->assertSame(0, CompetitionFinalStanding::query()->where('competition_id', $competition->id)->count());
     }
 
     public function test_team_print_endpoints_return_contractual_payloads(): void

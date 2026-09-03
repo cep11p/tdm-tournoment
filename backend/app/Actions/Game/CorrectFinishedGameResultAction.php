@@ -2,6 +2,7 @@
 
 namespace App\Actions\Game;
 
+use App\Actions\Competition\PersistCompetitionFinalStandingsAction;
 use App\Actions\TeamTie\PropagateTeamTieBracketCorrectionAction;
 use App\Actions\TeamTie\RecalculateTeamTieOutcomeAction;
 use App\Data\Audit\AuditEntry;
@@ -30,6 +31,7 @@ final class CorrectFinishedGameResultAction
         private readonly AuditLogger $auditLogger,
         private readonly RecalculateTeamTieOutcomeAction $recalculateTeamTieOutcome,
         private readonly PropagateTeamTieBracketCorrectionAction $propagateTeamTieBracketCorrection,
+        private readonly PersistCompetitionFinalStandingsAction $persistFinalStandings,
     ) {}
 
     /**
@@ -212,10 +214,17 @@ final class CorrectFinishedGameResultAction
                 }
             }
 
-            return $game->fresh([
+            $game = $game->fresh([
                 'competition',
+                'teamTieGame',
                 ...Game::DISPLAY_RELATIONS,
             ]);
+
+            if ($game->teamTieGame === null) {
+                $this->persistFinalStandings->persistIfCompleted($game->competition);
+            }
+
+            return $game;
         });
     }
 

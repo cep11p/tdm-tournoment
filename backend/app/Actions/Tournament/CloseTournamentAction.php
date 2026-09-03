@@ -2,12 +2,14 @@
 
 namespace App\Actions\Tournament;
 
+use App\Actions\Competition\PersistCompetitionFinalStandingsAction;
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
 use App\Enums\TournamentStatus;
 use App\Models\Tournament;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
+use App\Support\Competition\CompetitionStatusResolver;
 use App\Support\Tournament\TournamentClosureGuard;
 use Illuminate\Support\Facades\DB;
 
@@ -15,6 +17,7 @@ final class CloseTournamentAction
 {
     public function __construct(
         private readonly AuditLogger $auditLogger,
+        private readonly PersistCompetitionFinalStandingsAction $persistFinalStandings,
     ) {}
 
     public function __invoke(Tournament $tournament): Tournament
@@ -23,6 +26,12 @@ final class CloseTournamentAction
             $tournament = Tournament::query()->lockForUpdate()->findOrFail($tournament->id);
 
             $closureSummary = TournamentClosureGuard::ensureCanClose($tournament);
+
+            foreach ($tournament->competitions()->orderBy('id')->get() as $competition) {
+                if (CompetitionStatusResolver::resolve($competition)['code'] === 'completed') {
+                    ($this->persistFinalStandings)($competition);
+                }
+            }
 
             $oldStatus = $tournament->status instanceof TournamentStatus
                 ? $tournament->status->value

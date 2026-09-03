@@ -5,6 +5,7 @@ namespace Tests\Feature\Tournament;
 use App\Enums\GameStatus;
 use App\Enums\TournamentStatus;
 use App\Models\Competition;
+use App\Models\CompetitionFinalStanding;
 use App\Models\Game;
 use App\Models\Tournament;
 use Spatie\Activitylog\Models\Activity;
@@ -50,6 +51,32 @@ class CloseTournamentTest extends TestCase
         $this->assertNotNull(data_get($activity->properties, 'new.closed_at'));
         $this->assertSame(1, data_get($activity->properties, 'summary.completed_competitions'));
         $this->assertSame($result['champion']->id, data_get($activity->properties, 'summary.results.0.champion_id'));
+    }
+
+    public function test_close_rebuilds_missing_final_standings_without_breaking_audit(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $context->createFourQualifierGroupPhase();
+        $result = $context->completeCompetitionThroughFinal($setup['competition']);
+        $competition = $setup['competition']->fresh();
+
+        CompetitionFinalStanding::query()->where('competition_id', $competition->id)->delete();
+        $this->assertSame(0, $competition->finalStandings()->count());
+
+        $response = $context->closeTournament($setup['competition']->tournament);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.status', TournamentStatus::Finished->value)
+            ->assertJsonPath('data.results_summary.results.0.champion_id', $result['champion']->id);
+
+        $this->assertSame(4, $competition->finalStandings()->count());
+        $this->assertTrue(
+            $competition->finalStandings()->where('competition_entry_id', $context->entryIdFor($competition, $result['champion']))->where('position', 1)->exists(),
+        );
+
+        $activity = Activity::query()->where('description', 'tournament.closed')->sole();
+        $this->assertSame(1, data_get($activity->properties, 'summary.completed_competitions'));
     }
 
     public function test_closes_tournament_with_multiple_completed_competitions(): void

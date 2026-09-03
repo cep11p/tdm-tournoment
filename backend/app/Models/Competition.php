@@ -100,6 +100,11 @@ class Competition extends Model
         return $this->hasMany(TeamTie::class);
     }
 
+    public function finalStandings(): HasMany
+    {
+        return $this->hasMany(CompetitionFinalStanding::class);
+    }
+
     public function isTeam(): bool
     {
         $type = $this->type instanceof CompetitionType
