@@ -7,7 +7,9 @@ use App\Enums\TournamentStatus;
 use App\Models\Competition;
 use App\Models\CompetitionFinalStanding;
 use App\Models\Game;
+use App\Models\RankingTransaction;
 use App\Models\Tournament;
+use Database\Seeders\RankingSeeder;
 use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
@@ -77,6 +79,27 @@ class CloseTournamentTest extends TestCase
 
         $activity = Activity::query()->where('description', 'tournament.closed')->sole();
         $this->assertSame(1, data_get($activity->properties, 'summary.completed_competitions'));
+    }
+
+    public function test_close_rebuilds_ranking_transactions_as_safety(): void
+    {
+        $this->seed(RankingSeeder::class);
+
+        $context = $this->tournamentContext();
+        $setup = $context->createFourQualifierGroupPhase();
+        $context->completeCompetitionThroughFinal($setup['competition']);
+        $competition = $setup['competition']->fresh();
+
+        RankingTransaction::query()->where('competition_id', $competition->id)->delete();
+        $this->assertSame(0, RankingTransaction::query()->where('competition_id', $competition->id)->count());
+
+        $context->closeTournament($setup['competition']->tournament)->assertOk();
+
+        $this->assertSame(
+            $competition->finalStandings()->count(),
+            RankingTransaction::query()->where('competition_id', $competition->id)->count(),
+        );
+        $this->assertGreaterThan(0, RankingTransaction::query()->where('competition_id', $competition->id)->count());
     }
 
     public function test_closes_tournament_with_multiple_completed_competitions(): void

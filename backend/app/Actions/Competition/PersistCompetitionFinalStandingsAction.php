@@ -44,17 +44,6 @@ final class PersistCompetitionFinalStandingsAction
         });
     }
 
-    public function persistIfCompleted(Competition $competition): void
-    {
-        $status = CompetitionStatusResolver::resolve($competition->fresh());
-
-        if ($status['code'] !== 'completed') {
-            return;
-        }
-
-        $this($competition);
-    }
-
     private function assertCompleted(Competition $competition): void
     {
         $status = CompetitionStatusResolver::resolve($competition);

@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\V1\GroupRoundRobinGameController;
 use App\Http\Controllers\Api\V1\GroupStandingsController;
 use App\Http\Controllers\Api\V1\GroupTeamTieController;
 use App\Http\Controllers\Api\V1\PlayerController;
+use App\Http\Controllers\Api\V1\RankingController;
 use App\Http\Controllers\Api\V1\RegistrationController;
 use App\Http\Controllers\Api\V1\TeamTieController;
 use App\Http\Controllers\Api\V1\TeamTieFormatController;
@@ -92,6 +93,11 @@ Route::prefix(config('api.version_prefix', 'v1'))
 
         Route::get('categories', [CategoryController::class, 'index'])
             ->name('categories.index');
+
+        Route::get('rankings', [RankingController::class, 'index'])->name('rankings.index');
+        Route::get('rankings/{ranking}', [RankingController::class, 'show'])->name('rankings.show');
+        Route::get('rankings/{ranking}/standings', [RankingController::class, 'standings'])
+            ->name('rankings.standings.index');
 
         Route::get('team-tie-formats', [TeamTieFormatController::class, 'index'])
             ->name('team-tie-formats.index');

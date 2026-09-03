@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             TeamTieFormatSeeder::class,
+            RankingSeeder::class,
         ]);
 
         if ($this->shouldSeedDemo()) {

@@ -16,6 +16,9 @@ use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupEntry;
 use App\Models\Player;
+use App\Models\Ranking;
+use App\Models\RankingStanding;
+use App\Models\RankingTransaction;
 use App\Models\TeamTie;
 use App\Models\Tournament;
 use App\Support\Competition\CompetitionResultResolver;
@@ -32,6 +35,7 @@ use Database\Seeders\Support\Scenarios\SinglesGroupsInProgressScenario;
 use Database\Seeders\Support\Scenarios\SinglesKnockoutInProgressScenario;
 use Database\Seeders\Support\Scenarios\SinglesRegistrationScenario;
 use Database\Seeders\Support\Scenarios\TeamKnockoutInProgressScenario;
+use Database\Seeders\RankingSeeder;
 use Database\Seeders\TeamTieFormatSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
@@ -47,6 +51,7 @@ class DemoSeedTest extends TestCase
 
         $this->seed([
             TeamTieFormatSeeder::class,
+            RankingSeeder::class,
             DemoPlayersSeeder::class,
             DemoTournamentSeeder::class,
             DemoArchivedTournamentSeeder::class,
@@ -193,6 +198,43 @@ class DemoSeedTest extends TestCase
         $this->assertNotNull($result);
         $this->assertCount(2, $result['champion']['members']);
         $this->assertSame(4, $competition->finalStandings()->count());
+    }
+
+    public function test_stage_e_ranks_completed_singles_and_doubles_but_not_team(): void
+    {
+        $singlesRanking = Ranking::query()->where('name', RankingSeeder::SINGLES_NAME)->firstOrFail();
+        $doublesRanking = Ranking::query()->where('name', RankingSeeder::DOUBLES_NAME)->firstOrFail();
+
+        $this->assertTrue($singlesRanking->active);
+        $this->assertTrue($doublesRanking->active);
+        $this->assertSame(CompetitionType::Singles, $singlesRanking->competition_type);
+        $this->assertSame(CompetitionType::Doubles, $doublesRanking->competition_type);
+        $this->assertSame(RankingSeeder::SEASON, $singlesRanking->season);
+        $this->assertNull($singlesRanking->category_id);
+        $this->assertSame(0, Ranking::query()->where('competition_type', CompetitionType::Team)->count());
+
+        $singles = $this->competitionInArchivedTournament(SinglesCompletedScenario::COMPETITION_NAME);
+        $doubles = $this->competitionInArchivedTournament(DoublesCompletedScenario::COMPETITION_NAME);
+        $team = $this->competitionInActiveTournament(TeamKnockoutInProgressScenario::COMPETITION_NAME);
+
+        $this->assertSame(8, $singles->finalStandings()->count());
+        $this->assertSame(4, $doubles->finalStandings()->count());
+
+        $this->assertSame(8, RankingTransaction::query()
+            ->where('ranking_id', $singlesRanking->id)
+            ->where('competition_id', $singles->id)
+            ->count());
+        $this->assertSame(8, RankingTransaction::query()
+            ->where('ranking_id', $doublesRanking->id)
+            ->where('competition_id', $doubles->id)
+            ->count());
+        $this->assertSame(0, RankingTransaction::query()->where('competition_id', $team->id)->count());
+        $this->assertSame(0, RankingTransaction::query()->where('competition_type', CompetitionType::Team)->count());
+
+        $this->assertGreaterThan(0, RankingStanding::query()->where('ranking_id', $singlesRanking->id)->count());
+        $this->assertGreaterThan(0, RankingStanding::query()->where('ranking_id', $doublesRanking->id)->count());
+        $this->assertSame(8, RankingStanding::query()->where('ranking_id', $singlesRanking->id)->sum('events_count'));
+        $this->assertSame(8, RankingStanding::query()->where('ranking_id', $doublesRanking->id)->sum('events_count'));
     }
 
     public function test_domain_integrity_for_entries_groups_and_games(): void

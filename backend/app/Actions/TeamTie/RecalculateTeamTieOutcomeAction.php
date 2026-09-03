@@ -2,7 +2,7 @@
 
 namespace App\Actions\TeamTie;
 
-use App\Actions\Competition\PersistCompetitionFinalStandingsAction;
+use App\Actions\Competition\ConsolidateCompetitionOutcomeAction;
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
 use App\Enums\GameStatus;
@@ -17,7 +17,7 @@ final class RecalculateTeamTieOutcomeAction
 {
     public function __construct(
         private readonly AuditLogger $auditLogger,
-        private readonly PersistCompetitionFinalStandingsAction $persistFinalStandings,
+        private readonly ConsolidateCompetitionOutcomeAction $consolidateOutcome,
     ) {}
 
     public function __invoke(TeamTie|int $teamTie): TeamTie
@@ -85,7 +85,7 @@ final class RecalculateTeamTieOutcomeAction
         ]);
 
         if ($teamTie->status === TeamTieStatus::Finished) {
-            $this->persistFinalStandings->persistIfCompleted($teamTie->competition);
+            $this->consolidateOutcome->persistIfCompleted($teamTie->competition);
         }
 
         return $teamTie;

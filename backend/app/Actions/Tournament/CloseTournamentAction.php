@@ -2,7 +2,7 @@
 
 namespace App\Actions\Tournament;
 
-use App\Actions\Competition\PersistCompetitionFinalStandingsAction;
+use App\Actions\Competition\ConsolidateCompetitionOutcomeAction;
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
 use App\Enums\TournamentStatus;
@@ -17,7 +17,7 @@ final class CloseTournamentAction
 {
     public function __construct(
         private readonly AuditLogger $auditLogger,
-        private readonly PersistCompetitionFinalStandingsAction $persistFinalStandings,
+        private readonly ConsolidateCompetitionOutcomeAction $consolidateOutcome,
     ) {}
 
     public function __invoke(Tournament $tournament): Tournament
@@ -29,7 +29,7 @@ final class CloseTournamentAction
 
             foreach ($tournament->competitions()->orderBy('id')->get() as $competition) {
                 if (CompetitionStatusResolver::resolve($competition)['code'] === 'completed') {
-                    ($this->persistFinalStandings)($competition);
+                    ($this->consolidateOutcome)($competition);
                 }
             }
 

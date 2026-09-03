@@ -133,5 +133,6 @@ class AuthenticatedUserEndpointTest extends TestCase
     {
         $this->getJson('/api/v1/tournaments')->assertOk();
         $this->getJson('/api/v1/categories')->assertOk();
+        $this->getJson('/api/v1/rankings')->assertOk();
     }
 }
