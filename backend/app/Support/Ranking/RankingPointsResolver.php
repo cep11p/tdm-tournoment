@@ -62,7 +62,7 @@ final class RankingPointsResolver
 
     private function rankingApplies(Ranking $ranking, ?Competition $competition): bool
     {
-        if ($competition === null || ! $ranking->active) {
+        if ($competition === null) {
             return false;
         }
 

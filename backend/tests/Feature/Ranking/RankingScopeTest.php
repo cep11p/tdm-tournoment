@@ -136,4 +136,58 @@ class RankingScopeTest extends TestCase
 
         $this->assertSame(0, RankingTransaction::query()->where('ranking_id', $ranking->id)->count());
     }
+
+    public function test_changing_category_moves_transactions_off_inactive_stale_ranking(): void
+    {
+        $context = $this->tournamentContext();
+        $this->withHeaders($this->authHeaders(['organizer']));
+
+        $primera = Category::query()->where('slug', 'primera')->firstOrFail();
+        $segunda = Category::query()->where('slug', 'segunda')->firstOrFail();
+
+        $primeraRanking = RankingTestSetup::ranking(CompetitionType::Singles, [
+            'name' => 'Primera',
+            'category_id' => $primera->id,
+        ]);
+        $segundaRanking = RankingTestSetup::ranking(CompetitionType::Singles, [
+            'name' => 'Segunda',
+            'category_id' => $segunda->id,
+        ]);
+
+        foreach ([$primeraRanking, $segundaRanking] as $ranking) {
+            RankingTestSetup::rule($ranking, [
+                'source' => CompetitionFinalStandingSource::Final,
+                'position' => 1,
+                'points' => 100,
+                'priority' => 20,
+            ]);
+            RankingTestSetup::rule($ranking, [
+                'source' => CompetitionFinalStandingSource::Final,
+                'position' => 2,
+                'points' => 70,
+                'priority' => 19,
+            ]);
+        }
+
+        $competition = $context->createKnockoutDirectCompetition();
+        $players = $context->createPlayers(2);
+        $context->registerPlayers($competition, $players);
+        $context->createBracket($competition)->assertCreated();
+        $final = $competition->games()->where('round', 'Final')->firstOrFail();
+        $context->finishGame($final, $players[0])->assertOk();
+
+        $this->assertSame(2, RankingTransaction::query()->where('ranking_id', $primeraRanking->id)->count());
+        $this->assertSame(0, RankingTransaction::query()->where('ranking_id', $segundaRanking->id)->count());
+
+        $primeraRanking->update(['active' => false]);
+
+        $competition->update(['category_id' => $segunda->id, 'category' => 'segunda']);
+        app(AwardRankingFromFinalStandingsAction::class)($competition->fresh());
+
+        $this->assertFalse((bool) $primeraRanking->fresh()->active);
+        $this->assertSame(0, RankingTransaction::query()->where('ranking_id', $primeraRanking->id)->count());
+        $this->assertSame(2, RankingTransaction::query()->where('ranking_id', $segundaRanking->id)->count());
+        $this->assertSame(0, $primeraRanking->fresh()->standings()->count());
+        $this->assertSame(2, $segundaRanking->fresh()->standings()->count());
+    }
 }

@@ -8,8 +8,8 @@ use App\Models\Competition;
 use App\Models\CompetitionFinalStanding;
 use App\Models\Ranking;
 use App\Models\RankingTransaction;
-use App\Support\Ranking\ApplicableRankingsResolver;
 use App\Support\Ranking\PlayerRankingDisplayName;
+use App\Support\Ranking\RankingAwardTargetsResolver;
 use App\Support\Ranking\RankingPointsResolver;
 use App\Support\Ranking\RankingRecipientsResolver;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +20,7 @@ final class AwardRankingFromFinalStandingsAction
     public const MISSING_STANDINGS_MESSAGE = 'La clasificación final no está consolidada.';
 
     public function __construct(
-        private readonly ApplicableRankingsResolver $applicableRankingsResolver,
+        private readonly RankingAwardTargetsResolver $awardTargetsResolver,
         private readonly RankingRecipientsResolver $recipientsResolver,
         private readonly RankingPointsResolver $pointsResolver,
         private readonly RebuildRankingStandingsAction $rebuildStandings,
@@ -34,7 +34,7 @@ final class AwardRankingFromFinalStandingsAction
                 ->lockForUpdate()
                 ->findOrFail($competition->id);
 
-            $staleRankingIds = RankingTransaction::query()
+            $previouslyAwardedRankingIds = RankingTransaction::query()
                 ->where('competition_id', $competition->id)
                 ->orderBy('ranking_id')
                 ->pluck('ranking_id')
@@ -44,7 +44,7 @@ final class AwardRankingFromFinalStandingsAction
                 ->all();
 
             if ($competition->isTeam()) {
-                $this->replaceTransactions($competition, $staleRankingIds, []);
+                $this->replaceTransactions($competition, $previouslyAwardedRankingIds, []);
 
                 return;
             }
@@ -62,23 +62,23 @@ final class AwardRankingFromFinalStandingsAction
                 ]);
             }
 
-            $applicable = $this->applicableRankingsResolver->resolve($competition);
-            $applicableIds = $applicable->pluck('id')->map(fn ($id): int => (int) $id)->all();
-            $affectedIds = array_values(array_unique([...$staleRankingIds, ...$applicableIds]));
+            $targets = $this->awardTargetsResolver->resolve($competition, $previouslyAwardedRankingIds);
+            $targetIds = $targets->pluck('id')->map(fn ($id): int => (int) $id)->all();
+            $affectedIds = array_values(array_unique([...$previouslyAwardedRankingIds, ...$targetIds]));
 
-            $this->replaceTransactions($competition, $affectedIds, $applicable->all(), $standings->all());
+            $this->replaceTransactions($competition, $affectedIds, $targets->all(), $standings->all());
         });
     }
 
     /**
      * @param  list<int>  $affectedRankingIds
-     * @param  list<Ranking>  $applicableRankings
+     * @param  list<Ranking>  $targetRankings
      * @param  list<CompetitionFinalStanding>  $standings
      */
     private function replaceTransactions(
         Competition $competition,
         array $affectedRankingIds,
-        array $applicableRankings,
+        array $targetRankings,
         array $standings = [],
     ): void {
         if ($affectedRankingIds !== []) {
@@ -93,11 +93,11 @@ final class AwardRankingFromFinalStandingsAction
             : CompetitionType::from((string) $competition->type);
 
         usort(
-            $applicableRankings,
+            $targetRankings,
             fn (Ranking $left, Ranking $right): int => (int) $left->id <=> (int) $right->id,
         );
 
-        foreach ($applicableRankings as $ranking) {
+        foreach ($targetRankings as $ranking) {
             $ranking->loadMissing('rules');
 
             foreach ($standings as $standing) {

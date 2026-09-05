@@ -169,6 +169,28 @@ class RankingPointsResolverTest extends TestCase
         $this->assertSame(0, $match->points);
     }
 
+    public function test_inactive_ranking_still_matches_champion_rule(): void
+    {
+        [$ranking, $standing] = $this->singlesChampionStanding();
+        $ranking->update(['active' => false]);
+        RankingTestSetup::rule($ranking, [
+            'name' => 'Campeón',
+            'source' => CompetitionFinalStandingSource::Final,
+            'position' => 1,
+            'points' => 100,
+        ]);
+
+        $match = app(RankingPointsResolver::class)->resolve(
+            $ranking->fresh('rules'),
+            $standing,
+            $ranking->fresh('rules')->rules,
+        );
+
+        $this->assertSame(100, $match->points);
+        $this->assertNotNull($match->rule);
+        $this->assertFalse((bool) $ranking->fresh()->active);
+    }
+
     public function test_wrong_type_does_not_match(): void
     {
         [$ranking, $standing] = $this->singlesChampionStanding();

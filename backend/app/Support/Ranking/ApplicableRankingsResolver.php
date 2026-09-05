@@ -5,11 +5,14 @@ namespace App\Support\Ranking;
 use App\Enums\CompetitionType;
 use App\Models\Competition;
 use App\Models\Ranking;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 final class ApplicableRankingsResolver
 {
+    public function __construct(
+        private readonly RankingScopeMatcher $scopeMatcher,
+    ) {}
+
     /**
      * Rankings activos que aplican a la competencia por tipo, categoría y ventana de fechas.
      *
@@ -33,46 +36,11 @@ final class ApplicableRankingsResolver
             return new Collection;
         }
 
-        $tournamentDate = $competition->tournament?->start_date;
-
-        return Ranking::query()
-            ->active()
-            ->where('competition_type', $type->value)
-            ->where(function ($query) use ($competition): void {
-                $query->whereNull('category_id');
-
-                if ($competition->category_id !== null) {
-                    $query->orWhere('category_id', $competition->category_id);
-                }
-            })
+        return $this->scopeMatcher
+            ->constrainQuery(Ranking::query()->active(), $competition)
             ->orderBy('id')
             ->get()
-            ->filter(fn (Ranking $ranking): bool => $this->matchesDateWindow($ranking, $tournamentDate))
+            ->filter(fn (Ranking $ranking): bool => $this->scopeMatcher->matches($ranking, $competition))
             ->values();
-    }
-
-    private function matchesDateWindow(Ranking $ranking, mixed $tournamentDate): bool
-    {
-        if ($ranking->starts_at === null && $ranking->ends_at === null) {
-            return true;
-        }
-
-        if ($tournamentDate === null) {
-            return false;
-        }
-
-        $date = $tournamentDate instanceof Carbon
-            ? $tournamentDate->startOfDay()
-            : Carbon::parse((string) $tournamentDate)->startOfDay();
-
-        if ($ranking->starts_at !== null && $date->lt($ranking->starts_at->copy()->startOfDay())) {
-            return false;
-        }
-
-        if ($ranking->ends_at !== null && $date->gt($ranking->ends_at->copy()->startOfDay())) {
-            return false;
-        }
-
-        return true;
     }
 }
