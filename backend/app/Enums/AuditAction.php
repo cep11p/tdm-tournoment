@@ -32,6 +32,11 @@ enum AuditAction: string
     case TEAM_TIE_FINISHED = 'team_tie.finished';
     case TEAM_TIE_REOPENED = 'team_tie.reopened';
     case TEAM_TIE_RESULT_CHANGED = 'team_tie.result_changed';
+    case RANKING_CREATED = 'ranking.created';
+    case RANKING_UPDATED = 'ranking.updated';
+    case RANKING_ACTIVATED = 'ranking.activated';
+    case RANKING_DEACTIVATED = 'ranking.deactivated';
+    case RANKING_DELETED = 'ranking.deleted';
     case RANKING_RULE_CREATED = 'ranking_rule.created';
     case RANKING_RULE_UPDATED = 'ranking_rule.updated';
     case RANKING_RULE_DEACTIVATED = 'ranking_rule.deactivated';
@@ -68,6 +73,11 @@ enum AuditAction: string
             self::TEAM_TIE_FINISHED => 'Enfrentamiento finalizado',
             self::TEAM_TIE_REOPENED => 'Enfrentamiento reabierto',
             self::TEAM_TIE_RESULT_CHANGED => 'Cambio de ganador del enfrentamiento',
+            self::RANKING_CREATED => 'Creación de ranking',
+            self::RANKING_UPDATED => 'Actualización de ranking',
+            self::RANKING_ACTIVATED => 'Activación de ranking',
+            self::RANKING_DEACTIVATED => 'Desactivación de ranking',
+            self::RANKING_DELETED => 'Eliminación de ranking',
             self::RANKING_RULE_CREATED => 'Creación de regla de ranking',
             self::RANKING_RULE_UPDATED => 'Actualización de regla de ranking',
             self::RANKING_RULE_DEACTIVATED => 'Desactivación de regla de ranking',
@@ -106,6 +116,11 @@ enum AuditAction: string
             self::GAME_DELETED,
             self::GAME_SET_RECORDED,
             self::GAME_RESULT_CORRECTED => 'Partidos',
+            self::RANKING_CREATED,
+            self::RANKING_UPDATED,
+            self::RANKING_ACTIVATED,
+            self::RANKING_DEACTIVATED,
+            self::RANKING_DELETED,
             self::RANKING_RULE_CREATED,
             self::RANKING_RULE_UPDATED,
             self::RANKING_RULE_DEACTIVATED,

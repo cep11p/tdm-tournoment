@@ -329,11 +329,13 @@ class RankingRuleAdminTest extends TestCase
             ->json('data');
 
         $this->assertFalse($unlocked['rules_locked']);
+        $this->assertFalse($unlocked['has_history']);
         $this->assertSame('champion', $unlocked['rules'][0]['result_key']);
 
         $index = $this->getJson('/api/v1/rankings')->assertOk()->json('data');
         $indexRow = collect($index)->firstWhere('id', $ranking->id);
         $this->assertArrayNotHasKey('rules_locked', $indexRow);
+        $this->assertFalse($indexRow['has_history']);
 
         $this->attachTransaction($ranking, RankingRule::query()->where('ranking_id', $ranking->id)->first());
 
@@ -342,6 +344,7 @@ class RankingRuleAdminTest extends TestCase
             ->json('data');
 
         $this->assertTrue($locked['rules_locked']);
+        $this->assertTrue($locked['has_history']);
     }
 
     public function test_rule_change_is_frozen_and_final_correction_keeps_original_points(): void

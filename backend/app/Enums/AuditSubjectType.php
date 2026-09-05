@@ -7,6 +7,7 @@ use App\Models\Competition;
 use App\Models\Game;
 use App\Models\Group;
 use App\Models\Player;
+use App\Models\Ranking;
 use App\Models\RankingRule;
 use App\Models\Tournament;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +20,7 @@ enum AuditSubjectType: string
     case Group = 'group';
     case Bracket = 'bracket';
     case Game = 'game';
+    case Ranking = 'ranking';
     case RankingRule = 'ranking_rule';
 
     /**
@@ -33,6 +35,7 @@ enum AuditSubjectType: string
             self::Group => Group::class,
             self::Bracket => Bracket::class,
             self::Game => Game::class,
+            self::Ranking => Ranking::class,
             self::RankingRule => RankingRule::class,
         };
     }
@@ -46,6 +49,7 @@ enum AuditSubjectType: string
             self::Group => 'Grupo',
             self::Bracket => 'Llave',
             self::Game => 'Partido',
+            self::Ranking => 'Ranking',
             self::RankingRule => 'Regla de ranking',
         };
     }
@@ -63,6 +67,7 @@ enum AuditSubjectType: string
             Group::class => self::Group,
             Bracket::class => self::Bracket,
             Game::class => self::Game,
+            Ranking::class => self::Ranking,
             RankingRule::class => self::RankingRule,
             default => null,
         };
@@ -81,6 +86,7 @@ enum AuditSubjectType: string
             Group::class => self::Group,
             Bracket::class => self::Bracket,
             Game::class => self::Game,
+            Ranking::class => self::Ranking,
             RankingRule::class => self::RankingRule,
             default => self::tryFrom($subjectType),
         };

@@ -33,8 +33,13 @@ class RankingResource extends JsonResource
             'active' => (bool) $this->active,
             'starts_at' => optional($this->starts_at)?->toDateString(),
             'ends_at' => optional($this->ends_at)?->toDateString(),
-            'rules_locked' => $this->when(
+            'has_history' => $this->when(
                 array_key_exists('transactions_exists', $this->resource->getAttributes()),
+                fn () => (bool) $this->resource->transactions_exists,
+            ),
+            'rules_locked' => $this->when(
+                $this->relationLoaded('rules')
+                    && array_key_exists('transactions_exists', $this->resource->getAttributes()),
                 fn () => (bool) $this->resource->transactions_exists,
             ),
             'rules' => $this->whenLoaded('rules', fn () => RankingRuleResource::collection($this->rules)),

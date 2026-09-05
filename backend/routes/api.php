@@ -104,6 +104,12 @@ Route::prefix(config('api.version_prefix', 'v1'))
         Route::middleware(['auth.keycloak', 'permission:rankings.manage'])
             ->scopeBindings()
             ->group(function (): void {
+                Route::post('rankings', [RankingController::class, 'store'])
+                    ->name('rankings.store');
+                Route::match(['put', 'patch'], 'rankings/{ranking}', [RankingController::class, 'update'])
+                    ->name('rankings.update');
+                Route::delete('rankings/{ranking}', [RankingController::class, 'destroy'])
+                    ->name('rankings.destroy');
                 Route::post('rankings/{ranking}/rules', [RankingRuleController::class, 'store'])
                     ->name('rankings.rules.store');
                 Route::match(['put', 'patch'], 'rankings/{ranking}/rules/{rule}', [RankingRuleController::class, 'update'])

@@ -2,7 +2,12 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Ranking\CreateRankingAction;
+use App\Actions\Ranking\DeleteRankingAction;
+use App\Actions\Ranking\UpdateRankingAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Ranking\StoreRankingRequest;
+use App\Http\Requests\Ranking\UpdateRankingRequest;
 use App\Http\Resources\Ranking\RankingPlayerHistoryResource;
 use App\Http\Resources\Ranking\RankingResource;
 use App\Http\Resources\Ranking\RankingStandingResource;
@@ -11,7 +16,9 @@ use App\Models\Ranking;
 use App\Models\RankingStanding;
 use App\Models\RankingTransaction;
 use App\Support\Ranking\RankingStandingsTable;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Response;
 
 class RankingController extends Controller
 {
@@ -19,6 +26,7 @@ class RankingController extends Controller
     {
         $rankings = Ranking::query()
             ->with('category')
+            ->withExists('transactions')
             ->orderBy('competition_type')
             ->orderBy('season')
             ->orderBy('name')
@@ -33,6 +41,36 @@ class RankingController extends Controller
         $ranking->loadExists('transactions');
 
         return new RankingResource($ranking);
+    }
+
+    public function store(
+        StoreRankingRequest $request,
+        CreateRankingAction $createRanking,
+    ): JsonResponse {
+        $ranking = $createRanking($request->validated());
+
+        return (new RankingResource($ranking))
+            ->response()
+            ->setStatusCode(Response::HTTP_CREATED);
+    }
+
+    public function update(
+        UpdateRankingRequest $request,
+        Ranking $ranking,
+        UpdateRankingAction $updateRanking,
+    ): RankingResource {
+        return new RankingResource(
+            $updateRanking($ranking, $request->validated()),
+        );
+    }
+
+    public function destroy(
+        Ranking $ranking,
+        DeleteRankingAction $deleteRanking,
+    ): Response {
+        $deleteRanking($ranking);
+
+        return response()->noContent();
     }
 
     public function standings(Ranking $ranking): AnonymousResourceCollection

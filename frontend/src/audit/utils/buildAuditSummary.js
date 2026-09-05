@@ -14,6 +14,10 @@ const FIELD_LABELS = {
   format: 'formato',
   category_id: 'categoría',
   category_name: 'nombre de categoría',
+  competition_type: 'modalidad',
+  season: 'temporada',
+  starts_at: 'vigencia desde',
+  ends_at: 'vigencia hasta',
   points_per_set: 'puntos por set',
   qualified_per_group: 'clasificados por grupo',
   group_stage_best_of: 'mejor de en grupos',
@@ -79,9 +83,11 @@ function displayName(auditLog, fallback = 'Entidad') {
     auditLog?.summary?.tournament_name
     ?? auditLog?.summary?.competition_name
     ?? auditLog?.summary?.player_name
+    ?? auditLog?.summary?.ranking_name
     ?? auditLog?.context?.tournament_name
     ?? auditLog?.context?.competition_name
     ?? auditLog?.context?.player_name
+    ?? auditLog?.context?.ranking_name
     ?? auditLog?.subject?.label
     ?? fallback
   )
@@ -337,6 +343,23 @@ export function buildAuditSummary(auditLog) {
 
       return parts.join(' · ')
     }
+
+    case 'ranking.created': {
+      const copied = formatCount(summary.rules_copied_count, 'regla copiada', 'reglas copiadas')
+      return [`Ranking "${displayName(auditLog, 'Ranking')}" creado`, copied].filter(Boolean).join(' · ')
+    }
+
+    case 'ranking.updated':
+      return formatChangedFields(summary.changed_fields) ?? 'Ranking actualizado'
+
+    case 'ranking.activated':
+      return `Ranking "${displayName(auditLog, 'Ranking')}" activado`
+
+    case 'ranking.deactivated':
+      return `Ranking "${displayName(auditLog, 'Ranking')}" desactivado`
+
+    case 'ranking.deleted':
+      return `Ranking "${displayName(auditLog, 'Ranking')}" eliminado`
 
     case 'ranking_rule.created': {
       const name = summary.result_key ?? auditLog?.context?.rule_name ?? 'regla'

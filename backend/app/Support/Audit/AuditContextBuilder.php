@@ -12,8 +12,8 @@ use App\Models\GroupEntry;
 use App\Models\Player;
 use App\Models\Ranking;
 use App\Models\RankingRule;
-use App\Models\Tournament;
 use App\Models\TeamTie;
+use App\Models\Tournament;
 use App\Support\Competition\CompetitionEntryDisplayName;
 use App\Support\Competition\CompetitionEntryMemberPayload;
 use Illuminate\Support\Collection;
@@ -340,6 +340,42 @@ final class AuditContextBuilder
             'group_name' => $groupName,
             'bracket_id' => $bracketId,
             'game_id' => $gameId,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function fromRanking(Ranking $ranking): array
+    {
+        $ranking->loadMissing('category:id,name');
+
+        $snapshot = self::rankingSnapshot($ranking);
+
+        return array_merge($snapshot, [
+            'ranking_id' => $ranking->id,
+            'ranking_name' => $ranking->name,
+            'category_name' => $ranking->category?->name,
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function rankingSnapshot(Ranking $ranking): array
+    {
+        $type = $ranking->competition_type instanceof CompetitionType
+            ? $ranking->competition_type->value
+            : (string) $ranking->competition_type;
+
+        return [
+            'name' => $ranking->name,
+            'competition_type' => $type,
+            'category_id' => $ranking->category_id !== null ? (int) $ranking->category_id : null,
+            'season' => (string) $ranking->season,
+            'starts_at' => optional($ranking->starts_at)?->toDateString(),
+            'ends_at' => optional($ranking->ends_at)?->toDateString(),
+            'active' => (bool) $ranking->active,
         ];
     }
 

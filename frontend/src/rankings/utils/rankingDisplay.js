@@ -24,6 +24,15 @@ export function rankingStatusBadgeClasses(active) {
   return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
 }
 
+export const RANKING_STRUCTURAL_LOCKED_NOTE =
+  'La modalidad, categoría, temporada y vigencia están congeladas porque este ranking ya otorgó puntos.'
+
+export const RANKING_ACTIVATE_NEEDS_RULES_NOTE =
+  'Agregá al menos una regla de puntuación antes de activar el ranking.'
+
+export const RANKING_DEACTIVATE_HISTORY_NOTE =
+  'El ranking dejará de recibir nuevas competencias. Los puntos ya otorgados permanecerán visibles.'
+
 export function formatRankingPosition(position) {
   if (position == null || position === '') {
     return '-'

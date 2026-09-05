@@ -8,6 +8,7 @@ use App\Models\Competition;
 use App\Models\Game;
 use App\Models\Group;
 use App\Models\Player;
+use App\Models\Ranking;
 use App\Models\RankingRule;
 use App\Models\Tournament;
 use Illuminate\Database\Eloquent\Model;
@@ -91,6 +92,10 @@ final class AuditLogSubjectPresenter
             return self::gameLabel($context, $summary, $subject->id);
         }
 
+        if ($subject instanceof Ranking) {
+            return $subject->name !== '' ? (string) $subject->name : "Ranking #{$subject->id}";
+        }
+
         if ($subject instanceof RankingRule) {
             return $subject->name !== '' ? (string) $subject->name : "Regla de ranking #{$subject->id}";
         }
@@ -151,6 +156,10 @@ final class AuditLogSubjectPresenter
             AuditSubjectType::Group => data_get($context, 'group_name'),
             AuditSubjectType::Bracket => self::historicalBracketLabel($context),
             AuditSubjectType::Game => self::gameLabel($context, $summary, (int) (data_get($context, 'game_id') ?? 0)),
+            AuditSubjectType::Ranking => data_get($context, 'ranking_name')
+                ?? (data_get($context, 'ranking_id') !== null
+                    ? 'Ranking #'.data_get($context, 'ranking_id')
+                    : null),
             AuditSubjectType::RankingRule => data_get($context, 'rule_name')
                 ?? data_get($summary, 'result_key')
                 ?? (data_get($context, 'ranking_rule_id') !== null
@@ -189,6 +198,10 @@ final class AuditLogSubjectPresenter
             return AuditSubjectType::RankingRule;
         }
 
+        if (data_get($context, 'ranking_id') !== null) {
+            return AuditSubjectType::Ranking;
+        }
+
         if (data_get($context, 'group_id') !== null) {
             return AuditSubjectType::Group;
         }
@@ -224,6 +237,7 @@ final class AuditLogSubjectPresenter
             AuditSubjectType::Group => 'group_id',
             AuditSubjectType::Bracket => 'bracket_id',
             AuditSubjectType::Game => 'game_id',
+            AuditSubjectType::Ranking => 'ranking_id',
             AuditSubjectType::RankingRule => 'ranking_rule_id',
             default => null,
         };
