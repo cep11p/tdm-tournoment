@@ -24,6 +24,20 @@ const RankingService = {
     )
     return unwrap(response) ?? null
   },
+
+  async createRule(rankingId, payload) {
+    const response = await httpClient.post(`/rankings/${rankingId}/rules`, payload)
+    return unwrap(response) ?? null
+  },
+
+  async updateRule(rankingId, ruleId, payload) {
+    const response = await httpClient.patch(`/rankings/${rankingId}/rules/${ruleId}`, payload)
+    return unwrap(response) ?? null
+  },
+
+  async deleteRule(rankingId, ruleId) {
+    await httpClient.delete(`/rankings/${rankingId}/rules/${ruleId}`)
+  },
 }
 
 export default RankingService

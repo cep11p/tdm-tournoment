@@ -29,6 +29,10 @@ final class AuditLogContextPresenter
             'player1_name' => data_get($context, 'player1_name'),
             'player2_id' => data_get($context, 'player2_id'),
             'player2_name' => data_get($context, 'player2_name'),
+            'ranking_id' => data_get($context, 'ranking_id'),
+            'ranking_name' => data_get($context, 'ranking_name'),
+            'ranking_rule_id' => data_get($context, 'ranking_rule_id'),
+            'rule_name' => data_get($context, 'rule_name'),
         ];
     }
 }

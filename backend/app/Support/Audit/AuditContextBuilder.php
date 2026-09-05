@@ -10,6 +10,8 @@ use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupEntry;
 use App\Models\Player;
+use App\Models\Ranking;
+use App\Models\RankingRule;
 use App\Models\Tournament;
 use App\Models\TeamTie;
 use App\Support\Competition\CompetitionEntryDisplayName;
@@ -338,6 +340,21 @@ final class AuditContextBuilder
             'group_name' => $groupName,
             'bracket_id' => $bracketId,
             'game_id' => $gameId,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function fromRankingRule(RankingRule $rule, ?Ranking $ranking = null): array
+    {
+        $ranking ??= $rule->ranking;
+
+        return [
+            'ranking_id' => $ranking?->id ?? $rule->ranking_id,
+            'ranking_name' => $ranking?->name,
+            'ranking_rule_id' => $rule->id,
+            'rule_name' => $rule->name,
         ];
     }
 

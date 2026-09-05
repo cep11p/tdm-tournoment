@@ -338,6 +338,24 @@ export function buildAuditSummary(auditLog) {
       return parts.join(' · ')
     }
 
+    case 'ranking_rule.created': {
+      const name = summary.result_key ?? auditLog?.context?.rule_name ?? 'regla'
+      return `Regla "${name}" creada`
+    }
+
+    case 'ranking_rule.updated':
+      return formatChangedFields(summary.changed_fields) ?? 'Regla de ranking actualizada'
+
+    case 'ranking_rule.deactivated': {
+      const name = auditLog?.context?.rule_name ?? summary.result_key ?? 'Regla'
+      return `${name} desactivada`
+    }
+
+    case 'ranking_rule.deleted': {
+      const name = auditLog?.context?.rule_name ?? summary.result_key ?? 'Regla'
+      return `${name} eliminada`
+    }
+
     default:
       return ''
   }

@@ -34,6 +34,10 @@ const AUDIT_ACTIONS = [
   { value: 'game.result_corrected', label: 'Corrección de resultado' },
   { value: 'groups.player_status_changed', label: 'Cambio de estado de jugador' },
   { value: 'groups.manual_tiebreak_applied', label: 'Desempate manual' },
+  { value: 'ranking_rule.created', label: 'Creación de regla de ranking' },
+  { value: 'ranking_rule.updated', label: 'Actualización de regla de ranking' },
+  { value: 'ranking_rule.deactivated', label: 'Desactivación de regla de ranking' },
+  { value: 'ranking_rule.deleted', label: 'Eliminación de regla de ranking' },
 ]
 
 const LOG_NAMES = [
@@ -45,6 +49,7 @@ const LOG_NAMES = [
   { value: 'groups', label: 'Grupos' },
   { value: 'bracket', label: 'Llave' },
   { value: 'games', label: 'Partidos' },
+  { value: 'rankings', label: 'Rankings' },
 ]
 
 const auditLogs = ref([])
@@ -113,6 +118,8 @@ const moduleBadgeClass = (logNameValue) => {
       return 'bg-violet-100 text-violet-800 dark:bg-violet-950/40 dark:text-violet-200'
     case 'games':
       return 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200'
+    case 'rankings':
+      return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-200'
     default:
       return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
   }
@@ -122,7 +129,7 @@ const actorName = (auditLog) => auditLog.actor?.name || auditLog.actor?.email ||
 
 const contextLabel = (auditLog) => {
   const context = auditLog.context ?? {}
-  const parts = [context.tournament_name, context.competition_name, context.group_name].filter(Boolean)
+  const parts = [context.tournament_name, context.competition_name, context.group_name, context.ranking_name].filter(Boolean)
 
   return parts.length ? parts.join(' · ') : '-'
 }

@@ -35,6 +35,8 @@ enum Permission: string
     case CatalogView = 'catalog.view';
     case CatalogManage = 'catalog.manage';
 
+    case RankingsManage = 'rankings.manage';
+
     case AuditView = 'audit.view';
 
     case UsersManage = 'users.manage';

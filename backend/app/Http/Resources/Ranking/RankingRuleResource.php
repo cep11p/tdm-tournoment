@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Ranking;
 
 use App\Enums\CompetitionFinalStandingSource;
+use App\Support\Ranking\RankingRuleCatalog;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -16,6 +17,7 @@ class RankingRuleResource extends JsonResource
 
         return [
             'id' => (int) $this->id,
+            'result_key' => RankingRuleCatalog::keyFor($this->source, $this->position),
             'name' => (string) $this->name,
             'source' => $source,
             'position' => $this->position !== null ? (int) $this->position : null,

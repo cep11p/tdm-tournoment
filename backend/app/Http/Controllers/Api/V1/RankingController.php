@@ -30,6 +30,7 @@ class RankingController extends Controller
     public function show(Ranking $ranking): RankingResource
     {
         $ranking->load(['category', 'rules']);
+        $ranking->loadExists('transactions');
 
         return new RankingResource($ranking);
     }

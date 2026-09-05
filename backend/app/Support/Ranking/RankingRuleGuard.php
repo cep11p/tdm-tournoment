@@ -8,9 +8,16 @@ use Illuminate\Validation\ValidationException;
 
 final class RankingRuleGuard
 {
-    public const STRICT_POSITION_SOURCES = [
-        CompetitionFinalStandingSource::Final,
-        CompetitionFinalStandingSource::ThirdPlacePlayoff,
+    /**
+     * @var list<CompetitionFinalStandingSource>
+     */
+    public const FLAT_SOURCES = [
+        CompetitionFinalStandingSource::Semifinal,
+        CompetitionFinalStandingSource::Quarterfinal,
+        CompetitionFinalStandingSource::RoundOf16,
+        CompetitionFinalStandingSource::RoundOf32,
+        CompetitionFinalStandingSource::PlayIn,
+        CompetitionFinalStandingSource::GroupStage,
     ];
 
     public static function assertValid(RankingRule $rule): void
@@ -37,14 +44,42 @@ final class RankingRuleGuard
             ]);
         }
 
-        if ($rule->position === null) {
+        $position = $rule->position === null || $rule->position === ''
+            ? null
+            : (int) $rule->position;
+
+        if ($source === CompetitionFinalStandingSource::Final) {
+            if (! in_array($position, [1, 2], true)) {
+                throw ValidationException::withMessages([
+                    'position' => ['La posición de la Final debe ser 1 (campeón) o 2 (subcampeón).'],
+                ]);
+            }
+
             return;
         }
 
-        if (! in_array($source, self::STRICT_POSITION_SOURCES, true)) {
-            throw ValidationException::withMessages([
-                'position' => ['position solo se permite para final y third_place_playoff.'],
-            ]);
+        if ($source === CompetitionFinalStandingSource::ThirdPlacePlayoff) {
+            if (! in_array($position, [3, 4], true)) {
+                throw ValidationException::withMessages([
+                    'position' => ['La posición del partido por el tercer puesto debe ser 3 o 4.'],
+                ]);
+            }
+
+            return;
         }
+
+        if (in_array($source, self::FLAT_SOURCES, true)) {
+            if ($position !== null) {
+                throw ValidationException::withMessages([
+                    'position' => ['Este resultado no admite una posición específica.'],
+                ]);
+            }
+
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'source' => ['El origen de la regla de ranking no es válido.'],
+        ]);
     }
 }

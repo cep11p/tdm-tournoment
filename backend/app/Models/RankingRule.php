@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class RankingRule extends Model
 {
-    protected $guarded = [];
+    protected $guarded = ['position_key'];
 
     protected function casts(): array
     {

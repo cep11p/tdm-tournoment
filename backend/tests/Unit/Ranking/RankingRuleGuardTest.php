@@ -28,6 +28,52 @@ class RankingRuleGuardTest extends TestCase
         }
     }
 
+    public function test_rejects_final_position_other_than_one_or_two(): void
+    {
+        $ranking = RankingTestSetup::ranking();
+
+        try {
+            RankingTestSetup::rule($ranking, [
+                'source' => CompetitionFinalStandingSource::Final,
+                'position' => 5,
+                'points' => 100,
+            ]);
+            $this->fail('Se esperaba ValidationException');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('position', $exception->errors());
+        }
+    }
+
+    public function test_rejects_third_place_playoff_position_other_than_three_or_four(): void
+    {
+        $ranking = RankingTestSetup::ranking();
+
+        try {
+            RankingTestSetup::rule($ranking, [
+                'source' => CompetitionFinalStandingSource::ThirdPlacePlayoff,
+                'position' => 2,
+                'points' => 50,
+            ]);
+            $this->fail('Se esperaba ValidationException');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('position', $exception->errors());
+        }
+    }
+
+    public function test_accepts_semifinal_with_null_position(): void
+    {
+        $ranking = RankingTestSetup::ranking();
+
+        $rule = RankingTestSetup::rule($ranking, [
+            'source' => CompetitionFinalStandingSource::Semifinal,
+            'position' => null,
+            'points' => 45,
+        ]);
+
+        $this->assertNull($rule->position);
+        $this->assertSame(CompetitionFinalStandingSource::Semifinal, $rule->source);
+    }
+
     public function test_rejects_team_ranking(): void
     {
         try {

@@ -25,6 +25,7 @@ import PlayerEditView from '../players/views/PlayerEditView.vue'
 import RankingListView from '../rankings/views/RankingListView.vue'
 import RankingDetailView from '../rankings/views/RankingDetailView.vue'
 import RankingPlayerHistoryView from '../rankings/views/RankingPlayerHistoryView.vue'
+import RankingRulesView from '../rankings/views/RankingRulesView.vue'
 
 const routes = [
   {
@@ -147,6 +148,12 @@ const routes = [
     path: '/rankings/:id',
     name: 'rankings.show',
     component: RankingDetailView,
+  },
+  {
+    path: '/rankings/:id/rules',
+    name: 'rankings.rules',
+    component: RankingRulesView,
+    meta: { permission: 'rankings.manage' },
   },
   {
     path: '/rankings/:id/players/:playerId',

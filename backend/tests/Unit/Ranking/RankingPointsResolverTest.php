@@ -7,6 +7,7 @@ use App\Enums\CompetitionType;
 use App\Models\Category;
 use App\Models\CompetitionFinalStanding;
 use App\Models\Ranking;
+use App\Models\RankingRule;
 use App\Support\Ranking\RankingPointsResolver;
 use Tests\Support\RankingTestSetup;
 use Tests\TestCase;
@@ -120,26 +121,32 @@ class RankingPointsResolverTest extends TestCase
         $this->assertSame(2, $resolver->resolve($ranking, $standing, $ranking->rules)->points);
     }
 
-    public function test_higher_priority_wins(): void
+    public function test_higher_priority_wins_when_duplicates_are_passed_in_memory(): void
     {
         [$ranking, $standing] = $this->singlesChampionStanding();
 
-        RankingTestSetup::rule($ranking, [
+        $low = new RankingRule([
+            'id' => 1,
+            'ranking_id' => $ranking->id,
             'name' => 'Baja',
             'source' => CompetitionFinalStandingSource::Final,
             'position' => 1,
             'points' => 10,
             'priority' => 1,
+            'active' => true,
         ]);
-        RankingTestSetup::rule($ranking, [
+        $high = new RankingRule([
+            'id' => 2,
+            'ranking_id' => $ranking->id,
             'name' => 'Alta',
             'source' => CompetitionFinalStandingSource::Final,
             'position' => 1,
             'points' => 99,
             'priority' => 50,
+            'active' => true,
         ]);
 
-        $match = app(RankingPointsResolver::class)->resolve($ranking->fresh('rules'), $standing, $ranking->fresh('rules')->rules);
+        $match = app(RankingPointsResolver::class)->resolve($ranking, $standing, [$low, $high]);
 
         $this->assertSame(99, $match->points);
         $this->assertSame('Alta', $match->rule?->name);
@@ -219,24 +226,30 @@ class RankingPointsResolverTest extends TestCase
     {
         [$ranking, $standing] = $this->singlesChampionStanding();
 
-        $first = RankingTestSetup::rule($ranking, [
+        $first = new RankingRule([
+            'id' => 10,
+            'ranking_id' => $ranking->id,
             'name' => 'Primera',
             'source' => CompetitionFinalStandingSource::Final,
             'position' => 1,
             'points' => 11,
             'priority' => 5,
+            'active' => true,
         ]);
-        RankingTestSetup::rule($ranking, [
+        $second = new RankingRule([
+            'id' => 20,
+            'ranking_id' => $ranking->id,
             'name' => 'Segunda',
             'source' => CompetitionFinalStandingSource::Final,
             'position' => 1,
             'points' => 22,
             'priority' => 5,
+            'active' => true,
         ]);
 
-        $match = app(RankingPointsResolver::class)->resolve($ranking->fresh('rules'), $standing, $ranking->fresh('rules')->rules);
+        $match = app(RankingPointsResolver::class)->resolve($ranking, $standing, [$first, $second]);
 
-        $this->assertSame($first->id, $match->rule?->id);
+        $this->assertSame(10, $match->rule?->id);
         $this->assertSame(11, $match->points);
     }
 

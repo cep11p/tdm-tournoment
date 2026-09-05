@@ -42,6 +42,17 @@ const breadcrumbItems = computed(() => {
     ]
   }
 
+  if (route.name === 'rankings.rules') {
+    return [
+      { label: BREADCRUMB_RANKINGS, to: '/rankings' },
+      {
+        label: context.rankingName || `Ranking #${route.params.id}`,
+        to: `/rankings/${route.params.id}`,
+      },
+      { label: 'Reglas' },
+    ]
+  }
+
   if (route.name === 'rankings.player') {
     return [
       { label: BREADCRUMB_RANKINGS, to: '/rankings' },

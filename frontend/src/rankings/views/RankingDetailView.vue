@@ -6,6 +6,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import AppTooltip from '../../components/AppTooltip.vue'
+import { usePermissions } from '../../composables/usePermissions'
 import RankingService from '../services/RankingService'
 import {
   formatRankingPosition,
@@ -16,6 +17,8 @@ import {
 } from '../utils/rankingDisplay'
 
 const route = useRoute()
+const { can } = usePermissions()
+const canManageRules = computed(() => can('rankings.manage'))
 
 const ranking = ref(null)
 const standings = ref([])
@@ -116,19 +119,29 @@ watch(rankingId, loadRanking, { immediate: true })
     </div>
 
     <template v-else-if="ranking">
-      <details
-        v-if="visibleRules.length > 0"
-        class="rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
-      >
-        <summary class="cursor-pointer font-medium text-slate-800 dark:text-slate-200">
-          Ver tabla de puntuación
-        </summary>
-        <ul class="mt-3 space-y-1.5 text-slate-700 dark:text-slate-300">
-          <li v-for="rule in visibleRules" :key="rule.id || rule.name">
-            {{ rule.name }} — {{ rule.points }} pts
-          </li>
-        </ul>
-      </details>
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <details
+          v-if="visibleRules.length > 0"
+          class="min-w-0 flex-1 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
+        >
+          <summary class="cursor-pointer font-medium text-slate-800 dark:text-slate-200">
+            Ver tabla de puntuación
+          </summary>
+          <ul class="mt-3 space-y-1.5 text-slate-700 dark:text-slate-300">
+            <li v-for="rule in visibleRules" :key="rule.id || rule.name">
+              {{ rule.name }} — {{ rule.points }} pts
+            </li>
+          </ul>
+        </details>
+
+        <RouterLink
+          v-if="canManageRules"
+          :to="{ name: 'rankings.rules', params: { id: ranking.id } }"
+          class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          Administrar reglas
+        </RouterLink>
+      </div>
 
       <div
         v-if="standings.length === 0"

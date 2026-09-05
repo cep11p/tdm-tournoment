@@ -28,6 +28,7 @@ class IndexAuditLogRequest extends FormRequest
                 'groups',
                 'bracket',
                 'games',
+                'rankings',
             ])],
             'actor_id' => ['sometimes', 'integer', 'min:1'],
             'tournament_id' => ['sometimes', 'integer', 'min:1'],

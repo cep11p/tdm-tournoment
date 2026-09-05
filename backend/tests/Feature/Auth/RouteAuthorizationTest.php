@@ -151,4 +151,30 @@ class RouteAuthorizationTest extends TestCase
 
         $this->assertEqualsCanonicalizing(Permission::values(), $permissions);
     }
+
+    public function test_create_ranking_rule_forbidden_for_organizer(): void
+    {
+        $ranking = \Tests\Support\RankingTestSetup::ranking();
+
+        $this->postJson("/api/v1/rankings/{$ranking->id}/rules", [
+            'result_key' => 'champion',
+            'points' => 100,
+        ], $this->keycloakAuthHeaders(['organizer']))
+            ->assertForbidden()
+            ->assertJson([
+                'message' => 'No autorizado.',
+                'code' => 'forbidden',
+            ]);
+    }
+
+    public function test_create_ranking_rule_allowed_for_admin(): void
+    {
+        $ranking = \Tests\Support\RankingTestSetup::ranking();
+
+        $this->postJson("/api/v1/rankings/{$ranking->id}/rules", [
+            'result_key' => 'champion',
+            'points' => 100,
+        ], $this->keycloakAuthHeaders(['admin']))
+            ->assertCreated();
+    }
 }

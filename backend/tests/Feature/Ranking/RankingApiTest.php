@@ -28,10 +28,13 @@ class RankingApiTest extends TestCase
         $this->assertSame('2026', $singles['season']);
         $this->assertNull($singles['category']);
         $this->assertTrue($singles['active']);
+        $this->assertArrayNotHasKey('rules_locked', $singles);
 
         $detail = $this->getJson('/api/v1/rankings/'.$singles['id'])->assertOk()->json('data');
         $this->assertSame(RankingSeeder::SINGLES_NAME, $detail['name']);
         $this->assertNotEmpty($detail['rules']);
+        $this->assertFalse($detail['rules_locked']);
+        $this->assertSame('champion', $detail['rules'][0]['result_key']);
         $this->assertArrayNotHasKey('transactions', $detail);
     }
 

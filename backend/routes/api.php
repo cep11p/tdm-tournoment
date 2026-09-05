@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\V1\GroupStandingsController;
 use App\Http\Controllers\Api\V1\GroupTeamTieController;
 use App\Http\Controllers\Api\V1\PlayerController;
 use App\Http\Controllers\Api\V1\RankingController;
+use App\Http\Controllers\Api\V1\RankingRuleController;
 use App\Http\Controllers\Api\V1\RegistrationController;
 use App\Http\Controllers\Api\V1\TeamTieController;
 use App\Http\Controllers\Api\V1\TeamTieFormatController;
@@ -100,6 +101,16 @@ Route::prefix(config('api.version_prefix', 'v1'))
             ->name('rankings.standings.index');
         Route::get('rankings/{ranking}/players/{player}/transactions', [RankingController::class, 'playerTransactions'])
             ->name('rankings.players.transactions');
+        Route::middleware(['auth.keycloak', 'permission:rankings.manage'])
+            ->scopeBindings()
+            ->group(function (): void {
+                Route::post('rankings/{ranking}/rules', [RankingRuleController::class, 'store'])
+                    ->name('rankings.rules.store');
+                Route::match(['put', 'patch'], 'rankings/{ranking}/rules/{rule}', [RankingRuleController::class, 'update'])
+                    ->name('rankings.rules.update');
+                Route::delete('rankings/{ranking}/rules/{rule}', [RankingRuleController::class, 'destroy'])
+                    ->name('rankings.rules.destroy');
+            });
 
         Route::get('team-tie-formats', [TeamTieFormatController::class, 'index'])
             ->name('team-tie-formats.index');

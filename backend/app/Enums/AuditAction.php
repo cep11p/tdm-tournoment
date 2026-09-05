@@ -32,6 +32,10 @@ enum AuditAction: string
     case TEAM_TIE_FINISHED = 'team_tie.finished';
     case TEAM_TIE_REOPENED = 'team_tie.reopened';
     case TEAM_TIE_RESULT_CHANGED = 'team_tie.result_changed';
+    case RANKING_RULE_CREATED = 'ranking_rule.created';
+    case RANKING_RULE_UPDATED = 'ranking_rule.updated';
+    case RANKING_RULE_DEACTIVATED = 'ranking_rule.deactivated';
+    case RANKING_RULE_DELETED = 'ranking_rule.deleted';
 
     public function label(): string
     {
@@ -64,6 +68,10 @@ enum AuditAction: string
             self::TEAM_TIE_FINISHED => 'Enfrentamiento finalizado',
             self::TEAM_TIE_REOPENED => 'Enfrentamiento reabierto',
             self::TEAM_TIE_RESULT_CHANGED => 'Cambio de ganador del enfrentamiento',
+            self::RANKING_RULE_CREATED => 'Creación de regla de ranking',
+            self::RANKING_RULE_UPDATED => 'Actualización de regla de ranking',
+            self::RANKING_RULE_DEACTIVATED => 'Desactivación de regla de ranking',
+            self::RANKING_RULE_DELETED => 'Eliminación de regla de ranking',
         };
     }
 
@@ -98,6 +106,10 @@ enum AuditAction: string
             self::GAME_DELETED,
             self::GAME_SET_RECORDED,
             self::GAME_RESULT_CORRECTED => 'Partidos',
+            self::RANKING_RULE_CREATED,
+            self::RANKING_RULE_UPDATED,
+            self::RANKING_RULE_DEACTIVATED,
+            self::RANKING_RULE_DELETED => 'Rankings',
         };
     }
 
@@ -127,6 +139,7 @@ enum AuditAction: string
             'bracket' => 'Llave',
             'games' => 'Partidos',
             'team_ties' => 'Enfrentamientos',
+            'rankings' => 'Rankings',
             default => 'Auditoría',
         };
     }
