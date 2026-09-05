@@ -8,8 +8,8 @@ use App\Http\Controllers\Api\V1\ClubController;
 use App\Http\Controllers\Api\V1\CompetitionBracketController;
 use App\Http\Controllers\Api\V1\CompetitionBracketPrintController;
 use App\Http\Controllers\Api\V1\CompetitionController;
-use App\Http\Controllers\Api\V1\CompetitionGroupsPrintController;
 use App\Http\Controllers\Api\V1\CompetitionFinalStandingsController;
+use App\Http\Controllers\Api\V1\CompetitionGroupsPrintController;
 use App\Http\Controllers\Api\V1\CompetitionStandingsController;
 use App\Http\Controllers\Api\V1\GameController;
 use App\Http\Controllers\Api\V1\GroupController;
@@ -98,6 +98,8 @@ Route::prefix(config('api.version_prefix', 'v1'))
         Route::get('rankings/{ranking}', [RankingController::class, 'show'])->name('rankings.show');
         Route::get('rankings/{ranking}/standings', [RankingController::class, 'standings'])
             ->name('rankings.standings.index');
+        Route::get('rankings/{ranking}/players/{player}/transactions', [RankingController::class, 'playerTransactions'])
+            ->name('rankings.players.transactions');
 
         Route::get('team-tie-formats', [TeamTieFormatController::class, 'index'])
             ->name('team-tie-formats.index');

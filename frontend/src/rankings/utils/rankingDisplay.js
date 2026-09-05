@@ -32,6 +32,49 @@ export function formatRankingPosition(position) {
   return `${position}°`
 }
 
+export function formatRankingTransactionPosition(position, positionRangeEnd) {
+  if (position == null || position === '') {
+    return '-'
+  }
+
+  if (
+    positionRangeEnd == null ||
+    positionRangeEnd === '' ||
+    Number(position) === Number(positionRangeEnd)
+  ) {
+    return `${position}°`
+  }
+
+  return `${position}°–${positionRangeEnd}°`
+}
+
+export function formatRankingPoints(points) {
+  const value = Number(points)
+
+  if (!Number.isFinite(value) || value === 0) {
+    return '0 pts'
+  }
+
+  if (value > 0) {
+    return `+${value} pts`
+  }
+
+  return `${value} pts`
+}
+
+export function rankingTransactionResultLabel(row) {
+  return row?.result_label || 'Resultado'
+}
+
+export function formatRankingHistorySummary(points, eventsCount) {
+  const pts = Number(points) || 0
+  const events = Number(eventsCount) || 0
+  const pointsLabel = `${pts} ${pts === 1 ? 'punto' : 'puntos'}`
+  const eventsLabel = `${events} ${events === 1 ? 'competencia' : 'competencias'}`
+
+  return `${pointsLabel} · ${eventsLabel}`
+}
+
 export function formatRankingDate(value) {
   if (!value) {
     return null

@@ -12,4 +12,18 @@ enum CompetitionFinalStandingSource: string
     case RoundOf32 = 'round_of_32';
     case PlayIn = 'play_in';
     case GroupStage = 'group_stage';
+
+    public function label(): string
+    {
+        return match ($this) {
+            self::Final => 'Final',
+            self::ThirdPlacePlayoff => 'Partido por el 3.er puesto',
+            self::Semifinal => 'Semifinal',
+            self::Quarterfinal => 'Cuartos de final',
+            self::RoundOf16 => 'Octavos de final',
+            self::RoundOf32 => 'Dieciseisavos',
+            self::PlayIn => 'Play-in',
+            self::GroupStage => 'Fase de grupos',
+        };
+    }
 }

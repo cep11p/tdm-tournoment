@@ -42,6 +42,19 @@ const breadcrumbItems = computed(() => {
     ]
   }
 
+  if (route.name === 'rankings.player') {
+    return [
+      { label: BREADCRUMB_RANKINGS, to: '/rankings' },
+      {
+        label: context.rankingName || `Ranking #${route.params.id}`,
+        to: `/rankings/${route.params.id}`,
+      },
+      {
+        label: context.playerName || `Jugador #${route.params.playerId}`,
+      },
+    ]
+  }
+
   const items = [{ label: BREADCRUMB_TOURNAMENTS, to: '/tournaments' }]
 
   switch (route.name) {

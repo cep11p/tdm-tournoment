@@ -1,9 +1,11 @@
 <script setup>
+import { EyeIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
+import AppTooltip from '../../components/AppTooltip.vue'
 import RankingService from '../services/RankingService'
 import {
   formatRankingPosition,
@@ -22,6 +24,9 @@ const errorMessage = ref('')
 
 const retryButtonClasses =
   'rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200'
+
+const viewButtonClasses =
+  'inline-flex rounded-md border border-blue-300 bg-blue-50 p-1.5 text-blue-700 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/60'
 
 const rankingId = computed(() => route.params.id)
 
@@ -159,6 +164,11 @@ watch(rankingId, loadRanking, { immediate: true })
               >
                 Competencias
               </th>
+              <th
+                class="w-40 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
+              >
+                Acciones
+              </th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-900">
@@ -183,6 +193,22 @@ watch(rankingId, loadRanking, { immediate: true })
               </td>
               <td class="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
                 {{ row.events_count }}
+              </td>
+              <td class="w-40 px-4 py-3 text-sm">
+                <div class="flex flex-nowrap items-center justify-end gap-1.5">
+                  <AppTooltip label="Ver historial">
+                    <RouterLink
+                      :to="{
+                        name: 'rankings.player',
+                        params: { id: ranking.id, playerId: row.player_id },
+                      }"
+                      :class="viewButtonClasses"
+                      aria-label="Ver historial"
+                    >
+                      <EyeIcon class="h-4 w-4" aria-hidden="true" />
+                    </RouterLink>
+                  </AppTooltip>
+                </div>
               </td>
             </tr>
           </tbody>

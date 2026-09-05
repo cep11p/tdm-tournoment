@@ -17,6 +17,13 @@ const RankingService = {
     const response = await httpClient.get(`/rankings/${id}/standings`)
     return unwrap(response) ?? []
   },
+
+  async playerTransactions(rankingId, playerId) {
+    const response = await httpClient.get(
+      `/rankings/${rankingId}/players/${playerId}/transactions`,
+    )
+    return unwrap(response) ?? null
+  },
 }
 
 export default RankingService
