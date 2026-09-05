@@ -22,6 +22,8 @@ import BracketPrintView from '../brackets/views/BracketPrintView.vue'
 import PlayerListView from '../players/views/PlayerListView.vue'
 import PlayerCreateView from '../players/views/PlayerCreateView.vue'
 import PlayerEditView from '../players/views/PlayerEditView.vue'
+import RankingListView from '../rankings/views/RankingListView.vue'
+import RankingDetailView from '../rankings/views/RankingDetailView.vue'
 
 const routes = [
   {
@@ -134,6 +136,16 @@ const routes = [
     path: '/games/:id',
     name: 'games-detail',
     component: GameDetailView,
+  },
+  {
+    path: '/rankings',
+    name: 'rankings.index',
+    component: RankingListView,
+  },
+  {
+    path: '/rankings/:id',
+    name: 'rankings.show',
+    component: RankingDetailView,
   },
   {
     path: '/players',

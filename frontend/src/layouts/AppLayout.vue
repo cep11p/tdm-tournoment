@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   Bars3Icon,
+  ChartBarIcon,
   ClipboardDocumentListIcon,
   HomeIcon,
   TrophyIcon,
@@ -28,6 +29,7 @@ const { can } = usePermissions()
 const NAV_ICON_BY_TO = {
   '/': HomeIcon,
   '/tournaments': TrophyIcon,
+  '/rankings': ChartBarIcon,
   '/players': UsersIcon,
   '/audit-logs': ClipboardDocumentListIcon,
 }
@@ -48,6 +50,10 @@ const navLinkActiveClasses =
 const isNavItemActive = (item) => {
   if (item.to === '/tournaments') {
     return route.path.startsWith('/tournaments')
+  }
+
+  if (item.to === '/rankings') {
+    return route.path.startsWith('/rankings')
   }
 
   if (item.to === '/players') {

@@ -2,7 +2,11 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
-import { BREADCRUMB_BRACKET, BREADCRUMB_TOURNAMENTS } from '../shared/constants/navigation'
+import {
+  BREADCRUMB_BRACKET,
+  BREADCRUMB_RANKINGS,
+  BREADCRUMB_TOURNAMENTS,
+} from '../shared/constants/navigation'
 
 const props = defineProps({
   context: {
@@ -24,6 +28,19 @@ const breadcrumbItems = computed(() => {
   const groupName = context.groupName
   const gameId = context.gameId ?? route.params.id
   const gameName = context.gameName
+
+  if (route.name === 'rankings.index') {
+    return [{ label: BREADCRUMB_RANKINGS }]
+  }
+
+  if (route.name === 'rankings.show') {
+    return [
+      { label: BREADCRUMB_RANKINGS, to: '/rankings' },
+      {
+        label: context.rankingName || `Ranking #${route.params.id}`,
+      },
+    ]
+  }
 
   const items = [{ label: BREADCRUMB_TOURNAMENTS, to: '/tournaments' }]
 
