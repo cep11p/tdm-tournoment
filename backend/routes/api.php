@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\CompetitionBracketPrintController;
 use App\Http\Controllers\Api\V1\CompetitionController;
 use App\Http\Controllers\Api\V1\CompetitionFinalStandingsController;
 use App\Http\Controllers\Api\V1\CompetitionGroupsPrintController;
+use App\Http\Controllers\Api\V1\CompetitionGroupsPrintPdfController;
 use App\Http\Controllers\Api\V1\CompetitionStandingsController;
 use App\Http\Controllers\Api\V1\GameController;
 use App\Http\Controllers\Api\V1\GroupController;
@@ -17,6 +18,7 @@ use App\Http\Controllers\Api\V1\GroupManualTiebreakController;
 use App\Http\Controllers\Api\V1\GroupPlayerController;
 use App\Http\Controllers\Api\V1\GroupPlayerStatusController;
 use App\Http\Controllers\Api\V1\GroupPrintController;
+use App\Http\Controllers\Api\V1\GroupPrintPdfController;
 use App\Http\Controllers\Api\V1\GroupRandomGenerateController;
 use App\Http\Controllers\Api\V1\GroupRandomRegenerateController;
 use App\Http\Controllers\Api\V1\GroupRoundRobinGameController;
@@ -139,6 +141,8 @@ Route::prefix(config('api.version_prefix', 'v1'))
             ->name('competitions.groups.index');
         Route::get('competitions/{competition}/groups/print', CompetitionGroupsPrintController::class)
             ->name('competitions.groups.print');
+        Route::get('competitions/{competition}/groups/print/pdf', CompetitionGroupsPrintPdfController::class)
+            ->name('competitions.groups.print.pdf');
         Route::middleware(['auth.keycloak', 'permission:groups.manage'])
             ->post('competitions/{competition}/groups', [GroupController::class, 'store'])
             ->name('competitions.groups.store');
@@ -153,6 +157,8 @@ Route::prefix(config('api.version_prefix', 'v1'))
             ->name('groups.players.index');
         Route::get('groups/{group}/print', [GroupPrintController::class, 'show'])
             ->name('groups.print.show');
+        Route::get('groups/{group}/print/pdf', GroupPrintPdfController::class)
+            ->name('groups.print.pdf');
         Route::middleware(['auth.keycloak', 'permission:groups.manage'])
             ->post('groups/{group}/players', [GroupPlayerController::class, 'store'])
             ->name('groups.players.store');

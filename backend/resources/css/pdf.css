@@ -1,0 +1,147 @@
+body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    color: #111;
+    font-family: "DejaVu Sans", sans-serif;
+    font-size: 10pt;
+}
+
+@page {
+    margin: 12mm 10mm 16mm 10mm;
+}
+
+.pdf-sheet {
+    background: #fff;
+    color: #111;
+    page-break-inside: avoid;
+}
+
+.pdf-sheet--break {
+    page-break-after: always;
+}
+
+.print-title {
+    margin: 0 0 6pt;
+    font-size: 14pt;
+    font-weight: bold;
+}
+
+.print-kicker {
+    margin: 0 0 4pt;
+    font-size: 8pt;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #333;
+}
+
+.print-meta {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 10pt;
+    font-size: 8.5pt;
+}
+
+.print-meta td {
+    width: 20%;
+    vertical-align: top;
+    padding: 0 8pt 4pt 0;
+    border: none;
+}
+
+.print-meta-label {
+    font-size: 7pt;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #444;
+}
+
+.print-meta-value {
+    font-weight: bold;
+}
+
+.print-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+    font-size: 8pt;
+}
+
+.print-table th,
+.print-table td {
+    border: 1px solid #222;
+    padding: 3pt 3pt;
+    vertical-align: middle;
+    background: #fff;
+    color: #111;
+}
+
+.print-table thead th {
+    background: #f3f3f3;
+    font-weight: bold;
+    text-align: center;
+}
+
+.print-table tbody tr {
+    page-break-inside: avoid;
+}
+
+.print-col-order,
+.print-col-round,
+.print-col-score,
+.print-col-result {
+    width: 18pt;
+}
+
+.print-col-notes {
+    width: 48pt;
+}
+
+.print-center,
+.print-score-cell,
+.print-result-cell {
+    text-align: center;
+}
+
+.print-score-cell,
+.print-result-cell,
+.print-notes-cell {
+    height: 16pt;
+    min-width: 14pt;
+}
+
+.print-name {
+    white-space: pre-line;
+}
+
+.print-missing-ref {
+    display: block;
+    text-align: center;
+    font-weight: bold;
+}
+
+.print-ref-line {
+    display: block;
+    border-bottom: 1px solid #111;
+    height: 8pt;
+    margin-top: 1pt;
+}
+
+.print-footer {
+    margin-top: 8pt;
+    font-size: 8.5pt;
+}
+
+.print-footer p {
+    margin: 0 0 4pt;
+}
+
+.print-notes-block {
+    border: 1px solid #222;
+    height: 22pt;
+    margin-bottom: 8pt;
+}
+
+.print-sign {
+    margin-top: 6pt;
+}
