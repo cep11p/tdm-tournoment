@@ -28,6 +28,52 @@ final class PrintPdfFilename
         );
     }
 
+    public static function teamTie(
+        string $side1Name,
+        ?string $side2Name,
+        bool $isBye,
+        int $teamTieId,
+    ): string {
+        $fallback = 'enfrentamiento-'.$teamTieId;
+        $side1Slug = self::usableSlug($side1Name);
+        $side2Slug = self::usableSlug((string) $side2Name);
+
+        if ($isBye) {
+            return self::compose(
+                name: $side1Name,
+                prefixed: static fn (string $slug): string => 'enfrentamiento-'.$slug.'-bye',
+                fallback: $fallback,
+            );
+        }
+
+        if ($side1Slug === '' || $side2Slug === '') {
+            if ($side1Slug === '') {
+                return $fallback.'.pdf';
+            }
+
+            return self::compose(
+                name: $side1Name,
+                prefixed: static fn (string $slug): string => 'enfrentamiento-'.$slug,
+                fallback: $fallback,
+            );
+        }
+
+        return self::compose(
+            name: trim($side1Name).' vs '.trim((string) $side2Name),
+            prefixed: static fn (string $slug): string => 'enfrentamiento-'.$slug,
+            fallback: $fallback,
+        );
+    }
+
+    private static function usableSlug(string $name): string
+    {
+        if (preg_match('/[\p{L}\p{N}]/u', $name) !== 1) {
+            return '';
+        }
+
+        return Str::slug($name, '-', 'es');
+    }
+
     /**
      * @param  callable(string): string  $prefixed
      */

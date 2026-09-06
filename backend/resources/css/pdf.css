@@ -145,3 +145,83 @@ body {
 .print-sign {
     margin-top: 6pt;
 }
+
+.print-format,
+.print-format-rule,
+.print-score,
+.print-winner {
+    margin: 0 0 3pt;
+    font-size: 9pt;
+}
+
+.print-score {
+    font-weight: bold;
+    margin-top: 6pt;
+}
+
+.print-winner {
+    font-weight: bold;
+}
+
+.print-bye {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12pt;
+}
+
+.print-bye td {
+    border: 1px solid #222;
+    padding: 10pt;
+}
+
+.print-bye-team {
+    margin: 0 0 4pt;
+    font-size: 12pt;
+    font-weight: bold;
+}
+
+.print-bye-badge {
+    margin: 0;
+    font-size: 10pt;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.print-empty {
+    margin: 10pt 0 0;
+    font-size: 9pt;
+}
+
+.print-team-tie-table {
+    margin-top: 10pt;
+}
+
+.print-col-type {
+    width: 18%;
+}
+
+.print-col-status {
+    width: 14%;
+}
+
+.print-name--winner {
+    font-weight: bold;
+}
+
+.print-check {
+    margin-left: 3pt;
+    font-weight: bold;
+}
+
+.print-check--faint,
+.print-row--secondary td {
+    color: #666;
+}
+
+.print-row--secondary td {
+    background: #f7f7f7;
+}
+
+.print-status {
+    white-space: nowrap;
+}

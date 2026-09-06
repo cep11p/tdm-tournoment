@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\V1\TeamTieController;
 use App\Http\Controllers\Api\V1\TeamTieFormatController;
 use App\Http\Controllers\Api\V1\TeamTieGameLineupController;
 use App\Http\Controllers\Api\V1\TeamTiePrintController;
+use App\Http\Controllers\Api\V1\TeamTiePrintPdfController;
 use App\Http\Controllers\Api\V1\TournamentController;
 use Illuminate\Support\Facades\Route;
 
@@ -192,6 +193,8 @@ Route::prefix(config('api.version_prefix', 'v1'))
         Route::get('team-ties/{team_tie}', [TeamTieController::class, 'show'])->name('team-ties.show');
         Route::get('team-ties/{team_tie}/print', TeamTiePrintController::class)
             ->name('team-ties.print');
+        Route::get('team-ties/{team_tie}/print/pdf', TeamTiePrintPdfController::class)
+            ->name('team-ties.print.pdf');
 
         Route::middleware(['auth.keycloak', 'permission:groups.manage'])
             ->post('team-tie-games/{team_tie_game}/lineup', [TeamTieGameLineupController::class, 'store'])

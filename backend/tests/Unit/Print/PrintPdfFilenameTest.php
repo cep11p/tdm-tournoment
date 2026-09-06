@@ -49,4 +49,43 @@ class PrintPdfFilenameTest extends TestCase
         $this->assertStringNotContainsString('\\', $filename);
         $this->assertLessThanOrEqual(PrintPdfFilename::MAX_BASENAME_LENGTH + 4, strlen($filename));
     }
+
+    public function test_team_tie_filename_uses_both_side_names(): void
+    {
+        $this->assertSame(
+            'enfrentamiento-andes-vs-patagonia.pdf',
+            PrintPdfFilename::teamTie('Andes', 'Patagonia', false, 12),
+        );
+    }
+
+    public function test_team_tie_bye_filename_uses_side_and_bye_suffix(): void
+    {
+        $this->assertSame(
+            'enfrentamiento-andes-bye.pdf',
+            PrintPdfFilename::teamTie('Andes', null, true, 12),
+        );
+    }
+
+    public function test_team_tie_filename_falls_back_to_id(): void
+    {
+        $this->assertSame(
+            'enfrentamiento-9.pdf',
+            PrintPdfFilename::teamTie('***', '@@@', false, 9),
+        );
+        $this->assertSame(
+            'enfrentamiento-9.pdf',
+            PrintPdfFilename::teamTie('   ', null, true, 9),
+        );
+    }
+
+    public function test_team_tie_filename_strips_path_characters_and_limits_length(): void
+    {
+        $long = str_repeat('Andes ', 40).'A';
+        $filename = PrintPdfFilename::teamTie($long, 'Patagonia/B', false, 1);
+
+        $this->assertStringEndsWith('.pdf', $filename);
+        $this->assertStringNotContainsString('/', $filename);
+        $this->assertStringNotContainsString('\\', $filename);
+        $this->assertLessThanOrEqual(PrintPdfFilename::MAX_BASENAME_LENGTH + 4, strlen($filename));
+    }
 }
