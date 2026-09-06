@@ -17,6 +17,14 @@ const TeamTieService = {
     const response = await httpClient.get(`/team-ties/${id}/print`)
     return unwrap(response) ?? null
   },
+
+  async downloadPrintPdf(teamTieId) {
+    return httpClient.get(`/team-ties/${teamTieId}/print/pdf`, {
+      params: { download: 1 },
+      responseType: 'blob',
+      timeout: 30000,
+    })
+  },
 }
 
 export default TeamTieService

@@ -28,6 +28,22 @@ const GroupService = {
     return unwrap(response) ?? null
   },
 
+  async downloadPrintPdf(groupId) {
+    return httpClient.get(`/groups/${groupId}/print/pdf`, {
+      params: { download: 1 },
+      responseType: 'blob',
+      timeout: 30000,
+    })
+  },
+
+  async downloadCompetitionGroupsPdf(competitionId) {
+    return httpClient.get(`/competitions/${competitionId}/groups/print/pdf`, {
+      params: { download: 1 },
+      responseType: 'blob',
+      timeout: 30000,
+    })
+  },
+
   async generateRoundRobin(groupId) {
     const response = await httpClient.post(`/groups/${groupId}/round-robin-games`)
     return unwrap(response) ?? []
