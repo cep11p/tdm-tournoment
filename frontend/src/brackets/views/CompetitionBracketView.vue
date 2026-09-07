@@ -841,16 +841,14 @@ onMounted(loadData)
           <p class="font-medium text-slate-700 dark:text-slate-200">Rondas eliminatorias</p>
 
           <div class="flex flex-wrap items-center gap-2">
-            <a
+            <RouterLink
               v-if="hasBracket"
-              :href="`/competitions/${competitionId}/bracket/print`"
-              target="_blank"
-              rel="noopener noreferrer"
+              :to="`/competitions/${competitionId}/bracket/print`"
               class="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               <PrinterIcon class="h-4 w-4" />
               Imprimir llave
-            </a>
+            </RouterLink>
             <button
               v-if="canGenerateNextRound"
               type="button"

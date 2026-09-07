@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
@@ -211,14 +211,12 @@ onMounted(loadTeamTie)
           >
             {{ statusLabel }}
           </span>
-          <a
-            :href="printHref"
-            target="_blank"
-            rel="noopener noreferrer"
+          <RouterLink
+            :to="printHref"
             class="ml-auto rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             Imprimir encuentro
-          </a>
+          </RouterLink>
         </div>
 
         <template v-if="isBye">

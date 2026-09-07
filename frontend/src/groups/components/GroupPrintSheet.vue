@@ -263,12 +263,6 @@ const resolvedOrientation = computed(() => {
   margin-top: 0.5rem;
 }
 
-@media screen {
-  .print-sheet {
-    box-shadow: 0 1px 10px rgb(0 0 0 / 0.12);
-  }
-}
-
 @media (min-width: 720px) {
   .print-meta {
     grid-template-columns: repeat(5, minmax(0, 1fr));

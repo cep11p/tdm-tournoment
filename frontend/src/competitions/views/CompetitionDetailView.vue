@@ -328,7 +328,10 @@ const canPrintAllGroups = computed(() => {
   )
 })
 
-const printAllGroupsHref = computed(() => `/competitions/${competitionId.value}/groups/print`)
+const printAllGroupsRoute = computed(() => ({
+  name: 'competitions-groups-print',
+  params: { id: String(competitionId.value) },
+}))
 
 const groupPhasePrimaryBadgeClasses = (type) => {
   switch (type) {
@@ -928,16 +931,14 @@ const handleEditCompetitionSaved = async () => {
               }}
             </p>
 
-            <a
+            <RouterLink
               v-if="canPrintAllGroups"
-              :href="printAllGroupsHref"
-              target="_blank"
-              rel="noopener noreferrer"
+              :to="printAllGroupsRoute"
               class="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               <PrinterIcon class="h-4 w-4" />
               Imprimir todos los grupos
-            </a>
+            </RouterLink>
 
             <div class="space-y-3">
               <article

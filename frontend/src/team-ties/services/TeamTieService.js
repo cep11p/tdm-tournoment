@@ -1,4 +1,5 @@
 import httpClient from '../../services/httpClient'
+import { buildApiUrl } from '../../shared/utils/downloadFileUrl'
 
 const unwrap = (response) => response?.data?.data
 
@@ -18,12 +19,8 @@ const TeamTieService = {
     return unwrap(response) ?? null
   },
 
-  async downloadPrintPdf(teamTieId) {
-    return httpClient.get(`/team-ties/${teamTieId}/print/pdf`, {
-      params: { download: 1 },
-      responseType: 'blob',
-      timeout: 30000,
-    })
+  printPdfDownloadUrl(teamTieId) {
+    return buildApiUrl(`/team-ties/${teamTieId}/print/pdf?download=1`)
   },
 }
 

@@ -193,7 +193,7 @@ const handleLogout = async () => {
 
         <main
           class="min-w-0 flex-1"
-          :class="isPrintView ? 'bg-slate-200 p-4 print:bg-white print:p-0' : 'bg-slate-100 p-4 dark:bg-slate-950 md:p-6'"
+          :class="isPrintView ? 'bg-slate-100 p-4 dark:bg-slate-950 print:bg-white print:p-0' : 'bg-slate-100 p-4 dark:bg-slate-950 md:p-6'"
         >
           <slot />
         </main>

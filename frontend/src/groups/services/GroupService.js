@@ -1,4 +1,5 @@
 import httpClient from '../../services/httpClient'
+import { buildApiUrl } from '../../shared/utils/downloadFileUrl'
 
 const unwrap = (response) => response?.data?.data
 
@@ -28,20 +29,12 @@ const GroupService = {
     return unwrap(response) ?? null
   },
 
-  async downloadPrintPdf(groupId) {
-    return httpClient.get(`/groups/${groupId}/print/pdf`, {
-      params: { download: 1 },
-      responseType: 'blob',
-      timeout: 30000,
-    })
+  printPdfDownloadUrl(groupId) {
+    return buildApiUrl(`/groups/${groupId}/print/pdf?download=1`)
   },
 
-  async downloadCompetitionGroupsPdf(competitionId) {
-    return httpClient.get(`/competitions/${competitionId}/groups/print/pdf`, {
-      params: { download: 1 },
-      responseType: 'blob',
-      timeout: 30000,
-    })
+  competitionGroupsPdfDownloadUrl(competitionId) {
+    return buildApiUrl(`/competitions/${competitionId}/groups/print/pdf?download=1`)
   },
 
   async generateRoundRobin(groupId) {

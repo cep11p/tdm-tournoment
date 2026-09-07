@@ -772,15 +772,13 @@ onMounted(async () => {
       <div class="flex items-center gap-3">
         <AppBackButton :fallback-to="competitionId ? `/competitions/${competitionId}` : '/competitions'" />
 
-        <a
+        <RouterLink
           v-if="hasGroupGames && !isTeam"
-          :href="printGroupHref"
-          target="_blank"
-          rel="noopener noreferrer"
+          :to="printGroupHref"
           class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
         >
           Imprimir grupo
-        </a>
+        </RouterLink>
 
         <RouterLink
           v-if="hasGroupSchedule || standings.length > 0"
