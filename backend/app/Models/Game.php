@@ -6,10 +6,10 @@ use App\Enums\BracketGamePurpose;
 use App\Enums\GameStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
 /**
@@ -70,6 +70,11 @@ class Game extends Model
     public function teamTieGame(): HasOne
     {
         return $this->hasOne(TeamTieGame::class);
+    }
+
+    public function playingTable(): BelongsTo
+    {
+        return $this->belongsTo(PlayingTable::class);
     }
 
     public function competition(): BelongsTo

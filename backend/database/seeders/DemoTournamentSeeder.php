@@ -23,6 +23,8 @@ class DemoTournamentSeeder extends Seeder
             TournamentStatus::InProgress,
         );
 
+        $runner->ensurePlayingTables($tournament);
+
         (new SinglesRegistrationScenario($runner))->seed($tournament);
         (new SinglesGroupsInProgressScenario($runner, $results))->seed($tournament);
         (new SinglesKnockoutInProgressScenario($runner, $results))->seed($tournament);

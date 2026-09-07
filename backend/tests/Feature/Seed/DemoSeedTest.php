@@ -16,6 +16,7 @@ use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupEntry;
 use App\Models\Player;
+use App\Models\PlayingTable;
 use App\Models\Ranking;
 use App\Models\RankingStanding;
 use App\Models\RankingTransaction;
@@ -27,6 +28,7 @@ use App\Support\Group\GroupStandingsResolver;
 use Database\Seeders\DemoArchivedTournamentSeeder;
 use Database\Seeders\DemoPlayersSeeder;
 use Database\Seeders\DemoTournamentSeeder;
+use Database\Seeders\RankingSeeder;
 use Database\Seeders\Support\DemoPlayerCatalog;
 use Database\Seeders\Support\DemoScenarioRunner;
 use Database\Seeders\Support\Scenarios\DoublesCompletedScenario;
@@ -35,7 +37,6 @@ use Database\Seeders\Support\Scenarios\SinglesGroupsInProgressScenario;
 use Database\Seeders\Support\Scenarios\SinglesKnockoutInProgressScenario;
 use Database\Seeders\Support\Scenarios\SinglesRegistrationScenario;
 use Database\Seeders\Support\Scenarios\TeamKnockoutInProgressScenario;
-use Database\Seeders\RankingSeeder;
 use Database\Seeders\TeamTieFormatSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
@@ -95,6 +96,35 @@ class DemoSeedTest extends TestCase
 
         $this->assertSame(TournamentStatus::Finished, $tournament->status);
         $this->assertNotNull($tournament->closed_at);
+    }
+
+    public function test_active_tournament_has_four_unassigned_playing_tables(): void
+    {
+        $tournament = Tournament::query()
+            ->where('name', DemoScenarioRunner::TOURNAMENT_ACTIVE)
+            ->firstOrFail();
+
+        $tables = $tournament->playingTables()->get();
+
+        $this->assertCount(DemoScenarioRunner::PLAYING_TABLE_COUNT, $tables);
+        $this->assertSame([1, 2, 3, 4], $tables->pluck('number')->all());
+        $this->assertSame([1, 2, 3, 4], $tables->pluck('sort_order')->all());
+        $this->assertTrue($tables->every(fn (PlayingTable $table): bool => $table->active));
+        $this->assertTrue($tables->every(fn (PlayingTable $table): bool => $table->name === null));
+        $this->assertSame(
+            ['Mesa 1', 'Mesa 2', 'Mesa 3', 'Mesa 4'],
+            $tables->map(fn (PlayingTable $table): string => $table->displayName())->all(),
+        );
+        $this->assertSame(0, Game::query()->whereNotNull('playing_table_id')->count());
+    }
+
+    public function test_archived_tournament_does_not_receive_playing_tables(): void
+    {
+        $tournament = Tournament::query()
+            ->where('name', DemoScenarioRunner::TOURNAMENT_ARCHIVED)
+            ->firstOrFail();
+
+        $this->assertSame(0, $tournament->playingTables()->count());
     }
 
     public function test_singles_registration_has_eight_entries_without_groups(): void

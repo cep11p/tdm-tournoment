@@ -15,6 +15,7 @@ use App\Models\CompetitionEntry;
 use App\Models\Game;
 use App\Models\Group;
 use App\Models\Player;
+use App\Models\PlayingTable;
 use App\Models\Tournament;
 use Illuminate\Support\Carbon;
 
@@ -23,6 +24,8 @@ final class DemoScenarioRunner
     public const TOURNAMENT_ACTIVE = 'Torneo Demo TDM';
 
     public const TOURNAMENT_ARCHIVED = 'Torneo Demo TDM — Finalizado';
+
+    public const PLAYING_TABLE_COUNT = 4;
 
     public function __construct(
         private readonly CreateTournamentAction $createTournament,
@@ -47,6 +50,23 @@ final class DemoScenarioRunner
             'start_date' => Carbon::today()->toDateString(),
             'status' => $status,
         ]);
+    }
+
+    public function ensurePlayingTables(Tournament $tournament, int $count = self::PLAYING_TABLE_COUNT): void
+    {
+        for ($number = 1; $number <= $count; $number++) {
+            PlayingTable::query()->firstOrCreate(
+                [
+                    'tournament_id' => $tournament->id,
+                    'number' => $number,
+                ],
+                [
+                    'name' => null,
+                    'active' => true,
+                    'sort_order' => $number,
+                ],
+            );
+        }
     }
 
     public function findOrCreateCompetition(Tournament $tournament, DemoCompetitionConfig $config): Competition

@@ -74,6 +74,39 @@ Representa un torneo general.
 
 Un torneo puede contener una o más competencias.
 
+Un torneo puede tener un catálogo de mesas físicas (`PlayingTable`). La asignación de partidos a mesas y el scheduling automático quedan fuera de esta etapa.
+
+#### PlayingTable
+
+Representa una mesa física del recinto, perteneciente a un `Tournament`.
+
+| Campo         | Tipo     | Descripción |
+|---------------|----------|-------------|
+| id            | bigint   | Identificador único. |
+| tournament_id | bigint   | FK a Tournament. |
+| number        | int      | Número de mesa dentro del torneo. Unique junto con `tournament_id`. |
+| name          | string   | Nombre opcional (ej. "Mesa Central"). Si es null, el display es `Mesa {number}`. |
+| active        | boolean  | Si la mesa está disponible para asignación. Default: true. |
+| sort_order    | int      | Orden de listado. En el seed demo coincide con `number`. |
+
+Display (`PlayingTable::displayName()`):
+
+- si `name` tiene texto → `name`
+- si no → `Mesa {number}`
+
+Restricciones:
+
+- `unique(tournament_id, number)`: el mismo número no se repite dentro de un torneo; sí puede repetirse entre torneos.
+- `games.playing_table_id` es unique y nullable: una mesa no puede estar asignada a dos `Game` a la vez; muchos partidos pueden no tener mesa (`NULL` permitido en MariaDB y SQLite).
+
+La unidad asignable es siempre `Game` (singles, doubles o rubber de `TeamTie`). `TeamTie` no tiene `playing_table_id`.
+
+Asignar `playing_table_id` **no** cambia `Game.status`. El primer set sigue siendo lo que pasa el partido a `in_progress`.
+
+Invariante de consistencia (aún no enforced en persistencia): la mesa y el `Game` deben pertenecer al mismo torneo (`Game → Competition → Tournament`). Esa validación corresponde a la action de asignación, no a un observer.
+
+`games.table_number` es un stub legacy (nullable, sin catálogo ni unicidad). No se usa para la relación nueva y no se migra automáticamente.
+
 #### Cierre administrativo del torneo
 
 `Tournament.status = finished` representa un **cierre administrativo explícito**, no la finalización deportiva automática de las competencias.
@@ -452,7 +485,8 @@ Representa un partido entre dos jugadores dentro de una competencia.
 | bracket_round  | int        | Número de ronda en bracket (nullable).             |
 | bracket_match  | int        | Número de partido dentro de la ronda (nullable).   |
 | bracket_purpose | enum      | `main` (llave principal) o `third_place` (partido por tercer puesto). Default: `main`. El tercer puesto usa `bracket_round = null` y no participa en el árbol principal. |
-| table_number   | int        | Número de mesa (nullable, sin scheduling automático). |
+| table_number   | int        | **Legacy.** Número suelto de mesa (nullable, sin catálogo ni scheduling). No usar para asignaciones nuevas; la relación vigente es `playing_table_id`. |
+| playing_table_id | bigint   | FK nullable a `PlayingTable`. Unique: a lo sumo un `Game` ocupa una mesa. |
 
 Un partido puede pertenecer al flujo manual, a grupos o a bracket.
 
@@ -484,7 +518,12 @@ El ganador de cada set se deriva dinámicamente de `player1_score` vs `player2_s
 
 ```
 Tournament
-  └── hasMany Competition
+  ├── hasMany Competition
+  └── hasMany PlayingTable
+
+PlayingTable
+  ├── belongsTo Tournament
+  └── hasMany Game
 
 Competition
   ├── belongsTo Tournament
@@ -533,6 +572,7 @@ Game
   ├── belongsTo Competition
   ├── belongsTo Group (nullable)
   ├── belongsTo Bracket (nullable)
+  ├── belongsTo PlayingTable (nullable)
   ├── belongsTo Player (player1)
   ├── belongsTo Player (player2)
   ├── belongsTo Player (winner)
