@@ -13,7 +13,13 @@ class CompetitionEntryMember extends Model
     {
         return [
             'member_order' => 'integer',
+            'checked_in_at' => 'datetime',
         ];
+    }
+
+    public function isCheckedIn(): bool
+    {
+        return $this->checked_in_at !== null;
     }
 
     public function competitionEntry(): BelongsTo

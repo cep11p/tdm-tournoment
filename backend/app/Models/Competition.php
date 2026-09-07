@@ -6,9 +6,9 @@ use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
 use App\Enums\ThirdPlaceMode;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Model;
 
 class Competition extends Model
 {
@@ -73,6 +73,11 @@ class Competition extends Model
     public function entries(): HasMany
     {
         return $this->hasMany(CompetitionEntry::class);
+    }
+
+    public function members(): HasMany
+    {
+        return $this->hasMany(CompetitionEntryMember::class);
     }
 
     public function games(): HasMany

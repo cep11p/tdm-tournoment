@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\ClubController;
 use App\Http\Controllers\Api\V1\CompetitionBracketController;
 use App\Http\Controllers\Api\V1\CompetitionBracketPrintController;
+use App\Http\Controllers\Api\V1\CompetitionCheckInController;
 use App\Http\Controllers\Api\V1\CompetitionController;
 use App\Http\Controllers\Api\V1\CompetitionFinalStandingsController;
 use App\Http\Controllers\Api\V1\CompetitionGroupsPrintController;
@@ -151,6 +152,19 @@ Route::prefix(config('api.version_prefix', 'v1'))
         Route::middleware(['auth.keycloak', 'permission:registrations.manage'])
             ->post('competitions/{competition}/registrations/bulk', [RegistrationController::class, 'bulkStore'])
             ->name('competitions.registrations.bulk');
+
+        Route::get('competitions/{competition}/check-in', [CompetitionCheckInController::class, 'show'])
+            ->name('competitions.check-in.show');
+        Route::middleware(['auth.keycloak', 'permission:registrations.manage'])
+            ->scopeBindings()
+            ->group(function (): void {
+                Route::post('competitions/{competition}/check-in/members/{member}', [CompetitionCheckInController::class, 'store'])
+                    ->name('competitions.check-in.members.store');
+                Route::delete('competitions/{competition}/check-in/members/{member}', [CompetitionCheckInController::class, 'destroy'])
+                    ->name('competitions.check-in.members.destroy');
+                Route::post('competitions/{competition}/check-in/bulk', [CompetitionCheckInController::class, 'bulk'])
+                    ->name('competitions.check-in.bulk');
+            });
 
         Route::get('competitions/{competition}/groups', [GroupController::class, 'index'])
             ->name('competitions.groups.index');

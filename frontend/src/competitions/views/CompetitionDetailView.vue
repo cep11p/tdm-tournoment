@@ -36,6 +36,7 @@ import {
   participantPlural,
 } from '../../shared/constants/competitionType'
 import CompetitionContextHint from '../components/CompetitionContextHint.vue'
+import CompetitionCheckInSection from '../components/CompetitionCheckInSection.vue'
 import CompetitionFormModal from '../components/CompetitionFormModal.vue'
 import CompetitionParticipantsModal from '../components/CompetitionParticipantsModal.vue'
 import CompetitionPodiumSummary from '../components/CompetitionPodiumSummary.vue'
@@ -836,6 +837,11 @@ const handleEditCompetitionSaved = async () => {
           />
         </span>
       </button>
+
+      <CompetitionCheckInSection
+        :competition-id="competitionId"
+        :can-manage="canManageRegistrations"
+      />
 
       <div
         v-if="hasGroupStage"
