@@ -1,5 +1,5 @@
 <script setup>
-import { CheckCircleIcon, MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
+import { CheckCircleIcon, ChevronDownIcon, MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
 
 import CompetitionContextHint from './CompetitionContextHint.vue'
@@ -24,7 +24,13 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  expanded: {
+    type: Boolean,
+    default: false,
+  },
 })
+
+const emit = defineEmits(['toggle', 'summary-change'])
 
 const payload = ref(null)
 const isLoading = ref(false)
@@ -48,8 +54,30 @@ const summaryLabel = computed(() => {
   const present = summary.value.checked_in_members
   const pending = summary.value.pending_members
 
+  if (pending === 0) {
+    return `${present} presente${present === 1 ? '' : 's'}`
+  }
+
   return `${present} presente${present === 1 ? '' : 's'} · ${pending} pendiente${pending === 1 ? '' : 's'}`
 })
+
+const pendingBadgeLabel = computed(() => {
+  const pending = summary.value?.pending_members ?? 0
+
+  if (pending <= 0) {
+    return null
+  }
+
+  return `${pending} pendiente${pending === 1 ? '' : 's'}`
+})
+
+const emitSummary = () => {
+  emit('summary-change', {
+    pendingMembers: summary.value?.pending_members ?? 0,
+    checkedInMembers: summary.value?.checked_in_members ?? 0,
+    tournamentFinished: tournamentFinished.value,
+  })
+}
 
 const visibleEntries = computed(() => {
   const entries = payload.value?.entries ?? []
@@ -71,9 +99,15 @@ const loadCheckIn = async () => {
 
   try {
     payload.value = await CompetitionCheckInService.get(props.competitionId)
+    emitSummary()
   } catch (error) {
     errorMessage.value = extractApiErrorMessage(error, 'No se pudo cargar el check-in.')
     payload.value = null
+    emit('summary-change', {
+      pendingMembers: 0,
+      checkedInMembers: 0,
+      tournamentFinished: false,
+    })
   } finally {
     isLoading.value = false
   }
@@ -115,6 +149,7 @@ const toggleMember = async (entry, member) => {
       : await CompetitionCheckInService.undoCheckIn(props.competitionId, member.id)
 
     payload.value = applyMemberCheckIn(payload.value, member.id, saved)
+    emitSummary()
   } catch (error) {
     payload.value = previous
     actionError.value = extractApiErrorMessage(error, 'No se pudo actualizar el check-in.')
@@ -152,6 +187,7 @@ const runBulk = async (action) => {
       action === 'mark_all_present'
         ? await CompetitionCheckInService.markAllPresent(props.competitionId)
         : await CompetitionCheckInService.clearAll(props.competitionId)
+    emitSummary()
   } catch (error) {
     actionError.value = extractApiErrorMessage(error, 'No se pudo actualizar el check-in.')
   } finally {
@@ -174,25 +210,44 @@ const availabilityBadgeClasses = (kind) => {
 
 <template>
   <section class="overflow-hidden rounded-md border border-slate-200 bg-white text-sm dark:border-slate-700 dark:bg-slate-900">
-    <div class="flex items-start gap-3 p-4">
+    <button
+      type="button"
+      class="flex w-full cursor-pointer items-start gap-3 p-4 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800/50"
+      :aria-expanded="expanded"
+      @click="emit('toggle')"
+    >
       <span
         class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-100 ring-1 ring-slate-200 dark:bg-slate-800/80 dark:ring-slate-600"
       >
         <CheckCircleIcon class="h-5 w-5 text-slate-600 dark:text-slate-300" />
       </span>
 
-      <div class="min-w-0 flex-1">
-        <h2 class="font-medium text-slate-900 dark:text-slate-100">Check-in</h2>
-        <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-          Presencia operativa de esta competencia
-        </p>
-        <p v-if="summary" class="mt-1 text-xs font-medium text-slate-700 dark:text-slate-300">
+      <span class="min-w-0 flex-1">
+        <span class="flex flex-wrap items-center gap-2">
+          <span class="font-medium text-slate-900 dark:text-slate-100">Check-in</span>
+          <span
+            v-if="pendingBadgeLabel"
+            class="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/60 dark:text-amber-200"
+          >
+            {{ pendingBadgeLabel }}
+          </span>
+        </span>
+        <span v-if="summary" class="mt-0.5 block text-xs font-medium text-slate-700 dark:text-slate-300">
           {{ summaryLabel }}
-        </p>
-      </div>
-    </div>
+        </span>
+        <span v-else-if="isLoading" class="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
+          Cargando check-in...
+        </span>
+      </span>
 
-    <div class="space-y-3 border-t border-slate-200 px-4 py-4 dark:border-slate-700">
+      <ChevronDownIcon
+        class="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200"
+        :class="expanded ? 'rotate-180' : ''"
+        aria-hidden="true"
+      />
+    </button>
+
+    <div v-show="expanded" class="space-y-3 border-t border-slate-200 px-4 py-4 dark:border-slate-700">
       <CompetitionContextHint
         v-if="tournamentFinished"
         message="El check-in no se puede modificar porque el torneo está finalizado."

@@ -46,23 +46,23 @@ final class SinglesGroupsInProgressScenario
             ),
         );
 
-        if ($this->runner->competitionHasSchedule($competition)) {
-            return;
+        if (! $this->runner->competitionHasSchedule($competition)) {
+            $entries = $this->runner->registerAllSinglesPlayers($competition);
+
+            $groupA = $this->runner->findOrCreateGroup($competition, 'Grupo A');
+            $groupB = $this->runner->findOrCreateGroup($competition, 'Grupo B');
+
+            $this->runner->assignEntriesToGroup($groupA, $this->runner->entriesForNicknames($entries, self::GROUP_A_NICKNAMES));
+            $this->runner->assignEntriesToGroup($groupB, $this->runner->entriesForNicknames($entries, self::GROUP_B_NICKNAMES));
+
+            $this->runner->generateGroupRoundRobinIfNeeded($groupA);
+            $this->runner->generateGroupRoundRobinIfNeeded($groupB);
+
+            $this->finishPartialGroupA($groupA);
+            $this->finishGroupBWithManualTiebreak($groupB, $entries);
         }
 
-        $entries = $this->runner->registerAllSinglesPlayers($competition);
-
-        $groupA = $this->runner->findOrCreateGroup($competition, 'Grupo A');
-        $groupB = $this->runner->findOrCreateGroup($competition, 'Grupo B');
-
-        $this->runner->assignEntriesToGroup($groupA, $this->runner->entriesForNicknames($entries, self::GROUP_A_NICKNAMES));
-        $this->runner->assignEntriesToGroup($groupB, $this->runner->entriesForNicknames($entries, self::GROUP_B_NICKNAMES));
-
-        $this->runner->generateGroupRoundRobinIfNeeded($groupA);
-        $this->runner->generateGroupRoundRobinIfNeeded($groupB);
-
-        $this->finishPartialGroupA($groupA);
-        $this->finishGroupBWithManualTiebreak($groupB, $entries);
+        $this->runner->syncAllMembersCheckedIn($competition, $tournament);
     }
 
     private function finishPartialGroupA(Group $group): void

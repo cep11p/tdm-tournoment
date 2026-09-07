@@ -21,6 +21,7 @@ use App\Models\Ranking;
 use App\Models\RankingStanding;
 use App\Models\RankingTransaction;
 use App\Models\TeamTie;
+use App\Models\TeamTieGame;
 use App\Models\Tournament;
 use App\Support\Competition\CompetitionResultResolver;
 use App\Support\Competition\CompetitionStatusResolver;
@@ -134,6 +135,112 @@ class DemoSeedTest extends TestCase
         $this->assertSame(8, $competition->entries()->count());
         $this->assertSame(0, $competition->groups()->count());
         $this->assertSame('no_groups', CompetitionStatusResolver::resolve($competition)['code']);
+    }
+
+    public function test_singles_registration_has_five_present_and_three_pending_without_games(): void
+    {
+        $competition = $this->competitionInActiveTournament(SinglesRegistrationScenario::COMPETITION_NAME);
+        $members = $this->membersForCompetition($competition);
+
+        $this->assertCount(8, $members);
+        $this->assertSame(0, Game::query()->where('competition_id', $competition->id)->count());
+
+        $presentNicknames = SinglesRegistrationScenario::checkedInNicknames();
+        $present = $members->filter(fn (CompetitionEntryMember $member): bool => $member->isCheckedIn());
+        $pending = $members->filter(fn (CompetitionEntryMember $member): bool => ! $member->isCheckedIn());
+
+        $this->assertCount(5, $present);
+        $this->assertCount(3, $pending);
+        $this->assertEqualsCanonicalizing(
+            $presentNicknames,
+            $present->map(fn (CompetitionEntryMember $member): string => (string) $member->player?->nickname)->all(),
+        );
+        $this->assertEqualsCanonicalizing(
+            array_values(array_diff(
+                array_map(
+                    fn (int $seed): string => DemoPlayerCatalog::nicknameForSeed($seed),
+                    DemoPlayerCatalog::SINGLES_SEEDS,
+                ),
+                $presentNicknames,
+            )),
+            $pending->map(fn (CompetitionEntryMember $member): string => (string) $member->player?->nickname)->all(),
+        );
+
+        $checkedInAt = $present->first()?->checked_in_at;
+        $this->assertNotNull($checkedInAt);
+        $this->assertTrue(
+            $present->every(fn (CompetitionEntryMember $member): bool => $member->checked_in_at?->equalTo($checkedInAt)),
+        );
+    }
+
+    public function test_demo_games_with_activity_have_checked_in_entry_members(): void
+    {
+        Game::query()
+            ->with(['sets', 'entry1.members', 'entry2.members'])
+            ->get()
+            ->filter(fn (Game $game): bool => $this->gameHasActivity($game))
+            ->each(function (Game $game): void {
+                foreach ([$game->entry1, $game->entry2] as $entry) {
+                    if ($entry === null) {
+                        continue;
+                    }
+
+                    foreach ($entry->members as $member) {
+                        $this->assertNotNull(
+                            $member->checked_in_at,
+                            sprintf('Member %d of game %d should be checked in.', $member->id, $game->id),
+                        );
+                    }
+                }
+            });
+    }
+
+    public function test_demo_team_rubbers_with_activity_have_checked_in_lineup_members(): void
+    {
+        TeamTieGame::query()
+            ->with(['game.sets', 'members.competitionEntryMember'])
+            ->get()
+            ->filter(fn (TeamTieGame $rubber): bool => $rubber->game !== null && $this->gameHasActivity($rubber->game))
+            ->each(function (TeamTieGame $rubber): void {
+                $this->assertNotEmpty($rubber->members);
+
+                foreach ($rubber->members as $lineupMember) {
+                    $member = $lineupMember->competitionEntryMember;
+
+                    $this->assertNotNull($member);
+                    $this->assertNotNull(
+                        $member->checked_in_at,
+                        sprintf(
+                            'Lineup member %d of rubber %d should be checked in.',
+                            $lineupMember->id,
+                            $rubber->id,
+                        ),
+                    );
+                }
+            });
+    }
+
+    public function test_demo_in_progress_and_completed_scenarios_have_no_pending_check_in(): void
+    {
+        $competitions = [
+            $this->competitionInActiveTournament(SinglesGroupsInProgressScenario::COMPETITION_NAME),
+            $this->competitionInActiveTournament(SinglesKnockoutInProgressScenario::COMPETITION_NAME),
+            $this->competitionInActiveTournament(TeamKnockoutInProgressScenario::COMPETITION_NAME),
+            $this->competitionInArchivedTournament(SinglesCompletedScenario::COMPETITION_NAME),
+            $this->competitionInArchivedTournament(DoublesCompletedScenario::COMPETITION_NAME),
+        ];
+
+        foreach ($competitions as $competition) {
+            $pending = $this->membersForCompetition($competition)
+                ->filter(fn (CompetitionEntryMember $member): bool => ! $member->isCheckedIn())
+                ->count();
+
+            $this->assertSame(
+                0,
+                $pending,
+                sprintf('%s should have no pending check-in members.', $competition->name),
+            );
+        }
     }
 
     public function test_singles_groups_in_progress_has_partial_games_and_manual_tiebreak(): void
@@ -474,6 +581,32 @@ class DemoSeedTest extends TestCase
         $this->assertSame('pending', $finalPrint['rubbers'][2]['status']);
         $this->assertSame('pending', $finalPrint['rubbers'][3]['status']);
         $this->assertSame('pending', $finalPrint['rubbers'][4]['status']);
+    }
+
+    /**
+     * @return Collection<int, CompetitionEntryMember>
+     */
+    private function membersForCompetition(Competition $competition): Collection
+    {
+        return CompetitionEntryMember::query()
+            ->where('competition_id', $competition->id)
+            ->with('player:id,nickname')
+            ->get();
+    }
+
+    private function gameHasActivity(Game $game): bool
+    {
+        $status = $game->status instanceof GameStatus
+            ? $game->status
+            : GameStatus::from((string) $game->status);
+
+        if ($status === GameStatus::Finished || $status === GameStatus::InProgress) {
+            return true;
+        }
+
+        $sets = $game->relationLoaded('sets') ? $game->sets : $game->sets()->get();
+
+        return $sets->isNotEmpty();
     }
 
     private function competitionInActiveTournament(string $name): Competition

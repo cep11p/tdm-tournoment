@@ -98,20 +98,20 @@ final class TeamKnockoutInProgressScenario
             ),
         );
 
-        if ($this->runner->competitionHasBracket($competition)) {
-            return;
+        if (! $this->runner->competitionHasBracket($competition)) {
+            $entries = $this->registerTeams($competition);
+
+            $group = $this->runner->findOrCreateGroup($competition, self::GROUP_NAME);
+            $this->runner->assignEntriesToGroup($group, array_values($entries));
+            $this->runner->generateGroupRoundRobinIfNeeded($group);
+
+            $this->finishGroupTies($group->teamTies()->orderBy('id')->get(), $entries);
+
+            $this->results->createBracket($competition);
+            $this->seedFinalInProgress($competition, $entries);
         }
 
-        $entries = $this->registerTeams($competition);
-
-        $group = $this->runner->findOrCreateGroup($competition, self::GROUP_NAME);
-        $this->runner->assignEntriesToGroup($group, array_values($entries));
-        $this->runner->generateGroupRoundRobinIfNeeded($group);
-
-        $this->finishGroupTies($group->teamTies()->orderBy('id')->get(), $entries);
-
-        $this->results->createBracket($competition);
-        $this->seedFinalInProgress($competition, $entries);
+        $this->runner->syncAllMembersCheckedIn($competition, $tournament);
     }
 
     /**

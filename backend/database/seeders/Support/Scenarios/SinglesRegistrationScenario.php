@@ -12,6 +12,11 @@ final class SinglesRegistrationScenario
 {
     public const COMPETITION_NAME = 'Singles — Inscripción';
 
+    /**
+     * @var list<int>
+     */
+    public const CHECKED_IN_SEEDS = [1, 2, 3, 4, 5];
+
     public function __construct(
         private readonly DemoScenarioRunner $runner,
     ) {}
@@ -26,10 +31,25 @@ final class SinglesRegistrationScenario
             ),
         );
 
-        if ($competition->entries()->count() >= count(DemoPlayerCatalog::SINGLES_SEEDS)) {
-            return;
+        if ($competition->entries()->count() < count(DemoPlayerCatalog::SINGLES_SEEDS)) {
+            $this->runner->registerAllSinglesPlayers($competition);
         }
 
-        $this->runner->registerAllSinglesPlayers($competition);
+        $this->runner->syncMembersCheckedIn(
+            $competition,
+            $tournament,
+            self::checkedInNicknames(),
+        );
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function checkedInNicknames(): array
+    {
+        return array_map(
+            fn (int $seed): string => DemoPlayerCatalog::nicknameForSeed($seed),
+            self::CHECKED_IN_SEEDS,
+        );
     }
 }

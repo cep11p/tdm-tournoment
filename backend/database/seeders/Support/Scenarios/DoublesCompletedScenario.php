@@ -31,24 +31,24 @@ final class DoublesCompletedScenario
             ),
         );
 
-        if ($this->runner->competitionHasBracket($competition)) {
-            return;
+        if (! $this->runner->competitionHasBracket($competition)) {
+            $entries = $this->runner->registerDoublesPairs($competition);
+
+            $groupA = $this->runner->findOrCreateGroup($competition, 'Grupo A');
+            $groupB = $this->runner->findOrCreateGroup($competition, 'Grupo B');
+
+            $this->runner->assignEntriesToGroup($groupA, [$entries[1], $entries[2]]);
+            $this->runner->assignEntriesToGroup($groupB, [$entries[3], $entries[4]]);
+
+            $this->runner->generateGroupRoundRobinIfNeeded($groupA);
+            $this->runner->generateGroupRoundRobinIfNeeded($groupB);
+
+            $this->results->finishAllGroupGamesByBetterSeed($groupA);
+            $this->results->finishAllGroupGamesByBetterSeed($groupB);
+
+            $this->results->completeCompetitionBracket($competition);
         }
 
-        $entries = $this->runner->registerDoublesPairs($competition);
-
-        $groupA = $this->runner->findOrCreateGroup($competition, 'Grupo A');
-        $groupB = $this->runner->findOrCreateGroup($competition, 'Grupo B');
-
-        $this->runner->assignEntriesToGroup($groupA, [$entries[1], $entries[2]]);
-        $this->runner->assignEntriesToGroup($groupB, [$entries[3], $entries[4]]);
-
-        $this->runner->generateGroupRoundRobinIfNeeded($groupA);
-        $this->runner->generateGroupRoundRobinIfNeeded($groupB);
-
-        $this->results->finishAllGroupGamesByBetterSeed($groupA);
-        $this->results->finishAllGroupGamesByBetterSeed($groupB);
-
-        $this->results->completeCompetitionBracket($competition);
+        $this->runner->syncAllMembersCheckedIn($competition, $tournament);
     }
 }

@@ -44,30 +44,30 @@ final class SinglesKnockoutInProgressScenario
             ),
         );
 
-        if ($this->runner->competitionHasBracket($competition)) {
-            return;
+        if (! $this->runner->competitionHasBracket($competition)) {
+            $entries = $this->runner->registerAllSinglesPlayers($competition);
+
+            $groupA = $this->runner->findOrCreateGroup($competition, 'Grupo A');
+            $groupB = $this->runner->findOrCreateGroup($competition, 'Grupo B');
+
+            $this->runner->assignEntriesToGroup(
+                $groupA,
+                $this->runner->entriesForNicknames($entries, self::GROUP_A_NICKNAMES),
+            );
+            $this->runner->assignEntriesToGroup(
+                $groupB,
+                $this->runner->entriesForNicknames($entries, self::GROUP_B_NICKNAMES),
+            );
+
+            $this->runner->generateGroupRoundRobinIfNeeded($groupA);
+            $this->runner->generateGroupRoundRobinIfNeeded($groupB);
+
+            $this->results->finishAllGroupGamesByBetterSeed($groupA);
+            $this->results->finishAllGroupGamesByBetterSeed($groupB);
+
+            $this->results->createBracket($competition);
         }
 
-        $entries = $this->runner->registerAllSinglesPlayers($competition);
-
-        $groupA = $this->runner->findOrCreateGroup($competition, 'Grupo A');
-        $groupB = $this->runner->findOrCreateGroup($competition, 'Grupo B');
-
-        $this->runner->assignEntriesToGroup(
-            $groupA,
-            $this->runner->entriesForNicknames($entries, self::GROUP_A_NICKNAMES),
-        );
-        $this->runner->assignEntriesToGroup(
-            $groupB,
-            $this->runner->entriesForNicknames($entries, self::GROUP_B_NICKNAMES),
-        );
-
-        $this->runner->generateGroupRoundRobinIfNeeded($groupA);
-        $this->runner->generateGroupRoundRobinIfNeeded($groupB);
-
-        $this->results->finishAllGroupGamesByBetterSeed($groupA);
-        $this->results->finishAllGroupGamesByBetterSeed($groupB);
-
-        $this->results->createBracket($competition);
+        $this->runner->syncAllMembersCheckedIn($competition, $tournament);
     }
 }

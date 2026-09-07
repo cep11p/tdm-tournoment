@@ -12,6 +12,7 @@ use App\Enums\TournamentStatus;
 use App\Models\Category;
 use App\Models\Competition;
 use App\Models\CompetitionEntry;
+use App\Models\CompetitionEntryMember;
 use App\Models\Game;
 use App\Models\Group;
 use App\Models\Player;
@@ -101,6 +102,45 @@ final class DemoScenarioRunner
     public function competitionHasBracket(Competition $competition): bool
     {
         return $competition->brackets()->exists();
+    }
+
+    public function demoCheckInAt(Tournament $tournament): Carbon
+    {
+        return Carbon::parse($tournament->start_date)->setTime(8, 0);
+    }
+
+    /**
+     * Marks every member of the competition as present. Safe to run on re-seed.
+     */
+    public function syncAllMembersCheckedIn(Competition $competition, Tournament $tournament): void
+    {
+        $this->syncMembersCheckedIn($competition, $tournament, null);
+    }
+
+    /**
+     * @param  list<string>|null  $presentNicknames  null marks every member present
+     */
+    public function syncMembersCheckedIn(
+        Competition $competition,
+        Tournament $tournament,
+        ?array $presentNicknames,
+    ): void {
+        $checkedInAt = $this->demoCheckInAt($tournament);
+
+        $members = CompetitionEntryMember::query()
+            ->where('competition_id', $competition->id)
+            ->with('player:id,nickname')
+            ->get();
+
+        foreach ($members as $member) {
+            $nickname = $member->player?->nickname;
+            $present = $presentNicknames === null
+                || ($nickname !== null && in_array($nickname, $presentNicknames, true));
+
+            $member->forceFill([
+                'checked_in_at' => $present ? $checkedInAt : null,
+            ])->save();
+        }
     }
 
     /**
