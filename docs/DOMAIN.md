@@ -107,6 +107,17 @@ Invariante de consistencia (aún no enforced en persistencia): la mesa y el `Gam
 
 `games.table_number` es un stub legacy (nullable, sin catálogo ni unicidad). No se usa para la relación nueva y no se migra automáticamente.
 
+Administración del catálogo (`TABLES-2`):
+
+- Lectura pública: `GET /api/v1/tournaments/{tournament}/playing-tables`, ordenada por `sort_order` y `number`.
+- Mutaciones protegidas con `tournaments.manage`: crear, actualizar y eliminar mesas.
+- `number` es unique por torneo. El mensaje de validación es «Ya existe una mesa con ese número en el torneo.»
+- `name` es opcional: trim; string vacío → `null`. El `display_name` sigue siendo `name` o `Mesa {number}`.
+- `active` se persiste y las mesas inactivas siguen listándose. El guard que impide asignar un `Game` a una mesa inactiva corresponde a TABLES-3.
+- `DELETE` solo si ningún `Game` referencia la mesa. Si hay partido asociado responde 422; no se usa `nullOnDelete` como flujo normal.
+- Con torneo `finished`, GET sigue permitido; POST/PATCH/DELETE se bloquean con `TournamentLifecycleGuard`.
+- La asignación de `Game` a mesa, el tablero operativo y el scheduling automático quedan fuera de esta etapa.
+
 #### Cierre administrativo del torneo
 
 `Tournament.status = finished` representa un **cierre administrativo explícito**, no la finalización deportiva automática de las competencias.

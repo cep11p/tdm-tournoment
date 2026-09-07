@@ -21,8 +21,11 @@ import {
   getStructureSecondary,
 } from '../../competitions/utils/competitionListDisplay'
 import { getCompetitionTypeLabel } from '../../shared/constants/competitionType'
+import { extractApiErrorMessage } from '../../shared/utils/extractApiErrorMessage'
 import FinalizeTournamentModal from '../components/FinalizeTournamentModal.vue'
+import PlayingTableFormModal from '../components/PlayingTableFormModal.vue'
 import TournamentFormModal from '../components/TournamentFormModal.vue'
+import PlayingTableService from '../services/PlayingTableService'
 import TournamentService from '../services/TournamentService'
 import {
   getTournamentStatusBadgeClasses,
@@ -53,6 +56,10 @@ const closeSuccessMessage = ref('')
 const showFinalizeModal = ref(false)
 
 const isTournamentClosed = computed(() => tournament.value?.status === 'finished')
+
+const canManageTables = computed(
+  () => canManageTournaments.value && !isTournamentClosed.value,
+)
 
 const canCreateCompetition = computed(
   () => canManageCompetitions.value && !isTournamentClosed.value,
@@ -102,6 +109,26 @@ const competitions = ref([])
 const isLoadingCompetitions = ref(false)
 const competitionsErrorMessage = ref('')
 
+const playingTables = ref([])
+const isLoadingTables = ref(false)
+const tablesErrorMessage = ref('')
+const tableSuccessMessage = ref('')
+const tableActionError = ref('')
+const tableActionLoadingId = ref(null)
+const showTableModal = ref(false)
+const tableModalMode = ref('create')
+const editingTable = ref(null)
+
+const suggestedTableNumber = computed(() => {
+  const numbers = playingTables.value.map((table) => Number(table.number) || 0)
+
+  if (numbers.length === 0) {
+    return 1
+  }
+
+  return Math.max(...numbers) + 1
+})
+
 const addButtonClasses =
   'inline-flex rounded-md border border-emerald-300 bg-emerald-50 p-2 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/60'
 
@@ -145,8 +172,24 @@ const loadCompetitions = async () => {
   }
 }
 
+const loadPlayingTables = async () => {
+  isLoadingTables.value = true
+  tablesErrorMessage.value = ''
+
+  try {
+    playingTables.value = await PlayingTableService.list(route.params.id)
+  } catch (error) {
+    tablesErrorMessage.value = extractApiErrorMessage(
+      error,
+      'No se pudo cargar el listado de mesas.',
+    )
+  } finally {
+    isLoadingTables.value = false
+  }
+}
+
 onMounted(async () => {
-  await Promise.all([loadTournament(), loadCompetitions()])
+  await Promise.all([loadTournament(), loadCompetitions(), loadPlayingTables()])
 })
 
 const openEditModal = () => {
@@ -203,7 +246,75 @@ const handleFinalizeClose = () => {
 const handleFinalizeSaved = async () => {
   showFinalizeModal.value = false
   closeSuccessMessage.value = 'Torneo finalizado correctamente.'
-  await Promise.all([loadTournament(), loadCompetitions()])
+  await Promise.all([loadTournament(), loadCompetitions(), loadPlayingTables()])
+}
+
+const openCreateTableModal = () => {
+  tableModalMode.value = 'create'
+  editingTable.value = null
+  tableSuccessMessage.value = ''
+  tableActionError.value = ''
+  showTableModal.value = true
+}
+
+const openEditTableModal = (table) => {
+  tableModalMode.value = 'edit'
+  editingTable.value = table
+  tableSuccessMessage.value = ''
+  tableActionError.value = ''
+  showTableModal.value = true
+}
+
+const handleTableModalClose = () => {
+  showTableModal.value = false
+}
+
+const handleTableSaved = async () => {
+  showTableModal.value = false
+  tableSuccessMessage.value =
+    tableModalMode.value === 'create' ? 'Mesa creada correctamente.' : 'Mesa actualizada correctamente.'
+  tableActionError.value = ''
+  await loadPlayingTables()
+}
+
+const handleToggleTableActive = async (table) => {
+  tableActionLoadingId.value = table.id
+  tableActionError.value = ''
+  tableSuccessMessage.value = ''
+
+  try {
+    await PlayingTableService.update(route.params.id, table.id, { active: !table.active })
+    tableSuccessMessage.value = table.active
+      ? 'Mesa marcada como inactiva.'
+      : 'Mesa marcada como activa.'
+    await loadPlayingTables()
+  } catch (error) {
+    tableActionError.value = extractApiErrorMessage(error, 'No se pudo actualizar el estado de la mesa.')
+  } finally {
+    tableActionLoadingId.value = null
+  }
+}
+
+const handleDeleteTable = async (table) => {
+  const confirmed = window.confirm(`¿Eliminar ${table.display_name || `Mesa ${table.number}`}?`)
+
+  if (!confirmed) {
+    return
+  }
+
+  tableActionLoadingId.value = table.id
+  tableActionError.value = ''
+  tableSuccessMessage.value = ''
+
+  try {
+    await PlayingTableService.remove(route.params.id, table.id)
+    tableSuccessMessage.value = 'Mesa eliminada correctamente.'
+    await loadPlayingTables()
+  } catch (error) {
+    tableActionError.value = extractApiErrorMessage(error, 'No se pudo eliminar la mesa.')
+  } finally {
+    tableActionLoadingId.value = null
+  }
 }
 </script>
 
@@ -260,6 +371,17 @@ const handleFinalizeSaved = async () => {
       class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
     >
       {{ competitionSuccessMessage }}
+    </p>
+
+    <p
+      v-if="tableSuccessMessage"
+      class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
+    >
+      {{ tableSuccessMessage }}
+    </p>
+
+    <p v-if="tableActionError" class="text-sm text-red-600 dark:text-red-400">
+      {{ tableActionError }}
     </p>
 
     <p v-if="isLoading" class="text-sm text-slate-600 dark:text-slate-400">Cargando torneo...</p>
@@ -529,6 +651,150 @@ const handleFinalizeSaved = async () => {
           </table>
         </div>
       </div>
+
+      <div class="space-y-3">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Mesas del torneo</h2>
+            <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              Catálogo de mesas físicas de este torneo.
+            </p>
+          </div>
+          <AppTooltip v-if="canManageTables" label="Agregar mesa">
+            <button
+              type="button"
+              :class="addButtonClasses"
+              aria-label="Agregar mesa"
+              @click="openCreateTableModal"
+            >
+              <PlusIcon class="h-4 w-4" aria-hidden="true" />
+            </button>
+          </AppTooltip>
+        </div>
+
+        <p v-if="isLoadingTables" class="text-sm text-slate-600 dark:text-slate-400">
+          Cargando mesas...
+        </p>
+        <p v-else-if="tablesErrorMessage" class="text-sm text-red-600 dark:text-red-400">
+          {{ tablesErrorMessage }}
+        </p>
+
+        <div
+          v-else-if="playingTables.length === 0"
+          class="rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
+        >
+          <p class="text-slate-600 dark:text-slate-300">
+            Este torneo todavía no tiene mesas cargadas.
+          </p>
+          <AppTooltip v-if="canManageTables" label="Agregar mesa">
+            <button
+              type="button"
+              :class="['mt-3', addButtonClasses]"
+              aria-label="Agregar mesa"
+              @click="openCreateTableModal"
+            >
+              <PlusIcon class="h-4 w-4" aria-hidden="true" />
+            </button>
+          </AppTooltip>
+        </div>
+
+        <div
+          v-else
+          class="w-full overflow-hidden rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+        >
+          <table class="w-full divide-y divide-slate-200 dark:divide-slate-700">
+            <thead class="bg-slate-50 dark:bg-slate-800">
+              <tr>
+                <th
+                  class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
+                >
+                  Mesa
+                </th>
+                <th
+                  class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
+                >
+                  Estado
+                </th>
+                <th
+                  v-if="canManageTables"
+                  class="w-56 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
+                >
+                  Acciones
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 bg-white dark:divide-slate-700 dark:bg-slate-900">
+              <tr
+                v-for="table in playingTables"
+                :key="table.id"
+                class="hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                <td class="px-4 py-3 text-sm">
+                  <p class="font-medium text-slate-900 dark:text-slate-100">
+                    {{ table.display_name }}
+                  </p>
+                  <p
+                    v-if="table.name"
+                    class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
+                  >
+                    Mesa {{ table.number }}
+                  </p>
+                </td>
+                <td class="px-4 py-3 text-sm">
+                  <span
+                    v-if="table.active"
+                    class="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
+                  >
+                    Activa
+                  </span>
+                  <span
+                    v-else
+                    class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  >
+                    Inactiva
+                  </span>
+                </td>
+                <td v-if="canManageTables" class="w-56 px-4 py-3 text-sm">
+                  <div class="flex flex-wrap items-center justify-end gap-1.5">
+                    <AppTooltip label="Editar">
+                      <button
+                        type="button"
+                        :class="editButtonClasses"
+                        aria-label="Editar mesa"
+                        :disabled="tableActionLoadingId === table.id"
+                        @click="openEditTableModal(table)"
+                      >
+                        <PencilSquareIcon class="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </AppTooltip>
+
+                    <button
+                      type="button"
+                      class="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                      :disabled="tableActionLoadingId === table.id"
+                      @click="handleToggleTableActive(table)"
+                    >
+                      {{ table.active ? 'Desactivar' : 'Activar' }}
+                    </button>
+
+                    <AppTooltip label="Eliminar">
+                      <button
+                        type="button"
+                        class="inline-flex rounded-md border border-red-300 bg-red-50 p-1.5 text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-950/50"
+                        aria-label="Eliminar mesa"
+                        :disabled="tableActionLoadingId === table.id"
+                        @click="handleDeleteTable(table)"
+                      >
+                        <TrashIcon class="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </AppTooltip>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </template>
 
     <TournamentFormModal
@@ -556,6 +822,16 @@ const handleFinalizeSaved = async () => {
       :competitions="competitions"
       @close="handleFinalizeClose"
       @saved="handleFinalizeSaved"
+    />
+
+    <PlayingTableFormModal
+      :show="showTableModal"
+      :mode="tableModalMode"
+      :tournament-id="route.params.id"
+      :playing-table="editingTable"
+      :suggested-number="suggestedTableNumber"
+      @close="handleTableModalClose"
+      @saved="handleTableSaved"
     />
   </section>
 </template>

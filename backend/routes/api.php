@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\V1\GroupRoundRobinGameController;
 use App\Http\Controllers\Api\V1\GroupStandingsController;
 use App\Http\Controllers\Api\V1\GroupTeamTieController;
 use App\Http\Controllers\Api\V1\PlayerController;
+use App\Http\Controllers\Api\V1\PlayingTableController;
 use App\Http\Controllers\Api\V1\RankingController;
 use App\Http\Controllers\Api\V1\RankingRuleController;
 use App\Http\Controllers\Api\V1\RegistrationController;
@@ -53,6 +54,19 @@ Route::prefix(config('api.version_prefix', 'v1'))
         Route::middleware('auth.tournaments.manage')
             ->post('tournaments/{tournament}/close', [TournamentController::class, 'close'])
             ->name('tournaments.close');
+
+        Route::get('tournaments/{tournament}/playing-tables', [PlayingTableController::class, 'index'])
+            ->name('tournaments.playing-tables.index');
+        Route::middleware('auth.tournaments.manage')
+            ->scopeBindings()
+            ->group(function (): void {
+                Route::post('tournaments/{tournament}/playing-tables', [PlayingTableController::class, 'store'])
+                    ->name('tournaments.playing-tables.store');
+                Route::match(['put', 'patch'], 'tournaments/{tournament}/playing-tables/{playingTable}', [PlayingTableController::class, 'update'])
+                    ->name('tournaments.playing-tables.update');
+                Route::delete('tournaments/{tournament}/playing-tables/{playingTable}', [PlayingTableController::class, 'destroy'])
+                    ->name('tournaments.playing-tables.destroy');
+            });
 
         Route::get('tournaments/{tournament}/competitions', [CompetitionController::class, 'index'])
             ->name('tournaments.competitions.index');

@@ -207,6 +207,7 @@ Excepciones deliberadas fuera de `/api/v1`: ninguna mutación deportiva. El endp
 | ---- | ----------------- | --------------------- | ------- |
 | **Autenticación** | — | `GET /api/v1/me` | Solo autenticación (`auth.keycloak`) |
 | **Torneos** | `GET /tournaments`, `GET /tournaments/{tournament}` | `POST /tournaments`, `PUT/PATCH /tournaments/{tournament}`, `POST /tournaments/{tournament}/close` | `tournaments.manage` |
+| **Mesas** | `GET /tournaments/{t}/playing-tables` | `POST /tournaments/{t}/playing-tables`, `PUT/PATCH /tournaments/{t}/playing-tables/{table}`, `DELETE /tournaments/{t}/playing-tables/{table}` | `tournaments.manage` |
 | **Competencias** | `GET /tournaments/{t}/competitions`, `GET /competitions/{c}`, `GET /competitions/{c}/standings` | `POST /tournaments/{t}/competitions`, `PUT/PATCH /competitions/{c}` | `competitions.manage` |
 | **Jugadores** | `GET /players`, `GET /players/{player}` | `POST /players`, `PUT/PATCH /players/{player}`, `DELETE /players/{player}` | `players.manage` |
 | **Inscripciones** | `GET /competitions/{c}/registrations` | `POST /competitions/{c}/registrations`, `POST .../registrations/bulk` | `registrations.manage` |
@@ -391,6 +392,7 @@ Estados visuales: “Iniciando sesión…”, “Cargando perfil…”, error de
 - **Navegación**: ítems filtrados por permiso (`tournaments.view`, `players.view`).
 - **Botones protegidos** según permisos de `/me`:
   - Torneos: `tournaments.manage`
+  - Mesas del torneo: `tournaments.manage`
   - Competencias: `competitions.manage`
   - Jugadores: `players.manage` (crear, editar, activar/desactivar, eliminar)
   - Inscripciones: `registrations.manage`
