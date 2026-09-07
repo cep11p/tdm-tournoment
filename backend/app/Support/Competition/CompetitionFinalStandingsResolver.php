@@ -3,6 +3,7 @@
 namespace App\Support\Competition;
 
 use App\Data\Competition\CompetitionFinalStandingData;
+use App\Enums\CompetitionFinalStandingSource;
 use App\Enums\ThirdPlaceMode;
 use App\Models\Competition;
 use App\Models\CompetitionEntry;
@@ -20,7 +21,7 @@ final class CompetitionFinalStandingsResolver
      */
     public function resolve(Competition $competition): array
     {
-        $competition->loadMissing(['entries', 'brackets.games', 'brackets.teamTies', 'groups']);
+        $competition->loadMissing(['entries.members.player', 'brackets.games', 'brackets.teamTies', 'groups']);
 
         $bracket = $competition->brackets->first();
 
@@ -58,6 +59,7 @@ final class CompetitionFinalStandingsResolver
         $placements = [...$bracketPlacements, ...$groupPlacements];
         $entries = $competition->entries;
         $entryIds = $entries->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        $placements = [...$placements, ...$this->notInDrawPlacements($entryIds, $placements)];
 
         $this->assertCoverage($entryIds, $placements);
 
@@ -94,6 +96,50 @@ final class CompetitionFinalStandingsResolver
         );
 
         return $resolved;
+    }
+
+    /**
+     * @param  list<int>  $entryIds
+     * @param  list<CompetitionFinalStandingData>  $placements
+     * @return list<CompetitionFinalStandingData>
+     */
+    private function notInDrawPlacements(array $entryIds, array $placements): array
+    {
+        $placedIds = [];
+
+        foreach ($placements as $placement) {
+            $placedIds[$placement->competitionEntryId] = true;
+        }
+
+        $missingIds = [];
+
+        foreach ($entryIds as $entryId) {
+            if (! isset($placedIds[$entryId])) {
+                $missingIds[] = $entryId;
+            }
+        }
+
+        if ($missingIds === []) {
+            return [];
+        }
+
+        sort($missingIds);
+
+        $position = count($placements) + 1;
+        $positionRangeEnd = $position + count($missingIds) - 1;
+        $rows = [];
+
+        foreach ($missingIds as $entryId) {
+            $rows[] = new CompetitionFinalStandingData(
+                competitionEntryId: $entryId,
+                position: $position,
+                positionRangeEnd: $positionRangeEnd,
+                source: CompetitionFinalStandingSource::NotInDraw,
+                displayNameSnapshot: '',
+            );
+        }
+
+        return $rows;
     }
 
     /**

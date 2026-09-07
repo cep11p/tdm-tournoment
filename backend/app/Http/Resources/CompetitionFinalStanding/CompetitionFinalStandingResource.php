@@ -10,16 +10,17 @@ class CompetitionFinalStandingResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $source = $this->source;
+        $source = $this->source instanceof CompetitionFinalStandingSource
+            ? $this->source
+            : CompetitionFinalStandingSource::tryFrom((string) $this->source);
 
         return [
             'competition_entry_id' => (int) $this->competition_entry_id,
             'display_name' => (string) $this->display_name_snapshot,
             'position' => (int) $this->position,
             'position_range_end' => (int) $this->position_range_end,
-            'source' => $source instanceof CompetitionFinalStandingSource
-                ? $source->value
-                : (string) $source,
+            'source' => $source?->value ?? (string) $this->source,
+            'source_label' => $source?->label() ?? (string) $this->source,
         ];
     }
 }

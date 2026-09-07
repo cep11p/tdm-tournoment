@@ -29,5 +29,7 @@ class RankingRuleCatalogTest extends TestCase
             RankingRuleCatalog::keyFor(CompetitionFinalStandingSource::Semifinal, null),
         );
         $this->assertNull(RankingRuleCatalog::keyFor(CompetitionFinalStandingSource::Final, 5));
+        $this->assertNull(RankingRuleCatalog::keyFor(CompetitionFinalStandingSource::NotInDraw, null));
+        $this->assertNull(RankingRuleCatalog::keyFor(CompetitionFinalStandingSource::NotInDraw, 7));
     }
 }

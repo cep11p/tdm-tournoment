@@ -2,26 +2,30 @@
 
 namespace Tests\Support;
 
+use App\Actions\CompetitionEntry\PersistCompetitionEntryAction;
 use App\Actions\Game\CreateGameAction;
 use App\Actions\Group\PersistGroupEntryAction;
-use App\Actions\CompetitionEntry\PersistCompetitionEntryAction;
+use App\Enums\BracketGamePurpose;
+use App\Enums\CompetitionEntryStatus;
 use App\Enums\CompetitionFormat;
 use App\Enums\CompetitionType;
+use App\Enums\GameStatus;
 use App\Enums\TeamTieModality;
 use App\Enums\TournamentStatus;
 use App\Models\Bracket;
 use App\Models\Category;
 use App\Models\Competition;
-use App\Enums\GameStatus;
+use App\Models\CompetitionEntry;
+use App\Models\CompetitionEntryMember;
 use App\Models\Game;
 use App\Models\Group;
+use App\Models\Player;
 use App\Models\TeamTie;
 use App\Models\TeamTieFormat;
 use App\Models\TeamTieFormatSlot;
-use App\Support\Competition\ResolveSinglesEntryForPlayer;
-use App\Models\Player;
-use App\Models\CompetitionEntry;
+use App\Models\TeamTieGame;
 use App\Models\Tournament;
+use App\Support\Competition\ResolveSinglesEntryForPlayer;
 use Illuminate\Foundation\Testing\TestCase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -293,6 +297,26 @@ final class TournamentTestContext
         }
     }
 
+    public function attachSinglesEntry(
+        Competition $competition,
+        Player $player,
+        CompetitionEntryStatus $status = CompetitionEntryStatus::Active,
+    ): CompetitionEntry {
+        $entry = CompetitionEntry::query()->create([
+            'competition_id' => $competition->id,
+            'status' => $status,
+        ]);
+
+        CompetitionEntryMember::query()->create([
+            'competition_entry_id' => $entry->id,
+            'competition_id' => $competition->id,
+            'player_id' => $player->id,
+            'member_order' => 1,
+        ]);
+
+        return $entry->load('members.player');
+    }
+
     public function createGroup(Competition $competition, string $name = 'Grupo A'): Group
     {
         return Group::query()->create([
@@ -489,6 +513,29 @@ final class TournamentTestContext
         ], $this->authHeaders(['organizer']));
     }
 
+    public function finishPendingGroupGames(Competition $competition): void
+    {
+        $games = Game::query()
+            ->where('competition_id', $competition->id)
+            ->whereNotNull('group_id')
+            ->whereNull('bracket_id')
+            ->where('status', '!=', GameStatus::Finished)
+            ->orderBy('id')
+            ->get();
+
+        foreach ($games as $game) {
+            if ($game->is_bye || $game->entry1_id === null) {
+                continue;
+            }
+
+            $winner = $game->singlesPlayer1();
+
+            if ($winner instanceof Player) {
+                $this->finishGame($game, $winner)->assertOk();
+            }
+        }
+    }
+
     public function generateRoundRobin(Group $group, array $roles = ['organizer']): TestResponse
     {
         return $this->test->postJson(
@@ -511,7 +558,7 @@ final class TournamentTestContext
         );
     }
 
-    public function showTeamTie(\App\Models\TeamTie $teamTie, array $roles = ['organizer']): TestResponse
+    public function showTeamTie(TeamTie $teamTie, array $roles = ['organizer']): TestResponse
     {
         return $this->test->getJson(
             $this->apiUrl("team-ties/{$teamTie->id}"),
@@ -523,7 +570,7 @@ final class TournamentTestContext
      * @param  array{entry1_player_ids?: list<int>, entry2_player_ids?: list<int>}  $payload
      */
     public function setTeamTieGameLineup(
-        \App\Models\TeamTieGame $teamTieGame,
+        TeamTieGame $teamTieGame,
         array $payload,
         array $roles = ['organizer'],
     ): TestResponse {
@@ -908,7 +955,7 @@ final class TournamentTestContext
             $currentGames = $this->bracketGamesForRound($bracket, $currentRound);
 
             foreach ($currentGames as $game) {
-                if ($game->is_bye || $game->status === \App\Enums\GameStatus::Finished) {
+                if ($game->is_bye || $game->status === GameStatus::Finished) {
                     continue;
                 }
 
@@ -956,7 +1003,7 @@ final class TournamentTestContext
             $currentGames = $this->bracketGamesForRound($bracket, $currentRound);
 
             foreach ($currentGames as $game) {
-                if ($game->is_bye || $game->status === \App\Enums\GameStatus::Finished) {
+                if ($game->is_bye || $game->status === GameStatus::Finished) {
                     continue;
                 }
 
@@ -975,12 +1022,12 @@ final class TournamentTestContext
                 if ($finishThirdPlace) {
                     $thirdPlaceGame = Game::query()
                         ->where('bracket_id', $bracket->id)
-                        ->where('bracket_purpose', \App\Enums\BracketGamePurpose::ThirdPlace)
+                        ->where('bracket_purpose', BracketGamePurpose::ThirdPlace)
                         ->first();
 
                     if (
                         $thirdPlaceGame !== null
-                        && $thirdPlaceGame->status !== \App\Enums\GameStatus::Finished
+                        && $thirdPlaceGame->status !== GameStatus::Finished
                         && $thirdPlaceGame->entry1_id !== null
                     ) {
                         $this->finishGameByEntryViaApi($thirdPlaceGame, (int) $thirdPlaceGame->entry1_id)->assertOk();

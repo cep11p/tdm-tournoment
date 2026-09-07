@@ -74,6 +74,22 @@ class RankingRuleGuardTest extends TestCase
         $this->assertSame(CompetitionFinalStandingSource::Semifinal, $rule->source);
     }
 
+    public function test_rejects_not_in_draw_as_ranking_rule_source(): void
+    {
+        $ranking = RankingTestSetup::ranking();
+
+        try {
+            RankingTestSetup::rule($ranking, [
+                'source' => CompetitionFinalStandingSource::NotInDraw,
+                'position' => null,
+                'points' => 0,
+            ]);
+            $this->fail('Se esperaba ValidationException');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('source', $exception->errors());
+        }
+    }
+
     public function test_rejects_team_ranking(): void
     {
         try {

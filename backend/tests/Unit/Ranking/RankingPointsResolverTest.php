@@ -119,6 +119,53 @@ class RankingPointsResolverTest extends TestCase
         $standing->position = 9;
         $standing->position_range_end = 10;
         $this->assertSame(2, $resolver->resolve($ranking, $standing, $ranking->rules)->points);
+
+        $standing->source = CompetitionFinalStandingSource::NotInDraw;
+        $standing->position = 11;
+        $standing->position_range_end = 12;
+        $notInDraw = $resolver->resolve($ranking, $standing, $ranking->rules);
+        $this->assertSame(0, $notInDraw->points);
+        $this->assertNull($notInDraw->rule);
+    }
+
+    public function test_not_in_draw_does_not_consume_final_or_group_stage_points(): void
+    {
+        [$ranking, $champion, $runnerUp] = $this->singlesFinalStandings();
+
+        RankingTestSetup::rule($ranking, [
+            'name' => 'Campeón',
+            'source' => CompetitionFinalStandingSource::Final,
+            'position' => 1,
+            'points' => 100,
+            'priority' => 20,
+        ]);
+        RankingTestSetup::rule($ranking, [
+            'name' => 'Subcampeón',
+            'source' => CompetitionFinalStandingSource::Final,
+            'position' => 2,
+            'points' => 70,
+            'priority' => 19,
+        ]);
+        RankingTestSetup::rule($ranking, [
+            'source' => CompetitionFinalStandingSource::GroupStage,
+            'position' => null,
+            'points' => 2,
+            'priority' => 1,
+        ]);
+
+        $ranking->load('rules');
+        $resolver = app(RankingPointsResolver::class);
+
+        $this->assertSame(100, $resolver->resolve($ranking, $champion, $ranking->rules)->points);
+        $this->assertSame(70, $resolver->resolve($ranking, $runnerUp, $ranking->rules)->points);
+
+        $champion->source = CompetitionFinalStandingSource::NotInDraw;
+        $champion->position = 3;
+        $champion->position_range_end = 4;
+
+        $match = $resolver->resolve($ranking, $champion, $ranking->rules);
+        $this->assertSame(0, $match->points);
+        $this->assertNull($match->rule);
     }
 
     public function test_higher_priority_wins_when_duplicates_are_passed_in_memory(): void

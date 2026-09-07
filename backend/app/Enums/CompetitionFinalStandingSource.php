@@ -12,6 +12,7 @@ enum CompetitionFinalStandingSource: string
     case RoundOf32 = 'round_of_32';
     case PlayIn = 'play_in';
     case GroupStage = 'group_stage';
+    case NotInDraw = 'not_in_draw';
 
     public function label(): string
     {
@@ -24,6 +25,7 @@ enum CompetitionFinalStandingSource: string
             self::RoundOf32 => 'Dieciseisavos',
             self::PlayIn => 'Play-in',
             self::GroupStage => 'Fase de grupos',
+            self::NotInDraw => 'No participó del cuadro',
         };
     }
 }
