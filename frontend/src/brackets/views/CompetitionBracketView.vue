@@ -491,8 +491,8 @@ const hasQualifyingRound = computed(() =>
   groupedRounds.value.some((round) => isQualifyingRoundLabel(round.roundLabel)),
 )
 
-const MATCH_CARD_HEIGHT = 140
-const MATCH_GAP = 20
+const MATCH_CARD_HEIGHT = 176
+const MATCH_GAP = 28
 const MATCH_SLOT_HEIGHT = MATCH_CARD_HEIGHT + MATCH_GAP
 
 const roundSlotHeight = (roundIndex) => MATCH_SLOT_HEIGHT * Math.pow(2, roundIndex)
@@ -1021,111 +1021,114 @@ onMounted(loadData)
                     class="relative"
                     :style="{ height: `${roundSlotHeight(roundIndex)}px` }"
                   >
-                    <article
-                      class="absolute inset-x-0 top-1/2 -translate-y-1/2 rounded-md border p-2"
-                      :class="gameCardClasses(round)"
-                      :style="{ minHeight: `${MATCH_CARD_HEIGHT}px` }"
-                    >
-                      <div class="mb-1.5 flex flex-wrap gap-1">
-                        <span
-                          v-if="byeBadgeLabel(game)"
-                          class="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900/60 dark:text-violet-200"
-                        >
-                          {{ byeBadgeLabel(game) }}
-                        </span>
-                        <span
-                          v-if="isPlayInGame(game)"
-                          class="inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-200"
-                        >
-                          {{ PLAY_IN_BADGE_LABEL }}
-                        </span>
-                      </div>
-
-                      <div
-                        class="overflow-hidden rounded border border-slate-200 dark:border-slate-700"
+                    <div class="absolute inset-x-0 top-1/2 flex -translate-y-1/2 flex-col gap-1">
+                      <article
+                        class="rounded-md border p-2"
+                        :class="gameCardClasses(round)"
                       >
                         <div
-                          class="flex items-center justify-between gap-2 px-2 py-1.5"
-                          :class="compactSideRowClasses(game, 1)"
+                          v-if="byeBadgeLabel(game) || isPlayInGame(game)"
+                          class="mb-1.5 flex flex-wrap gap-1"
                         >
-                          <div class="min-w-0">
-                            <span class="block truncate text-sm">{{ getGameSideDisplayName(game, 1) }}</span>
-                            <p
-                              v-if="sideGroupOriginLabel(game, 1)"
-                              class="truncate text-[10px] font-normal text-slate-500 dark:text-slate-400"
-                            >
-                              {{ sideGroupOriginLabel(game, 1) }}
-                            </p>
-                            <p
-                              v-if="sideMembersHint(game, 1)"
-                              class="truncate text-[10px] text-slate-500 dark:text-slate-400"
-                            >
-                              {{ sideMembersHint(game, 1) }}
-                            </p>
-                          </div>
-                          <span class="shrink-0 tabular-nums text-sm">{{ participantScoreLabel(game, 1) }}</span>
+                          <span
+                            v-if="byeBadgeLabel(game)"
+                            class="inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800 dark:bg-violet-900/60 dark:text-violet-200"
+                          >
+                            {{ byeBadgeLabel(game) }}
+                          </span>
+                          <span
+                            v-if="isPlayInGame(game)"
+                            class="inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-200"
+                          >
+                            {{ PLAY_IN_BADGE_LABEL }}
+                          </span>
                         </div>
+
                         <div
-                          class="flex items-center justify-between gap-2 border-t border-slate-200 px-2 py-1.5 dark:border-slate-700"
-                          :class="compactSideRowClasses(game, 2)"
+                          class="overflow-hidden rounded border border-slate-200 dark:border-slate-700"
                         >
-                          <div class="min-w-0">
-                            <span class="block truncate text-sm">{{ opponentLabel(game) }}</span>
-                            <p
-                              v-if="sideGroupOriginLabel(game, 2)"
-                              class="truncate text-[10px] font-normal text-slate-500 dark:text-slate-400"
-                            >
-                              {{ sideGroupOriginLabel(game, 2) }}
-                            </p>
-                            <p
-                              v-if="sideMembersHint(game, 2)"
-                              class="truncate text-[10px] text-slate-500 dark:text-slate-400"
-                            >
-                              {{ sideMembersHint(game, 2) }}
-                            </p>
+                          <div
+                            class="flex items-center justify-between gap-2 px-2 py-1.5"
+                            :class="compactSideRowClasses(game, 1)"
+                          >
+                            <div class="min-w-0">
+                              <span class="block truncate text-sm">{{ getGameSideDisplayName(game, 1) }}</span>
+                              <p
+                                v-if="sideGroupOriginLabel(game, 1)"
+                                class="truncate text-[10px] font-normal text-slate-500 dark:text-slate-400"
+                              >
+                                {{ sideGroupOriginLabel(game, 1) }}
+                              </p>
+                              <p
+                                v-if="sideMembersHint(game, 1)"
+                                class="truncate text-[10px] text-slate-500 dark:text-slate-400"
+                              >
+                                {{ sideMembersHint(game, 1) }}
+                              </p>
+                            </div>
+                            <span class="shrink-0 tabular-nums text-sm">{{ participantScoreLabel(game, 1) }}</span>
                           </div>
-                          <span class="shrink-0 tabular-nums text-sm">{{ participantScoreLabel(game, 2) }}</span>
-                        </div>
-                      </div>
-
-                      <div v-if="canLoadResult(game)" class="mt-2">
-                        <button
-                          type="button"
-                          class="w-full rounded-md bg-emerald-700 px-2 py-1.5 text-xs font-medium text-white hover:bg-emerald-600"
-                          @click="openResultModal(game)"
-                        >
-                          Cargar resultado
-                        </button>
-                      </div>
-
-                      <details class="mt-1.5">
-                        <summary
-                          class="cursor-pointer text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                        >
-                          Detalle
-                        </summary>
-                        <div class="mt-1.5 space-y-0.5 text-xs text-slate-500 dark:text-slate-400">
-                          <p v-if="matchFormatLabel(game)">
-                            Formato: {{ matchFormatLabel(game) }}
-                          </p>
-                          <p>Estado: {{ statusLabel(game) }}</p>
-                          <p v-if="setScoresDetail(game).length > 0">
-                            Sets: {{ setScoresDetail(game).join(', ') }}
-                          </p>
-                          <p v-if="isByeGame(game) || game?.status === 'finished'">
-                            Ganador: {{ winnerName(game) }}
-                          </p>
-                          <div v-if="canShowMatchDetailLink(game)" class="pt-0.5">
-                            <RouterLink
-                              :to="matchDetailRoute(game)"
-                              class="font-medium text-slate-700 hover:underline dark:text-slate-300"
-                            >
-                              {{ game?.isTeamTie ? 'Ver enfrentamiento' : 'Ver detalle' }}
-                            </RouterLink>
+                          <div
+                            class="flex items-center justify-between gap-2 border-t border-slate-200 px-2 py-1.5 dark:border-slate-700"
+                            :class="compactSideRowClasses(game, 2)"
+                          >
+                            <div class="min-w-0">
+                              <span class="block truncate text-sm">{{ opponentLabel(game) }}</span>
+                              <p
+                                v-if="sideGroupOriginLabel(game, 2)"
+                                class="truncate text-[10px] font-normal text-slate-500 dark:text-slate-400"
+                              >
+                                {{ sideGroupOriginLabel(game, 2) }}
+                              </p>
+                              <p
+                                v-if="sideMembersHint(game, 2)"
+                                class="truncate text-[10px] text-slate-500 dark:text-slate-400"
+                              >
+                                {{ sideMembersHint(game, 2) }}
+                              </p>
+                            </div>
+                            <span class="shrink-0 tabular-nums text-sm">{{ participantScoreLabel(game, 2) }}</span>
                           </div>
                         </div>
-                      </details>
-                    </article>
+
+                        <details class="mt-1.5">
+                          <summary
+                            class="cursor-pointer text-xs text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                          >
+                            Detalle
+                          </summary>
+                          <div class="mt-1.5 space-y-0.5 text-xs text-slate-500 dark:text-slate-400">
+                            <p v-if="matchFormatLabel(game)">
+                              Formato: {{ matchFormatLabel(game) }}
+                            </p>
+                            <p>Estado: {{ statusLabel(game) }}</p>
+                            <p v-if="setScoresDetail(game).length > 0">
+                              Sets: {{ setScoresDetail(game).join(', ') }}
+                            </p>
+                            <p v-if="isByeGame(game) || game?.status === 'finished'">
+                              Ganador: {{ winnerName(game) }}
+                            </p>
+                            <div v-if="canShowMatchDetailLink(game)" class="pt-0.5">
+                              <RouterLink
+                                :to="matchDetailRoute(game)"
+                                class="font-medium text-slate-700 hover:underline dark:text-slate-300"
+                              >
+                                {{ game?.isTeamTie ? 'Ver enfrentamiento' : 'Ver detalle' }}
+                              </RouterLink>
+                            </div>
+                          </div>
+                        </details>
+                      </article>
+
+                      <button
+                        v-if="canLoadResult(game)"
+                        type="button"
+                        class="w-full rounded-md bg-emerald-700 px-2 py-1.5 text-xs font-medium text-white hover:bg-emerald-600"
+                        @click="openResultModal(game)"
+                      >
+                        Cargar resultado
+                      </button>
+                    </div>
 
                     <span
                       v-if="hasNextRound(roundIndex)"

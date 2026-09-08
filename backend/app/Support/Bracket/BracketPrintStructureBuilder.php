@@ -198,7 +198,7 @@ final class BracketPrintStructureBuilder
 
     /**
      * @param  array<string, mixed>|null  $sourceMatch
-     * @return array{side: array{competition_entry_id: int, display_name: string}|null, placeholder: string|null}
+     * @return array{side: array{competition_entry_id: int, display_name: string, group_origin: array{group_id: int, group_name: string, position: int}|null}|null, placeholder: string|null}
      */
     private function sideFromSource(?array $sourceMatch, int $sourceNumber): array
     {
@@ -206,10 +206,7 @@ final class BracketPrintStructureBuilder
 
         if (is_array($winner) && isset($winner['competition_entry_id'], $winner['display_name'])) {
             return [
-                'side' => [
-                    'competition_entry_id' => (int) $winner['competition_entry_id'],
-                    'display_name' => (string) $winner['display_name'],
-                ],
+                'side' => $this->copyPrintSide($winner),
                 'placeholder' => null,
             ];
         }
@@ -327,7 +324,7 @@ final class BracketPrintStructureBuilder
 
     /**
      * @param  array<string, mixed>|null  $semifinal
-     * @return array{side: array{competition_entry_id: int, display_name: string}|null, placeholder: string|null}
+     * @return array{side: array{competition_entry_id: int, display_name: string, group_origin: array{group_id: int, group_name: string, position: int}|null}|null, placeholder: string|null}
      */
     private function loserFromSemifinal(?array $semifinal, int $semifinalNumber): array
     {
@@ -358,7 +355,37 @@ final class BracketPrintStructureBuilder
             return ['side' => null, 'placeholder' => $placeholder];
         }
 
-        return ['side' => $loser, 'placeholder' => null];
+        return ['side' => $this->copyPrintSide($loser), 'placeholder' => null];
+    }
+
+    /**
+     * @param  array<string, mixed>  $side
+     * @return array{competition_entry_id: int, display_name: string, group_origin: array{group_id: int, group_name: string, position: int}|null}
+     */
+    private function copyPrintSide(array $side): array
+    {
+        return [
+            'competition_entry_id' => (int) $side['competition_entry_id'],
+            'display_name' => (string) $side['display_name'],
+            'group_origin' => $this->copyGroupOrigin($side['group_origin'] ?? null),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $origin
+     * @return array{group_id: int, group_name: string, position: int}|null
+     */
+    private function copyGroupOrigin(mixed $origin): ?array
+    {
+        if (! is_array($origin) || ! isset($origin['group_id'], $origin['group_name'], $origin['position'])) {
+            return null;
+        }
+
+        return [
+            'group_id' => (int) $origin['group_id'],
+            'group_name' => (string) $origin['group_name'],
+            'position' => (int) $origin['position'],
+        ];
     }
 
     /**
@@ -387,9 +414,9 @@ final class BracketPrintStructureBuilder
     }
 
     /**
-     * @param  array{competition_entry_id: int, display_name: string}|null  $side1
-     * @param  array{competition_entry_id: int, display_name: string}|null  $side2
-     * @param  array{competition_entry_id: int, display_name: string}|null  $winner
+     * @param  array{competition_entry_id: int, display_name: string, group_origin?: array{group_id: int, group_name: string, position: int}|null}|null  $side1
+     * @param  array{competition_entry_id: int, display_name: string, group_origin?: array{group_id: int, group_name: string, position: int}|null}|null  $side2
+     * @param  array{competition_entry_id: int, display_name: string, group_origin?: array{group_id: int, group_name: string, position: int}|null}|null  $winner
      * @return array<string, mixed>
      */
     private function matchPayload(

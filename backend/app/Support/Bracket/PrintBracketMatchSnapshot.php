@@ -5,6 +5,7 @@ namespace App\Support\Bracket;
 use App\Enums\BracketGamePurpose;
 use App\Enums\GameStatus;
 use App\Enums\TeamTieStatus;
+use App\Models\BracketEntryOrigin;
 use App\Models\CompetitionEntry;
 use App\Models\Game;
 use App\Models\TeamTie;
@@ -14,9 +15,9 @@ use Illuminate\Support\Collection;
 final class PrintBracketMatchSnapshot
 {
     /**
-     * @param  array{competition_entry_id: int, display_name: string}|null  $side1
-     * @param  array{competition_entry_id: int, display_name: string}|null  $side2
-     * @param  array{competition_entry_id: int, display_name: string}|null  $winner
+     * @param  array{competition_entry_id: int, display_name: string, group_origin: array{group_id: int, group_name: string, position: int}|null}|null  $side1
+     * @param  array{competition_entry_id: int, display_name: string, group_origin: array{group_id: int, group_name: string, position: int}|null}|null  $side2
+     * @param  array{competition_entry_id: int, display_name: string, group_origin: array{group_id: int, group_name: string, position: int}|null}|null  $winner
      */
     public function __construct(
         public ?int $bracketRound,
@@ -33,7 +34,10 @@ final class PrintBracketMatchSnapshot
         public ?int $entry2Id,
     ) {}
 
-    public static function fromGame(Game $game): self
+    /**
+     * @param  Collection<int, BracketEntryOrigin>  $origins
+     */
+    public static function fromGame(Game $game, Collection $origins): self
     {
         $purpose = $game->bracket_purpose instanceof BracketGamePurpose
             ? $game->bracket_purpose
@@ -43,9 +47,9 @@ final class PrintBracketMatchSnapshot
             ? $game->status->value
             : (string) $game->status;
 
-        $side1 = self::side($game->entry1);
-        $side2 = $game->is_bye ? null : self::side($game->entry2);
-        $winner = self::side($game->winnerEntry);
+        $side1 = self::side($game->entry1, $origins);
+        $side2 = $game->is_bye ? null : self::side($game->entry2, $origins);
+        $winner = self::side($game->winnerEntry, $origins);
 
         if ($winner === null && $game->is_bye) {
             $winner = $side1;
@@ -67,7 +71,10 @@ final class PrintBracketMatchSnapshot
         );
     }
 
-    public static function fromTeamTie(TeamTie $teamTie): self
+    /**
+     * @param  Collection<int, BracketEntryOrigin>  $origins
+     */
+    public static function fromTeamTie(TeamTie $teamTie, Collection $origins): self
     {
         $purpose = $teamTie->bracket_purpose instanceof BracketGamePurpose
             ? $teamTie->bracket_purpose
@@ -77,9 +84,9 @@ final class PrintBracketMatchSnapshot
             ? $teamTie->status->value
             : (string) $teamTie->status;
 
-        $side1 = self::side($teamTie->entry1);
-        $side2 = $teamTie->is_bye ? null : self::side($teamTie->entry2);
-        $winner = self::side($teamTie->winnerEntry);
+        $side1 = self::side($teamTie->entry1, $origins);
+        $side2 = $teamTie->is_bye ? null : self::side($teamTie->entry2, $origins);
+        $winner = self::side($teamTie->winnerEntry, $origins);
 
         if ($winner === null && $teamTie->is_bye) {
             $winner = $side1;
@@ -103,40 +110,48 @@ final class PrintBracketMatchSnapshot
 
     /**
      * @param  Collection<int, Game>  $games
+     * @param  Collection<int, BracketEntryOrigin>  $origins
      * @return list<self>
      */
-    public static function fromGames(Collection $games): array
+    public static function fromGames(Collection $games, Collection $origins): array
     {
         return $games
-            ->map(fn (Game $game): self => self::fromGame($game))
+            ->map(fn (Game $game): self => self::fromGame($game, $origins))
             ->values()
             ->all();
     }
 
     /**
      * @param  Collection<int, TeamTie>  $teamTies
+     * @param  Collection<int, BracketEntryOrigin>  $origins
      * @return list<self>
      */
-    public static function fromTeamTies(Collection $teamTies): array
+    public static function fromTeamTies(Collection $teamTies, Collection $origins): array
     {
         return $teamTies
-            ->map(fn (TeamTie $teamTie): self => self::fromTeamTie($teamTie))
+            ->map(fn (TeamTie $teamTie): self => self::fromTeamTie($teamTie, $origins))
             ->values()
             ->all();
     }
 
     /**
-     * @return array{competition_entry_id: int, display_name: string}|null
+     * @param  Collection<int, BracketEntryOrigin>  $origins
+     * @return array{competition_entry_id: int, display_name: string, group_origin: array{group_id: int, group_name: string, position: int}|null}|null
      */
-    public static function side(?CompetitionEntry $entry): ?array
+    public static function side(?CompetitionEntry $entry, Collection $origins): ?array
     {
         if ($entry === null) {
             return null;
         }
 
+        $origin = $origins->get((int) $entry->id);
+
         return [
             'competition_entry_id' => (int) $entry->id,
             'display_name' => CompetitionEntryDisplayName::for($entry),
+            'group_origin' => $origin instanceof BracketEntryOrigin
+                ? $origin->toSidePayload()
+                : null,
         ];
     }
 }

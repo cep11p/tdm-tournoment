@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 
 import { BYE_BADGE_LABEL } from '../constants/bracketLabels'
+import { formatGroupOriginLabel } from '../utils/formatGroupOriginLabel'
 import {
   formatPrintDisplayName,
   printCompetitionTypeLabel,
@@ -14,7 +15,7 @@ const props = defineProps({
   },
 })
 
-const MATCH_CARD_HEIGHT = 52
+const MATCH_CARD_HEIGHT = 64
 const MATCH_GAP = 16
 const MATCH_SLOT_HEIGHT = MATCH_CARD_HEIGHT + MATCH_GAP
 
@@ -45,6 +46,9 @@ const sideText = (match, sideNumber) => {
 
   return sidePlaceholder(match, sideNumber) || ''
 }
+
+const sideOriginLabel = (match, sideNumber) =>
+  formatGroupOriginLabel(sidePayload(match, sideNumber)?.group_origin)
 
 const isWinnerSide = (match, sideNumber) => {
   const winnerId = match?.winner?.competition_entry_id
@@ -115,7 +119,10 @@ const isFinalRound = (round) => round?.label === 'Final'
             >
               <template v-if="match.is_bye">
                 <p class="side-row side-row--winner">
-                  <span class="side-name">{{ sideText(match, 1) }}</span>
+                  <span class="side-identity">
+                    <span class="side-name">{{ sideText(match, 1) }}</span>
+                    <span v-if="sideOriginLabel(match, 1)" class="side-origin">{{ sideOriginLabel(match, 1) }}</span>
+                  </span>
                 </p>
                 <p class="bye-caption">{{ BYE_BADGE_LABEL }}</p>
               </template>
@@ -127,7 +134,10 @@ const isFinalRound = (round) => round?.label === 'Final'
                     'side-row--placeholder': isPlaceholderSide(match, 1),
                   }"
                 >
-                  <span class="side-name">{{ sideText(match, 1) }}</span>
+                  <span class="side-identity">
+                    <span class="side-name">{{ sideText(match, 1) }}</span>
+                    <span v-if="sideOriginLabel(match, 1)" class="side-origin">{{ sideOriginLabel(match, 1) }}</span>
+                  </span>
                   <span v-if="isWinnerSide(match, 1)" class="winner-mark">✓</span>
                 </p>
                 <p
@@ -137,7 +147,10 @@ const isFinalRound = (round) => round?.label === 'Final'
                     'side-row--placeholder': isPlaceholderSide(match, 2),
                   }"
                 >
-                  <span class="side-name">{{ sideText(match, 2) }}</span>
+                  <span class="side-identity">
+                    <span class="side-name">{{ sideText(match, 2) }}</span>
+                    <span v-if="sideOriginLabel(match, 2)" class="side-origin">{{ sideOriginLabel(match, 2) }}</span>
+                  </span>
                   <span v-if="isWinnerSide(match, 2)" class="winner-mark">✓</span>
                 </p>
               </template>
@@ -173,7 +186,10 @@ const isFinalRound = (round) => round?.label === 'Final'
             'side-row--placeholder': isPlaceholderSide(thirdPlace, 1),
           }"
         >
-          <span class="side-name">{{ sideText(thirdPlace, 1) }}</span>
+          <span class="side-identity">
+            <span class="side-name">{{ sideText(thirdPlace, 1) }}</span>
+            <span v-if="sideOriginLabel(thirdPlace, 1)" class="side-origin">{{ sideOriginLabel(thirdPlace, 1) }}</span>
+          </span>
           <span v-if="isWinnerSide(thirdPlace, 1)" class="winner-mark">✓</span>
         </p>
         <p
@@ -183,7 +199,10 @@ const isFinalRound = (round) => round?.label === 'Final'
             'side-row--placeholder': isPlaceholderSide(thirdPlace, 2),
           }"
         >
-          <span class="side-name">{{ sideText(thirdPlace, 2) }}</span>
+          <span class="side-identity">
+            <span class="side-name">{{ sideText(thirdPlace, 2) }}</span>
+            <span v-if="sideOriginLabel(thirdPlace, 2)" class="side-origin">{{ sideOriginLabel(thirdPlace, 2) }}</span>
+          </span>
           <span v-if="isWinnerSide(thirdPlace, 2)" class="winner-mark">✓</span>
         </p>
       </article>
@@ -328,10 +347,25 @@ const isFinalRound = (round) => round?.label === 'Final'
   font-weight: 400;
 }
 
+.side-identity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
 .side-name {
   white-space: pre-line;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.side-origin {
+  font-size: 0.58rem;
+  font-weight: 400;
+  font-style: normal;
+  color: #555;
+  line-height: 1.15;
 }
 
 .winner-mark {

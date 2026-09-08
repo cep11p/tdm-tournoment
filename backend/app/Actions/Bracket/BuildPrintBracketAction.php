@@ -3,6 +3,7 @@
 namespace App\Actions\Bracket;
 
 use App\Data\Bracket\PrintBracketData;
+use App\Models\BracketEntryOrigin;
 use App\Models\Competition;
 use App\Models\TeamTie;
 use App\Support\Bracket\BracketPrintStructureBuilder;
@@ -36,16 +37,20 @@ final class BuildPrintBracketAction
             );
 
         $bracket = $competition->brackets()
-            ->with($relations)
+            ->with(['entryOrigins', ...$relations])
             ->first();
 
         if ($bracket === null) {
             throw new NotFoundHttpException(self::MISSING_BRACKET_MESSAGE);
         }
 
+        $origins = $bracket->entryOrigins->keyBy(
+            fn (BracketEntryOrigin $origin): int => (int) $origin->competition_entry_id,
+        );
+
         $snapshots = $competition->isTeam()
-            ? PrintBracketMatchSnapshot::fromTeamTies($bracket->teamTies)
-            : PrintBracketMatchSnapshot::fromGames($bracket->games);
+            ? PrintBracketMatchSnapshot::fromTeamTies($bracket->teamTies, $origins)
+            : PrintBracketMatchSnapshot::fromGames($bracket->games, $origins);
 
         return $this->builder->build(
             $bracket,

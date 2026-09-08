@@ -112,6 +112,7 @@ class BracketPrintStructureBuilderTest extends TestCase
         $this->assertNull($semifinal['side2']);
         $this->assertSame('Ganador P1', $semifinal['side1_placeholder']);
         $this->assertSame('Ganador P2', $semifinal['side2_placeholder']);
+        $this->assertArrayNotHasKey('group_origin', $semifinal);
 
         $final = $payload['rounds'][2]['matches'][0];
         $this->assertFalse($final['exists_in_database']);
@@ -287,6 +288,119 @@ class BracketPrintStructureBuilderTest extends TestCase
         $this->assertSame('Carlos Perez', $payload['rounds'][0]['matches'][0]['winner']['display_name']);
     }
 
+    public function test_snapshot_side_group_origin_is_exposed_on_persisted_match(): void
+    {
+        $origin = $this->origin(5, 'Grupo A', 1);
+
+        $payload = $this->build(size: 2, snapshots: [
+            $this->pendingMatch(
+                round: 1,
+                match: 1,
+                side1Id: 10,
+                side2Id: 11,
+                side1Name: 'Equipo Azul',
+                side2Name: 'Equipo Rojo',
+                label: 'Final',
+                side1Origin: $origin,
+                side2Origin: $this->origin(8, 'Grupo B', 2),
+            ),
+        ]);
+
+        $final = $payload['rounds'][0]['matches'][0];
+        $this->assertSame($origin, $final['side1']['group_origin']);
+        $this->assertSame(
+            ['group_id', 'group_name', 'position'],
+            array_keys($final['side2']['group_origin']),
+        );
+        $this->assertArrayNotHasKey('group_position', $final['side1']['group_origin']);
+    }
+
+    public function test_inferred_round_preserves_winner_group_origin(): void
+    {
+        $origin = $this->origin(5, 'Grupo A', 1);
+
+        $payload = $this->build(size: 8, snapshots: [
+            $this->finishedMatch(
+                round: 1,
+                match: 1,
+                side1Id: 1,
+                side2Id: 2,
+                winnerId: 1,
+                winnerName: 'Carlos Perez',
+                side1Origin: $origin,
+            ),
+            $this->pendingMatch(round: 1, match: 2, side1Id: 3, side2Id: 4),
+            $this->pendingMatch(round: 1, match: 3, side1Id: 5, side2Id: 6),
+            $this->pendingMatch(round: 1, match: 4, side1Id: 7, side2Id: 8),
+        ]);
+
+        $semifinal = $payload['rounds'][1]['matches'][0];
+        $this->assertFalse($semifinal['exists_in_database']);
+        $this->assertSame($origin, $semifinal['side1']['group_origin']);
+        $this->assertNull($semifinal['side1_placeholder']);
+        $this->assertNull($semifinal['side2']);
+        $this->assertSame('Ganador P2', $semifinal['side2_placeholder']);
+    }
+
+    public function test_placeholder_does_not_invent_group_origin(): void
+    {
+        $payload = $this->build(
+            size: 4,
+            mode: ThirdPlaceMode::Playoff,
+            snapshots: [
+                $this->pendingMatch(round: 1, match: 1, side1Id: 1, side2Id: 2, label: 'Semifinal'),
+                $this->pendingMatch(round: 1, match: 2, side1Id: 3, side2Id: 4, label: 'Semifinal'),
+            ],
+        );
+
+        $final = $payload['rounds'][1]['matches'][0];
+        $thirdPlace = $payload['third_place'];
+
+        $this->assertNull($final['side1']);
+        $this->assertNull($final['side2']);
+        $this->assertSame('Ganador P1', $final['side1_placeholder']);
+        $this->assertArrayNotHasKey('group_origin', $final);
+        $this->assertNull($thirdPlace['side1']);
+        $this->assertSame('Perdedor semifinal 1', $thirdPlace['side1_placeholder']);
+    }
+
+    public function test_third_place_loser_preserves_group_origin(): void
+    {
+        $loserOrigin = $this->origin(5, 'Grupo A', 2);
+
+        $payload = $this->build(
+            size: 4,
+            mode: ThirdPlaceMode::Playoff,
+            snapshots: [
+                $this->finishedMatch(
+                    round: 1,
+                    match: 1,
+                    side1Id: 1,
+                    side2Id: 2,
+                    winnerId: 1,
+                    winnerName: 'Carlos Perez',
+                    side2Name: 'Pedro Ruiz',
+                    label: 'Semifinal',
+                    side2Origin: $loserOrigin,
+                ),
+                $this->finishedMatch(
+                    round: 1,
+                    match: 2,
+                    side1Id: 3,
+                    side2Id: 4,
+                    winnerId: 3,
+                    winnerName: 'Juan Gomez',
+                    side2Name: 'Luis Lopez',
+                    label: 'Semifinal',
+                    side2Origin: $this->origin(8, 'Grupo B', 2),
+                ),
+            ],
+        );
+
+        $this->assertSame($loserOrigin, $payload['third_place']['side1']['group_origin']);
+        $this->assertSame('Grupo B', $payload['third_place']['side2']['group_origin']['group_name']);
+    }
+
     public function test_output_is_deterministic(): void
     {
         $snapshots = [
@@ -366,6 +480,8 @@ class BracketPrintStructureBuilderTest extends TestCase
         string $side1Name = 'Jugador A',
         string $side2Name = 'Jugador B',
         string $label = 'Cuartos de final',
+        ?array $side1Origin = null,
+        ?array $side2Origin = null,
     ): PrintBracketMatchSnapshot {
         return new PrintBracketMatchSnapshot(
             bracketRound: $round,
@@ -374,8 +490,8 @@ class BracketPrintStructureBuilderTest extends TestCase
             isBye: false,
             status: GameStatus::Pending->value,
             roundLabel: $label,
-            side1: $this->side($side1Id, $side1Name),
-            side2: $this->side($side2Id, $side2Name),
+            side1: $this->side($side1Id, $side1Name, $side1Origin),
+            side2: $this->side($side2Id, $side2Name, $side2Origin),
             winner: null,
             winnerEntryId: null,
             entry1Id: $side1Id,
@@ -393,9 +509,12 @@ class BracketPrintStructureBuilderTest extends TestCase
         string $side1Name = 'Jugador A',
         string $side2Name = 'Jugador B',
         string $label = 'Cuartos de final',
+        ?array $side1Origin = null,
+        ?array $side2Origin = null,
     ): PrintBracketMatchSnapshot {
-        $side1 = $this->side($side1Id, $side1Id === $winnerId ? $winnerName : $side1Name);
-        $side2 = $this->side($side2Id, $side2Id === $winnerId ? $winnerName : $side2Name);
+        $side1 = $this->side($side1Id, $side1Id === $winnerId ? $winnerName : $side1Name, $side1Origin);
+        $side2 = $this->side($side2Id, $side2Id === $winnerId ? $winnerName : $side2Name, $side2Origin);
+        $winnerOrigin = $side1Id === $winnerId ? $side1Origin : $side2Origin;
 
         return new PrintBracketMatchSnapshot(
             bracketRound: $round,
@@ -406,7 +525,7 @@ class BracketPrintStructureBuilderTest extends TestCase
             roundLabel: $label,
             side1: $side1,
             side2: $side2,
-            winner: $this->side($winnerId, $winnerName),
+            winner: $this->side($winnerId, $winnerName, $winnerOrigin),
             winnerEntryId: $winnerId,
             entry1Id: $side1Id,
             entry2Id: $side2Id,
@@ -419,8 +538,9 @@ class BracketPrintStructureBuilderTest extends TestCase
         int $entryId,
         string $name,
         string $label = 'Cuartos de final',
+        ?array $groupOrigin = null,
     ): PrintBracketMatchSnapshot {
-        $side = $this->side($entryId, $name);
+        $side = $this->side($entryId, $name, $groupOrigin);
 
         return new PrintBracketMatchSnapshot(
             bracketRound: $round,
@@ -443,6 +563,8 @@ class BracketPrintStructureBuilderTest extends TestCase
         int $side2Id,
         string $side1Name,
         string $side2Name,
+        ?array $side1Origin = null,
+        ?array $side2Origin = null,
     ): PrintBracketMatchSnapshot {
         return new PrintBracketMatchSnapshot(
             bracketRound: null,
@@ -451,8 +573,8 @@ class BracketPrintStructureBuilderTest extends TestCase
             isBye: false,
             status: GameStatus::Pending->value,
             roundLabel: 'Tercer puesto',
-            side1: $this->side($side1Id, $side1Name),
-            side2: $this->side($side2Id, $side2Name),
+            side1: $this->side($side1Id, $side1Name, $side1Origin),
+            side2: $this->side($side2Id, $side2Name, $side2Origin),
             winner: null,
             winnerEntryId: null,
             entry1Id: $side1Id,
@@ -461,13 +583,27 @@ class BracketPrintStructureBuilderTest extends TestCase
     }
 
     /**
-     * @return array{competition_entry_id: int, display_name: string}
+     * @return array{group_id: int, group_name: string, position: int}
      */
-    private function side(int $id, string $name): array
+    private function origin(int $groupId, string $groupName, int $position): array
+    {
+        return [
+            'group_id' => $groupId,
+            'group_name' => $groupName,
+            'position' => $position,
+        ];
+    }
+
+    /**
+     * @param  array{group_id: int, group_name: string, position: int}|null  $groupOrigin
+     * @return array{competition_entry_id: int, display_name: string, group_origin: array{group_id: int, group_name: string, position: int}|null}
+     */
+    private function side(int $id, string $name, ?array $groupOrigin = null): array
     {
         return [
             'competition_entry_id' => $id,
             'display_name' => $name,
+            'group_origin' => $groupOrigin,
         ];
     }
 }
