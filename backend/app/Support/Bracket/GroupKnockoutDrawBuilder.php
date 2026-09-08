@@ -252,12 +252,7 @@ final class GroupKnockoutDrawBuilder
      */
     private function orderedGroups(Collection $qualifiers): Collection
     {
-        return $qualifiers
-            ->groupBy(fn (GroupQualifierData $qualifier): int => $qualifier->groupId)
-            ->sortBy(
-                fn (Collection $groupQualifiers): string => $groupQualifiers->first()->groupName,
-            )
-            ->values();
+        return GroupQualifierCanonicalOrder::groups($qualifiers);
     }
 
     /**
