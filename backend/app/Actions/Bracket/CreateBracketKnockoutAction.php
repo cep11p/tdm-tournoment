@@ -15,12 +15,16 @@ use App\Models\Game;
 use App\Models\TeamTie;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
-use App\Support\Competition\CompetitionParticipantLabel;
-use App\Support\Tournament\TournamentLifecycleGuard;
 use App\Support\Bracket\BracketSupport;
 use App\Support\Bracket\GroupKnockoutDrawBuilder;
+use App\Support\Bracket\GroupKnockoutDrawTemplateCatalog;
+use App\Support\Bracket\GroupKnockoutDrawTemplateResolver;
+use App\Support\Bracket\GroupQualifierCanonicalOrder;
 use App\Support\Bracket\GroupQualifiersCollector;
+use App\Support\Competition\CompetitionParticipantLabel;
 use App\Support\Game\GameFormatResolver;
+use App\Support\Tournament\TournamentLifecycleGuard;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -31,6 +35,7 @@ final class CreateBracketKnockoutAction
         private readonly CreateBracketTeamTieAction $createBracketTeamTie,
         private readonly GroupQualifiersCollector $groupQualifiersCollector,
         private readonly GroupKnockoutDrawBuilder $groupKnockoutDrawBuilder,
+        private readonly GroupKnockoutDrawTemplateResolver $groupKnockoutDrawTemplateResolver,
         private readonly AuditLogger $auditLogger,
     ) {}
 
@@ -116,6 +121,22 @@ final class CreateBracketKnockoutAction
         $groupQualifiers = $this->groupQualifiersCollector->collect($competition);
 
         if ($qualifiersPerGroup === 3) {
+            $groupCount = GroupQualifierCanonicalOrder::groups($groupQualifiers)->count();
+
+            if (GroupKnockoutDrawTemplateCatalog::supports($groupCount)) {
+                $draw = $this->groupKnockoutDrawTemplateResolver->resolve(
+                    GroupKnockoutDrawTemplateCatalog::forGroupCount($groupCount),
+                    $groupQualifiers,
+                );
+
+                return $this->buildBracketFromDrawResult(
+                    competition: $competition,
+                    draw: $draw,
+                    qualifiersPerGroup: $qualifiersPerGroup,
+                    payload: $payload,
+                );
+            }
+
             if ($this->groupKnockoutDrawBuilder->canBuildPlayInDraw($groupQualifiers, $qualifiersPerGroup)) {
                 $draw = $this->groupKnockoutDrawBuilder->buildDraw($groupQualifiers, $qualifiersPerGroup);
 
@@ -169,7 +190,7 @@ final class CreateBracketKnockoutAction
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, GroupQualifierData>  $groupQualifiers
+     * @param  Collection<int, GroupQualifierData>  $groupQualifiers
      * @return array<int, int>
      */
     private function legacyGlobalSeededEntryIds($groupQualifiers): array
@@ -221,7 +242,7 @@ final class CreateBracketKnockoutAction
         $name = trim($payload['name'] ?? '');
 
         if ($name === '') {
-            $name = 'Llave - ' . $competition->name;
+            $name = 'Llave - '.$competition->name;
         }
 
         return DB::transaction(function () use (
@@ -335,7 +356,7 @@ final class CreateBracketKnockoutAction
         $name = trim($payload['name'] ?? '');
 
         if ($name === '') {
-            $name = 'Llave - ' . $competition->name;
+            $name = 'Llave - '.$competition->name;
         }
 
         return DB::transaction(function () use (

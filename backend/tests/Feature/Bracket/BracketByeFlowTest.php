@@ -5,6 +5,7 @@ namespace Tests\Feature\Bracket;
 use App\Models\Game;
 use App\Models\GroupEntry;
 use App\Models\Player;
+use App\Support\Bracket\BracketSupport;
 use Tests\TestCase;
 
 class BracketByeFlowTest extends TestCase
@@ -75,7 +76,8 @@ class BracketByeFlowTest extends TestCase
 
         $this->assertCount(4, $byeGames);
         $this->assertSame($players[0]->id, $byeGames[0]['player1']['id']);
-        $this->assertSame('Ronda clasificatoria', $response->json('data.games.0.round'));
+        $this->assertSame('8vos de final', $response->json('data.games.0.round'));
+        $this->assertNotSame(BracketSupport::PLAY_IN_ROUND_LABEL, $response->json('data.games.0.round'));
     }
 
     public function test_creates_bracket_of_thirty_two_with_eight_byes_for_twenty_four_qualifiers(): void
@@ -110,7 +112,8 @@ class BracketByeFlowTest extends TestCase
             ->values();
 
         $this->assertCount(8, $byeGames);
-        $this->assertSame('Ronda clasificatoria', $byeGames[0]['round']);
+        $this->assertSame('16avos de final', $byeGames[0]['round']);
+        $this->assertNotSame(BracketSupport::PLAY_IN_ROUND_LABEL, $byeGames[0]['round']);
         $this->assertSame('finished', $byeGames[0]['status']);
     }
 

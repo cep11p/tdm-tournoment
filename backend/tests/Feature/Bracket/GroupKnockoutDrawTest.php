@@ -3,10 +3,13 @@
 namespace Tests\Feature\Bracket;
 
 use App\Enums\GameStatus;
-use App\Support\Bracket\BracketSupport;
 use App\Models\Bracket;
+use App\Models\Competition;
 use App\Models\Game;
+use App\Models\Group;
 use App\Models\Player;
+use App\Support\Bracket\BracketSupport;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Support\TournamentTestContext;
 use Tests\TestCase;
 
@@ -398,121 +401,288 @@ class GroupKnockoutDrawTest extends TestCase
         $this->assertSame($groupBSecond->id, $semifinals[1]->singlesPlayer2Id());
     }
 
-    public function test_creates_group_knockout_q3_bracket_with_play_in_and_byes(): void
+    /**
+     * @return array<string, array{
+     *     0: int,
+     *     1: int,
+     *     2: int,
+     *     3: string,
+     *     4: list<string>,
+     *     5: list<array{0: int, 1: string, 2: string|null}>
+     * }>
+     */
+    public static function officialQ3TemplateProvider(): array
     {
+        return [
+            '3 groups' => [3, 16, 7, '8vos de final', ['A', 'B', 'C'], [
+                [1, 'A1', null],
+                [2, 'C3', 'B3'],
+                [3, 'B2', null],
+                [4, 'C1', null],
+                [5, 'C2', null],
+                [6, 'A2', null],
+                [7, 'A3', null],
+                [8, 'B1', null],
+            ]],
+            '4 groups' => [4, 16, 4, '8vos de final', ['A', 'B', 'C', 'D'], [
+                [1, 'A1', null],
+                [2, 'C2', 'B3'],
+                [3, 'C3', 'B2'],
+                [4, 'D1', null],
+                [5, 'C1', null],
+                [6, 'A2', 'D3'],
+                [7, 'A3', 'D2'],
+                [8, 'B1', null],
+            ]],
+            '5 groups' => [5, 16, 1, '8vos de final', ['A', 'B', 'C', 'D', 'E'], [
+                [1, 'A1', null],
+                [2, 'C2', 'B3'],
+                [3, 'E1', 'B2'],
+                [4, 'A3', 'D1'],
+                [5, 'C1', 'E3'],
+                [6, 'A2', 'D2'],
+                [7, 'E2', 'D3'],
+                [8, 'C3', 'B1'],
+            ]],
+            '6 groups' => [6, 32, 14, '16avos de final', ['A', 'B', 'C', 'D', 'E', 'F'], [
+                [1, 'A1', null],
+                [2, 'D3', 'E3'],
+                [3, 'F2', null],
+                [4, 'C2', null],
+                [5, 'E1', null],
+                [6, 'B2', null],
+                [7, 'A3', null],
+                [8, 'D1', null],
+                [9, 'C1', null],
+                [10, 'B3', null],
+                [11, 'A2', null],
+                [12, 'F1', null],
+                [13, 'D2', null],
+                [14, 'E2', null],
+                [15, 'C3', 'F3'],
+                [16, 'B1', null],
+            ]],
+            '7 groups' => [7, 32, 11, '16avos de final', ['A', 'B', 'C', 'D', 'E', 'F', 'G'], [
+                [1, 'A1', null],
+                [2, 'D3', 'E3'],
+                [3, 'F2', null],
+                [4, 'G2', null],
+                [5, 'E1', null],
+                [6, 'B2', 'G3'],
+                [7, 'C2', 'A3'],
+                [8, 'D1', null],
+                [9, 'C1', null],
+                [10, 'E2', 'B3'],
+                [11, 'A2', null],
+                [12, 'F1', null],
+                [13, 'G1', null],
+                [14, 'D2', null],
+                [15, 'F3', 'C3'],
+                [16, 'B1', null],
+            ]],
+            '8 groups' => [8, 32, 8, '16avos de final', ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'], [
+                [1, 'A1', null],
+                [2, 'G2', 'D3'],
+                [3, 'F2', 'E3'],
+                [4, 'H1', null],
+                [5, 'E1', null],
+                [6, 'B2', 'H3'],
+                [7, 'C2', 'A3'],
+                [8, 'D1', null],
+                [9, 'C1', null],
+                [10, 'E2', 'B3'],
+                [11, 'A2', 'G3'],
+                [12, 'F1', null],
+                [13, 'G1', null],
+                [14, 'D2', 'C3'],
+                [15, 'H2', 'F3'],
+                [16, 'B1', null],
+            ]],
+            '9 groups' => [9, 32, 5, '16avos de final', ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'], [
+                [1, 'A1', null],
+                [2, 'G2', 'E3'],
+                [3, 'I1', 'D3'],
+                [4, 'H1', 'B3'],
+                [5, 'E1', null],
+                [6, 'B2', 'C2'],
+                [7, 'F2', 'A3'],
+                [8, 'D1', null],
+                [9, 'C1', null],
+                [10, 'D2', 'I3'],
+                [11, 'A2', 'E2'],
+                [12, 'F1', 'H3'],
+                [13, 'G1', 'C3'],
+                [14, 'H2', 'I2'],
+                [15, 'F3', 'G3'],
+                [16, 'B1', null],
+            ]],
+        ];
+    }
+
+    /**
+     * @param  list<string>  $groupLetters
+     * @param  list<array{0: int, 1: string, 2: string|null}>  $expectedMatches
+     */
+    #[DataProvider('officialQ3TemplateProvider')]
+    public function test_creates_official_q3_bracket_from_template(
+        int $groupCount,
+        int $bracketSize,
+        int $byesCount,
+        string $firstRoundLabel,
+        array $groupLetters,
+        array $expectedMatches,
+    ): void {
         $context = $this->tournamentContext();
-        $setup = $this->createFourGroupThreeQualifierPhase($context);
+        $setup = $this->createOfficialQ3Phase($context, $groupLetters);
+        $matchCount = (int) ($bracketSize / 2);
 
         $response = $context->createBracket($setup['competition']);
 
         $response
             ->assertCreated()
-            ->assertJsonPath('data.bracket_size', 16)
-            ->assertJsonPath('data.byes_count', 4)
-            ->assertJsonCount(8, 'data.games');
+            ->assertJsonPath('data.bracket_size', $bracketSize)
+            ->assertJsonPath('data.byes_count', $byesCount)
+            ->assertJsonCount($matchCount, 'data.games');
 
         $bracket = Bracket::query()->where('competition_id', $setup['competition']->id)->sole();
         $firstRound = $context->bracketGamesForRound($bracket, 1);
 
-        $this->assertCount(8, $firstRound);
-        $this->assertSame(BracketSupport::PLAY_IN_ROUND_LABEL, $firstRound[0]->round);
+        $this->assertCount($matchCount, $firstRound);
+        $this->assertSame($firstRoundLabel, $firstRound[0]->round);
+        $this->assertNotSame(BracketSupport::PLAY_IN_ROUND_LABEL, $firstRound[0]->round);
+        $this->assertSame(
+            range(1, $matchCount),
+            $firstRound->pluck('bracket_match')->map(fn ($match): int => (int) $match)->all(),
+        );
 
-        $byeGames = $firstRound->filter(fn (Game $game): bool => $game->is_bye)->values();
-        $playInGames = $firstRound->reject(fn (Game $game): bool => $game->is_bye)->values();
+        $seenEntryIds = [];
 
-        $this->assertCount(4, $byeGames);
-        $this->assertCount(4, $playInGames);
+        foreach ($expectedMatches as $index => [$bracketMatch, $side1Slot, $side2Slot]) {
+            $game = $firstRound[$index];
+            $side1EntryId = $setup['entryIds'][$side1Slot];
+            $side2EntryId = $side2Slot === null ? null : $setup['entryIds'][$side2Slot];
 
-        $firstPlaceIds = [
-            $setup['groupAFirst']->id,
-            $setup['groupBFirst']->id,
-            $setup['groupCFirst']->id,
-            $setup['groupDFirst']->id,
-        ];
+            $this->assertSame($bracketMatch, (int) $game->bracket_match);
+            $this->assertSame($firstRoundLabel, $game->round);
+            $this->assertSame($side1EntryId, (int) $game->entry1_id);
+            $this->assertSame($side2EntryId, $game->entry2_id === null ? null : (int) $game->entry2_id);
+            $this->assertSame($side2Slot === null, $game->is_bye);
 
-        foreach ($byeGames as $byeGame) {
-            $this->assertContains($byeGame->singlesPlayer1Id(), $firstPlaceIds);
-            $this->assertNull($byeGame->singlesPlayer2Id());
-            $this->assertSame($byeGame->singlesPlayer1Id(), $byeGame->singlesWinnerId());
+            $this->assertNotContains($side1EntryId, $seenEntryIds);
+            $seenEntryIds[] = $side1EntryId;
+
+            if ($side2EntryId === null) {
+                $this->assertSame(GameStatus::Finished, $game->status);
+                $this->assertSame($side1EntryId, (int) $game->winner_entry_id);
+                $this->assertNull($game->entry2_id);
+
+                continue;
+            }
+
+            $this->assertNotContains($side2EntryId, $seenEntryIds);
+            $seenEntryIds[] = $side2EntryId;
+            $this->assertSame(GameStatus::Pending, $game->status);
+            $this->assertNull($game->winner_entry_id);
         }
 
-        $groupByPlayerId = $this->groupByPlayerIdFromSetup($setup);
-
-        foreach ($playInGames as $playInGame) {
-            $this->assertSame(2, $groupByPlayerId[$playInGame->singlesPlayer1Id()]['position']);
-            $this->assertSame(3, $groupByPlayerId[$playInGame->singlesPlayer2Id()]['position']);
-            $this->assertNotSame(
-                $groupByPlayerId[$playInGame->singlesPlayer1Id()]['groupId'],
-                $groupByPlayerId[$playInGame->singlesPlayer2Id()]['groupId'],
-            );
-        }
-
-        for ($pairIndex = 0; $pairIndex < 4; $pairIndex++) {
-            $byeGame = $firstRound->firstWhere('bracket_match', ($pairIndex * 2) + 1);
-            $playInGame = $firstRound->firstWhere('bracket_match', ($pairIndex * 2) + 2);
-
-            $this->assertNotNull($byeGame);
-            $this->assertNotNull($playInGame);
-
-            $firstGroupId = $groupByPlayerId[$byeGame->singlesPlayer1Id()]['groupId'];
-            $playInGroupIds = [
-                $groupByPlayerId[$playInGame->singlesPlayer1Id()]['groupId'],
-                $groupByPlayerId[$playInGame->singlesPlayer2Id()]['groupId'],
-            ];
-
-            $this->assertNotContains($firstGroupId, $playInGroupIds);
-        }
+        $this->assertCount($groupCount * 3, $seenEntryIds);
+        $this->assertCount($groupCount * 3, array_unique($seenEntryIds));
+        $this->assertEqualsCanonicalizing(array_values($setup['entryIds']), $seenEntryIds);
+        $this->assertCount($byesCount, $firstRound->filter(fn (Game $game): bool => $game->is_bye));
     }
 
-    public function test_can_advance_from_q3_play_in_to_main_round(): void
+    /**
+     * @return array<string, array{
+     *     0: list<string>,
+     *     1: string,
+     *     2: list<array{0: int, 1: string, 2: string}>
+     * }>
+     */
+    public static function officialQ3NextRoundProvider(): array
     {
+        return [
+            '3 groups' => [['A', 'B', 'C'], 'Cuartos de final', [
+                [1, 'A1', 'C3'],
+                [2, 'B2', 'C1'],
+                [3, 'C2', 'A2'],
+                [4, 'A3', 'B1'],
+            ]],
+            '4 groups' => [['A', 'B', 'C', 'D'], 'Cuartos de final', [
+                [1, 'A1', 'C2'],
+                [2, 'C3', 'D1'],
+                [3, 'C1', 'A2'],
+                [4, 'A3', 'B1'],
+            ]],
+            '9 groups' => [['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'], '8vos de final', [
+                [1, 'A1', 'G2'],
+                [2, 'I1', 'H1'],
+                [3, 'E1', 'B2'],
+                [4, 'F2', 'D1'],
+                [5, 'C1', 'D2'],
+                [6, 'A2', 'F1'],
+                [7, 'G1', 'H2'],
+                [8, 'F3', 'B1'],
+            ]],
+        ];
+    }
+
+    /**
+     * @param  list<string>  $groupLetters
+     * @param  list<array{0: int, 1: string, 2: string}>  $expectedNextRound
+     */
+    #[DataProvider('officialQ3NextRoundProvider')]
+    public function test_advances_official_q3_next_round_from_template_winners(
+        array $groupLetters,
+        string $nextRoundLabel,
+        array $expectedNextRound,
+    ): void {
         $context = $this->tournamentContext();
-        $setup = $this->createFourGroupThreeQualifierPhase($context);
+        $setup = $this->createOfficialQ3Phase($context, $groupLetters);
 
         $context->createBracket($setup['competition'])->assertCreated();
 
         $bracket = Bracket::query()->where('competition_id', $setup['competition']->id)->sole();
         $firstRound = $context->bracketGamesForRound($bracket, 1);
-        $groupByPlayerId = $this->groupByPlayerIdFromSetup($setup);
 
-        foreach ($firstRound->reject(fn (Game $game): bool => $game->is_bye) as $playInGame) {
-            $context->finishGame($playInGame, $playInGame->singlesPlayer1())->assertOk();
+        foreach ($firstRound as $game) {
+            if ($game->is_bye) {
+                $this->assertSame(GameStatus::Finished, $game->status);
+                $this->assertSame((int) $game->entry1_id, (int) $game->winner_entry_id);
+
+                continue;
+            }
+
+            $context->finishGame($game, $game->singlesPlayer1())->assertOk();
         }
 
         $response = $context->generateBracketNextRound($bracket);
         $response->assertCreated();
 
-        $secondRound = $context->bracketGamesForRound($bracket, 2);
+        $secondRound = $context->bracketGamesForRound($bracket->fresh(), 2);
 
-        $this->assertCount(4, $secondRound);
-        $this->assertSame('Cuartos de final', $secondRound[0]->round);
+        $this->assertCount(count($expectedNextRound), $secondRound);
+        $this->assertSame($nextRoundLabel, $secondRound[0]->round);
+        $this->assertSame(
+            range(1, count($expectedNextRound)),
+            $secondRound->pluck('bracket_match')->map(fn ($match): int => (int) $match)->all(),
+        );
 
-        foreach ($secondRound as $game) {
-            $this->assertNotSame(
-                $groupByPlayerId[$game->singlesPlayer1Id()]['groupId'],
-                $groupByPlayerId[$game->singlesPlayer2Id()]['groupId'],
-            );
-        }
+        foreach ($expectedNextRound as $index => [$bracketMatch, $side1Slot, $side2Slot]) {
+            $game = $secondRound[$index];
 
-        $firstPlaceIds = [
-            $setup['groupAFirst']->id,
-            $setup['groupBFirst']->id,
-            $setup['groupCFirst']->id,
-            $setup['groupDFirst']->id,
-        ];
-
-        foreach ($secondRound as $game) {
-            $this->assertTrue(
-                in_array($game->singlesPlayer1Id(), $firstPlaceIds, true)
-                || in_array($game->singlesPlayer2Id(), $firstPlaceIds, true),
-            );
+            $this->assertSame($bracketMatch, (int) $game->bracket_match);
+            $this->assertSame($setup['entryIds'][$side1Slot], (int) $game->entry1_id);
+            $this->assertSame($setup['entryIds'][$side2Slot], (int) $game->entry2_id);
+            $this->assertFalse($game->is_bye);
+            $this->assertSame(GameStatus::Pending, $game->status);
+            $this->assertNull($game->winner_entry_id);
         }
     }
 
-    public function test_q3_does_not_assign_bye_to_second_place_even_if_better_global_record(): void
+    public function test_q3_four_group_official_template_does_not_assign_bye_to_second_place(): void
     {
         $context = $this->tournamentContext();
-        $setup = $this->createFourGroupThreeQualifierPhase($context);
+        $setup = $this->createOfficialQ3Phase($context, ['A', 'B', 'C', 'D']);
 
         $response = $context->createBracket($setup['competition']);
         $response->assertCreated();
@@ -523,10 +693,10 @@ class GroupKnockoutDrawTest extends TestCase
             ->values();
 
         $secondPlaceIds = [
-            $setup['groupASecond']->id,
-            $setup['groupBSecond']->id,
-            $setup['groupCSecond']->id,
-            $setup['groupDSecond']->id,
+            $setup['players']['A2']->id,
+            $setup['players']['B2']->id,
+            $setup['players']['C2']->id,
+            $setup['players']['D2']->id,
         ];
 
         foreach ($byeGames as $byeGame) {
@@ -554,106 +724,63 @@ class GroupKnockoutDrawTest extends TestCase
     }
 
     /**
+     * @param  list<string>  $groupLetters
      * @return array{
-     *     competition: \App\Models\Competition,
-     *     groupA: \App\Models\Group,
-     *     groupB: \App\Models\Group,
-     *     groupC: \App\Models\Group,
-     *     groupD: \App\Models\Group,
-     *     groupAFirst: Player,
-     *     groupASecond: Player,
-     *     groupAThird: Player,
-     *     groupBFirst: Player,
-     *     groupBSecond: Player,
-     *     groupBThird: Player,
-     *     groupCFirst: Player,
-     *     groupCSecond: Player,
-     *     groupCThird: Player,
-     *     groupDFirst: Player,
-     *     groupDSecond: Player,
-     *     groupDThird: Player,
+     *     competition: Competition,
+     *     players: array<string, Player>,
+     *     entryIds: array<string, int>
      * }
      */
-    private function createFourGroupThreeQualifierPhase(TournamentTestContext $context): array
+    private function createOfficialQ3Phase(TournamentTestContext $context, array $groupLetters): array
     {
         $competition = $context->createCompetition();
-        $players = $context->createPlayers(12);
+        $players = $context->createPlayers(count($groupLetters) * 3);
         $context->registerPlayers($competition, $players);
         $competition->update(['qualified_per_group' => 3]);
         $competition->refresh();
 
-        [
-            $groupAFirst, $groupASecond, $groupAThird,
-            $groupBFirst, $groupBSecond, $groupBThird,
-            $groupCFirst, $groupCSecond, $groupCThird,
-            $groupDFirst, $groupDSecond, $groupDThird,
-        ] = $players;
+        $playersBySlot = [];
+        $entryIds = [];
+        $playerIndex = 0;
 
-        $groupA = $context->createGroupWithPlayers($competition, [$groupAFirst, $groupASecond, $groupAThird], 'Grupo A');
-        $groupB = $context->createGroupWithPlayers($competition, [$groupBFirst, $groupBSecond, $groupBThird], 'Grupo B');
-        $groupC = $context->createGroupWithPlayers($competition, [$groupCFirst, $groupCSecond, $groupCThird], 'Grupo C');
-        $groupD = $context->createGroupWithPlayers($competition, [$groupDFirst, $groupDSecond, $groupDThird], 'Grupo D');
+        foreach ($groupLetters as $letter) {
+            $groupPlayers = [
+                $players[$playerIndex],
+                $players[$playerIndex + 1],
+                $players[$playerIndex + 2],
+            ];
+            $playerIndex += 3;
 
-        foreach ([
-            [$groupA, [$groupAFirst, $groupASecond, $groupAThird]],
-            [$groupB, [$groupBFirst, $groupBSecond, $groupBThird]],
-            [$groupC, [$groupCFirst, $groupCSecond, $groupCThird]],
-            [$groupD, [$groupDFirst, $groupDSecond, $groupDThird]],
-        ] as [$group, $rankOrder]) {
+            $group = $context->createGroupWithPlayers(
+                $competition,
+                $groupPlayers,
+                'Grupo '.$letter,
+            );
             $context->generateRoundRobin($group)->assertCreated();
-            $this->finishGroupRoundRobinWithRankOrder($context, $group->id, $rankOrder);
+            $this->finishGroupRoundRobinWithRankOrder($context, $group->id, $groupPlayers);
+
+            foreach ([1, 2, 3] as $position) {
+                $slot = $letter.$position;
+                $player = $groupPlayers[$position - 1];
+                $playersBySlot[$slot] = $player;
+                $entryIds[$slot] = $context->entryIdFor($competition, $player);
+            }
         }
 
         return [
             'competition' => $competition,
-            'groupA' => $groupA,
-            'groupB' => $groupB,
-            'groupC' => $groupC,
-            'groupD' => $groupD,
-            'groupAFirst' => $groupAFirst,
-            'groupASecond' => $groupASecond,
-            'groupAThird' => $groupAThird,
-            'groupBFirst' => $groupBFirst,
-            'groupBSecond' => $groupBSecond,
-            'groupBThird' => $groupBThird,
-            'groupCFirst' => $groupCFirst,
-            'groupCSecond' => $groupCSecond,
-            'groupCThird' => $groupCThird,
-            'groupDFirst' => $groupDFirst,
-            'groupDSecond' => $groupDSecond,
-            'groupDThird' => $groupDThird,
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $setup
-     * @return array<int, array{groupId: int, position: int}>
-     */
-    private function groupByPlayerIdFromSetup(array $setup): array
-    {
-        return [
-            $setup['groupAFirst']->id => ['groupId' => $setup['groupA']->id, 'position' => 1],
-            $setup['groupASecond']->id => ['groupId' => $setup['groupA']->id, 'position' => 2],
-            $setup['groupAThird']->id => ['groupId' => $setup['groupA']->id, 'position' => 3],
-            $setup['groupBFirst']->id => ['groupId' => $setup['groupB']->id, 'position' => 1],
-            $setup['groupBSecond']->id => ['groupId' => $setup['groupB']->id, 'position' => 2],
-            $setup['groupBThird']->id => ['groupId' => $setup['groupB']->id, 'position' => 3],
-            $setup['groupCFirst']->id => ['groupId' => $setup['groupC']->id, 'position' => 1],
-            $setup['groupCSecond']->id => ['groupId' => $setup['groupC']->id, 'position' => 2],
-            $setup['groupCThird']->id => ['groupId' => $setup['groupC']->id, 'position' => 3],
-            $setup['groupDFirst']->id => ['groupId' => $setup['groupD']->id, 'position' => 1],
-            $setup['groupDSecond']->id => ['groupId' => $setup['groupD']->id, 'position' => 2],
-            $setup['groupDThird']->id => ['groupId' => $setup['groupD']->id, 'position' => 3],
+            'players' => $playersBySlot,
+            'entryIds' => $entryIds,
         ];
     }
 
     /**
      * @return array{
-     *     competition: \App\Models\Competition,
-     *     groupA: \App\Models\Group,
-     *     groupB: \App\Models\Group,
-     *     groupC: \App\Models\Group,
-     *     groupD: \App\Models\Group,
+     *     competition: Competition,
+     *     groupA: Group,
+     *     groupB: Group,
+     *     groupC: Group,
+     *     groupD: Group,
      *     groupAFirst: Player,
      *     groupASecond: Player,
      *     groupBFirst: Player,
