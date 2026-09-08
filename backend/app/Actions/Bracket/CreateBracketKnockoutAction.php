@@ -494,17 +494,7 @@ final class CreateBracketKnockoutAction
     {
         $bracket->loadMissing('competition');
 
-        if ($bracket->competition?->isTeam()) {
-            return $bracket->load(array_map(
-                fn (string $relation): string => 'teamTies.'.$relation,
-                TeamTie::BRACKET_OVERVIEW_RELATIONS,
-            ));
-        }
-
-        return $bracket->load(array_map(
-            fn (string $relation): string => 'games.'.$relation,
-            Game::DISPLAY_RELATIONS,
-        ));
+        return $bracket->load(Bracket::overviewRelations($bracket->competition));
     }
 
     private function auditBracketCreated(

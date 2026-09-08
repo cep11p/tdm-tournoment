@@ -19,6 +19,7 @@ import {
   gameMatchupLabel,
   getGameSide,
   getGameSideDisplayName,
+  getGameSideGroupOrigin,
   getGameSideMembers,
   getGameWinnerDisplayName,
   isGameBye,
@@ -46,6 +47,7 @@ import {
   bracketMatchScoreLabel,
   getBracketMatches,
 } from '../utils/bracketMatchAdapter'
+import { formatGroupOriginLabel } from '../utils/formatGroupOriginLabel'
 import { isTeamCompetition, participantPlural } from '../../shared/constants/competitionType'
 import {
   getTeamTieStatusBadgeClasses,
@@ -306,6 +308,14 @@ const sideMembersHint = (game, sideNumber) => {
     .join(' · ')
 }
 
+const sideGroupOriginLabel = (game, sideNumber) => {
+  if (isByeGame(game) && sideNumber === 2) {
+    return null
+  }
+
+  return formatGroupOriginLabel(getGameSideGroupOrigin(game, sideNumber))
+}
+
 const matchFormatLabel = (game) => {
   const teamLabel = bracketMatchFormatLabel(game)
 
@@ -481,7 +491,7 @@ const hasQualifyingRound = computed(() =>
   groupedRounds.value.some((round) => isQualifyingRoundLabel(round.roundLabel)),
 )
 
-const MATCH_CARD_HEIGHT = 120
+const MATCH_CARD_HEIGHT = 140
 const MATCH_GAP = 20
 const MATCH_SLOT_HEIGHT = MATCH_CARD_HEIGHT + MATCH_GAP
 
@@ -918,14 +928,30 @@ onMounted(loadData)
                 class="flex items-center justify-between gap-2 px-3 py-2"
                 :class="compactSideRowClasses(thirdPlaceGame, 1)"
               >
-                <span class="truncate text-sm">{{ getGameSideDisplayName(thirdPlaceGame, 1) }}</span>
+                <div class="min-w-0">
+                  <span class="block truncate text-sm">{{ getGameSideDisplayName(thirdPlaceGame, 1) }}</span>
+                  <p
+                    v-if="sideGroupOriginLabel(thirdPlaceGame, 1)"
+                    class="truncate text-[10px] font-normal text-slate-500 dark:text-slate-400"
+                  >
+                    {{ sideGroupOriginLabel(thirdPlaceGame, 1) }}
+                  </p>
+                </div>
                 <span class="shrink-0 tabular-nums text-sm">{{ participantScoreLabel(thirdPlaceGame, 1) }}</span>
               </div>
               <div
                 class="flex items-center justify-between gap-2 border-t border-slate-200 px-3 py-2 dark:border-slate-700"
                 :class="compactSideRowClasses(thirdPlaceGame, 2)"
               >
-                <span class="truncate text-sm">{{ getGameSideDisplayName(thirdPlaceGame, 2) }}</span>
+                <div class="min-w-0">
+                  <span class="block truncate text-sm">{{ getGameSideDisplayName(thirdPlaceGame, 2) }}</span>
+                  <p
+                    v-if="sideGroupOriginLabel(thirdPlaceGame, 2)"
+                    class="truncate text-[10px] font-normal text-slate-500 dark:text-slate-400"
+                  >
+                    {{ sideGroupOriginLabel(thirdPlaceGame, 2) }}
+                  </p>
+                </div>
                 <span class="shrink-0 tabular-nums text-sm">{{ participantScoreLabel(thirdPlaceGame, 2) }}</span>
               </div>
             </div>
@@ -1023,7 +1049,13 @@ onMounted(loadData)
                           :class="compactSideRowClasses(game, 1)"
                         >
                           <div class="min-w-0">
-                            <span class="truncate text-sm">{{ getGameSideDisplayName(game, 1) }}</span>
+                            <span class="block truncate text-sm">{{ getGameSideDisplayName(game, 1) }}</span>
+                            <p
+                              v-if="sideGroupOriginLabel(game, 1)"
+                              class="truncate text-[10px] font-normal text-slate-500 dark:text-slate-400"
+                            >
+                              {{ sideGroupOriginLabel(game, 1) }}
+                            </p>
                             <p
                               v-if="sideMembersHint(game, 1)"
                               class="truncate text-[10px] text-slate-500 dark:text-slate-400"
@@ -1038,7 +1070,13 @@ onMounted(loadData)
                           :class="compactSideRowClasses(game, 2)"
                         >
                           <div class="min-w-0">
-                            <span class="truncate text-sm">{{ opponentLabel(game) }}</span>
+                            <span class="block truncate text-sm">{{ opponentLabel(game) }}</span>
+                            <p
+                              v-if="sideGroupOriginLabel(game, 2)"
+                              class="truncate text-[10px] font-normal text-slate-500 dark:text-slate-400"
+                            >
+                              {{ sideGroupOriginLabel(game, 2) }}
+                            </p>
                             <p
                               v-if="sideMembersHint(game, 2)"
                               class="truncate text-[10px] text-slate-500 dark:text-slate-400"

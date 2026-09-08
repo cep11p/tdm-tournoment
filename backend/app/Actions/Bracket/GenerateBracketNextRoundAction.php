@@ -9,8 +9,6 @@ use App\Enums\BracketGamePurpose;
 use App\Enums\GameStatus;
 use App\Enums\TeamTieStatus;
 use App\Models\Bracket;
-use App\Models\Game;
-use App\Models\TeamTie;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Bracket\BracketPodiumSupport;
@@ -181,10 +179,7 @@ final class GenerateBracketNextRoundAction
                 thirdPlaceId: $thirdPlaceGame?->id,
             );
 
-            return $bracket->load(array_map(
-                fn (string $relation): string => 'games.'.$relation,
-                Game::DISPLAY_RELATIONS,
-            ));
+            return $bracket->load(Bracket::overviewRelations($bracket->competition));
         });
     }
 
@@ -311,10 +306,7 @@ final class GenerateBracketNextRoundAction
                 matchEntity: 'team_tie',
             );
 
-            return $bracket->load(array_map(
-                fn (string $relation): string => 'teamTies.'.$relation,
-                TeamTie::BRACKET_OVERVIEW_RELATIONS,
-            ));
+            return $bracket->load(Bracket::overviewRelations($bracket->competition));
         });
     }
 

@@ -48,6 +48,10 @@ export function getGameSideMembers(game, sideNumber) {
   return Array.isArray(side?.members) ? side.members : []
 }
 
+export function getGameSideGroupOrigin(game, sideNumber) {
+  return getGameSide(game, sideNumber)?.group_origin ?? null
+}
+
 export function isGameBye(game) {
   return game?.is_bye === true
 }

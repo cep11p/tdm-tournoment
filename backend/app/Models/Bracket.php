@@ -41,4 +41,23 @@ class Bracket extends Model
     {
         return $this->hasMany(BracketEntryOrigin::class);
     }
+
+    /**
+     * @return list<string>
+     */
+    public static function overviewRelations(Competition $competition): array
+    {
+        $prefix = $competition->isTeam() ? 'teamTies.' : 'games.';
+        $nested = $competition->isTeam()
+            ? TeamTie::BRACKET_OVERVIEW_RELATIONS
+            : Game::DISPLAY_RELATIONS;
+
+        return [
+            'entryOrigins',
+            ...array_map(
+                fn (string $relation): string => $prefix.$relation,
+                $nested,
+            ),
+        ];
+    }
 }
