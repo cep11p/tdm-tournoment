@@ -33,6 +33,7 @@ final class CreateBracketKnockoutAction
     public function __construct(
         private readonly CreateGameAction $createGame,
         private readonly CreateBracketTeamTieAction $createBracketTeamTie,
+        private readonly CreateBracketEntryOriginsAction $createBracketEntryOrigins,
         private readonly GroupQualifiersCollector $groupQualifiersCollector,
         private readonly GroupKnockoutDrawBuilder $groupKnockoutDrawBuilder,
         private readonly GroupKnockoutDrawTemplateResolver $groupKnockoutDrawTemplateResolver,
@@ -134,6 +135,7 @@ final class CreateBracketKnockoutAction
                     draw: $draw,
                     qualifiersPerGroup: $qualifiersPerGroup,
                     payload: $payload,
+                    groupQualifiers: $groupQualifiers,
                 );
             }
 
@@ -145,6 +147,7 @@ final class CreateBracketKnockoutAction
                     draw: $draw,
                     qualifiersPerGroup: $qualifiersPerGroup,
                     payload: $payload,
+                    groupQualifiers: $groupQualifiers,
                 );
             }
 
@@ -166,6 +169,7 @@ final class CreateBracketKnockoutAction
                 entryIds: $entryIds,
                 qualifiersPerGroup: $qualifiersPerGroup,
                 payload: $payload,
+                groupQualifiers: $groupQualifiers,
             );
         }
 
@@ -186,6 +190,7 @@ final class CreateBracketKnockoutAction
             entryIds: $entryIds,
             qualifiersPerGroup: $qualifiersPerGroup,
             payload: $payload,
+            groupQualifiers: $groupQualifiers,
         );
     }
 
@@ -209,12 +214,14 @@ final class CreateBracketKnockoutAction
 
     /**
      * @param  array<int, int>  $entryIds
+     * @param  Collection<int, GroupQualifierData>|null  $groupQualifiers
      */
     private function buildBracketFromEntryIds(
         Competition $competition,
         array $entryIds,
         int $qualifiersPerGroup,
         array $payload,
+        ?Collection $groupQualifiers = null,
     ): Bracket {
         $qualifierCount = count($entryIds);
 
@@ -254,7 +261,8 @@ final class CreateBracketKnockoutAction
             $roundLabel,
             $matchFormat,
             $name,
-            $qualifiersPerGroup
+            $qualifiersPerGroup,
+            $groupQualifiers,
         ): Bracket {
             $bracket = Bracket::query()->create([
                 'competition_id' => $competition->id,
@@ -263,6 +271,8 @@ final class CreateBracketKnockoutAction
                 'bracket_size' => $bracketSize,
                 'byes_count' => $byesCount,
             ]);
+
+            $this->persistGroupEntryOrigins($bracket, $groupQualifiers, $entryIds);
 
             $matchCount = (int) ($bracketSize / 2);
 
@@ -334,11 +344,15 @@ final class CreateBracketKnockoutAction
         });
     }
 
+    /**
+     * @param  Collection<int, GroupQualifierData>  $groupQualifiers
+     */
     private function buildBracketFromDrawResult(
         Competition $competition,
         GroupKnockoutDrawResult $draw,
         int $qualifiersPerGroup,
         array $payload,
+        Collection $groupQualifiers,
     ): Bracket {
         if ($draw->bracketSize > BracketSupport::MAX_BRACKET_SIZE) {
             throw ValidationException::withMessages([
@@ -364,7 +378,8 @@ final class CreateBracketKnockoutAction
             $draw,
             $matchFormat,
             $name,
-            $qualifiersPerGroup
+            $qualifiersPerGroup,
+            $groupQualifiers,
         ): Bracket {
             $bracket = Bracket::query()->create([
                 'competition_id' => $competition->id,
@@ -373,6 +388,12 @@ final class CreateBracketKnockoutAction
                 'bracket_size' => $draw->bracketSize,
                 'byes_count' => $draw->byesCount,
             ]);
+
+            $this->persistGroupEntryOrigins(
+                $bracket,
+                $groupQualifiers,
+                $this->usedEntryIdsFromDraw($draw),
+            );
 
             foreach ($draw->matches as $match) {
                 if ($competition->isTeam()) {
@@ -433,6 +454,40 @@ final class CreateBracketKnockoutAction
 
             return $this->loadBracket($bracket);
         });
+    }
+
+    /**
+     * @param  Collection<int, GroupQualifierData>|null  $groupQualifiers
+     * @param  array<int, int>  $entryIds
+     */
+    private function persistGroupEntryOrigins(
+        Bracket $bracket,
+        ?Collection $groupQualifiers,
+        array $entryIds,
+    ): void {
+        if ($groupQualifiers === null) {
+            return;
+        }
+
+        ($this->createBracketEntryOrigins)($bracket, $groupQualifiers, $entryIds);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function usedEntryIdsFromDraw(GroupKnockoutDrawResult $draw): array
+    {
+        $entryIds = [];
+
+        foreach ($draw->matches as $match) {
+            $entryIds[] = $match->entry1Id;
+
+            if (! $match->isBye && $match->entry2Id !== null) {
+                $entryIds[] = $match->entry2Id;
+            }
+        }
+
+        return $entryIds;
     }
 
     private function loadBracket(Bracket $bracket): Bracket

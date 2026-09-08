@@ -36,4 +36,9 @@ class Bracket extends Model
     {
         return $this->hasMany(TeamTie::class);
     }
+
+    public function entryOrigins(): HasMany
+    {
+        return $this->hasMany(BracketEntryOrigin::class);
+    }
 }
