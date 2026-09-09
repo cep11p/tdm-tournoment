@@ -32,6 +32,29 @@ class CompetitionGroupsPrintPdfTest extends TestCase
         $this->assertLessThan(30_000, $elapsedMs, 'all-groups PDF exceeded 30s');
     }
 
+    public function test_mixed_g3_g4_g5_pdf_is_generated_successfully(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition(2);
+        $players = $context->createPlayers(12);
+        $context->registerPlayers($competition, $players);
+
+        $groupG3 = $context->createGroupWithPlayers($competition, array_slice($players, 0, 3), 'Grupo A');
+        $groupG4 = $context->createGroupWithPlayers($competition, array_slice($players, 3, 4), 'Grupo B');
+        $groupG5 = $context->createGroupWithPlayers($competition, array_slice($players, 7, 5), 'Grupo C');
+
+        $context->generateRoundRobin($groupG3)->assertCreated();
+        $context->generateRoundRobin($groupG4)->assertCreated();
+        $context->generateRoundRobin($groupG5)->assertCreated();
+
+        $response = $this->get($context->apiUrl("competitions/{$competition->id}/groups/print/pdf"));
+
+        $response->assertOk();
+        $this->assertStringStartsWith('%PDF', $response->getContent());
+        $this->assertStringContainsString('application/pdf', (string) $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('inline', (string) $response->headers->get('Content-Disposition'));
+    }
+
     public function test_all_groups_download_query_uses_attachment(): void
     {
         $context = $this->tournamentContext();
@@ -59,8 +82,46 @@ class CompetitionGroupsPrintPdfTest extends TestCase
 
         $this->assertStringContainsString('Grupo A', $html);
         $this->assertStringContainsString('Grupo B', $html);
-        $this->assertSame(1, substr_count($html, 'class="pdf-sheet pdf-sheet--break"'));
+        $this->assertSame(1, substr_count($html, 'pdf-sheet--break"'));
         $this->assertStringContainsString('page-break-after: always', $html);
+        $this->assertSame(2, substr_count($html, 'data-sheet-kind="g3"'));
+        $this->assertSame(2, substr_count($html, 'pdf-sheet--official'));
+    }
+
+    public function test_all_groups_blade_keeps_g3_g4_g5_on_separate_sheets(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition(2);
+        $players = $context->createPlayers(12);
+        $context->registerPlayers($competition, $players);
+
+        $groupG3 = $context->createGroupWithPlayers($competition, array_slice($players, 0, 3), 'Grupo A');
+        $groupG4 = $context->createGroupWithPlayers($competition, array_slice($players, 3, 4), 'Grupo B');
+        $groupG5 = $context->createGroupWithPlayers($competition, array_slice($players, 7, 5), 'Grupo C');
+
+        $context->generateRoundRobin($groupG3)->assertCreated();
+        $context->generateRoundRobin($groupG4)->assertCreated();
+        $context->generateRoundRobin($groupG5)->assertCreated();
+
+        $payload = app(BuildCompetitionGroupsPrintAction::class)($competition);
+        $html = view('pdf.groups.all', [
+            'payload' => $payload,
+            'title' => $payload->competition['name'],
+        ])->render();
+
+        $this->assertSame(1, substr_count($html, 'data-sheet-kind="g3"'));
+        $this->assertSame(1, substr_count($html, 'data-sheet-kind="g4"'));
+        $this->assertSame(1, substr_count($html, 'data-sheet-kind="g5"'));
+        $this->assertSame(2, substr_count($html, 'pdf-sheet--break"'));
+        $this->assertStringContainsString('Grupo A', $html);
+        $this->assertStringContainsString('Grupo B', $html);
+        $this->assertStringContainsString('Grupo C', $html);
+
+        preg_match_all('/data-sheet-kind="(g[345])"/', $html, $kindMatches);
+        $this->assertSame(['g3', 'g4', 'g5'], $kindMatches[1]);
+
+        $this->assertSame(3 + 4 + 5, substr_count($html, 'official-matrix-row'));
+        $this->assertSame(3 + 6 + 10, substr_count($html, '<table class="official-match">'));
     }
 
     public function test_json_all_groups_contract_is_unchanged(): void

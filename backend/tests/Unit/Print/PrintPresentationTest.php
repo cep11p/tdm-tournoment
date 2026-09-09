@@ -24,6 +24,82 @@ class PrintPresentationTest extends TestCase
         $this->assertSame([1, 2, 3], PrintPresentation::setColumns(0));
     }
 
+    public function test_set_column_labels_follow_best_of(): void
+    {
+        $this->assertSame(['S1', 'S2', 'S3'], PrintPresentation::setColumnLabels(3));
+        $this->assertSame(['S1', 'S2', 'S3', 'S4', 'S5'], PrintPresentation::setColumnLabels(5));
+        $this->assertSame(['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'], PrintPresentation::setColumnLabels(7));
+        $this->assertSame(['S1', 'S2', 'S3'], PrintPresentation::setColumnLabels(null));
+    }
+
+    public function test_best_of_label(): void
+    {
+        $this->assertSame('Mejor de 3', PrintPresentation::bestOfLabel(3));
+        $this->assertSame('Mejor de 5', PrintPresentation::bestOfLabel(5));
+        $this->assertSame('Mejor de 7', PrintPresentation::bestOfLabel(7));
+        $this->assertSame('—', PrintPresentation::bestOfLabel(null));
+        $this->assertSame('—', PrintPresentation::bestOfLabel(0));
+    }
+
+    public function test_official_sheet_kind_is_g3_g4_g5_only(): void
+    {
+        $this->assertTrue(PrintPresentation::isOfficialGroupSheetKind('g3'));
+        $this->assertTrue(PrintPresentation::isOfficialGroupSheetKind('g4'));
+        $this->assertTrue(PrintPresentation::isOfficialGroupSheetKind('g5'));
+        $this->assertFalse(PrintPresentation::isOfficialGroupSheetKind('generic'));
+        $this->assertFalse(PrintPresentation::isOfficialGroupSheetKind('g2'));
+        $this->assertFalse(PrintPresentation::isOfficialGroupSheetKind('g6'));
+        $this->assertFalse(PrintPresentation::isOfficialGroupSheetKind(null));
+    }
+
+    public function test_group_consecutive_matches_keeps_payload_order(): void
+    {
+        $matches = [
+            ['order' => 1, 'group_round' => 1],
+            ['order' => 2, 'group_round' => 1],
+            ['order' => 3, 'group_round' => 2],
+            ['order' => 4, 'group_round' => 2],
+            ['order' => 5, 'group_round' => 3],
+            ['order' => 6, 'group_round' => 3],
+        ];
+
+        $groups = PrintPresentation::groupConsecutiveMatchesByRound($matches);
+
+        $this->assertSame([1, 2, 3], array_column($groups, 'group_round'));
+        $this->assertSame([1, 2], array_column($groups[0]['matches'], 'order'));
+        $this->assertSame([3, 4], array_column($groups[1]['matches'], 'order'));
+        $this->assertSame([5, 6], array_column($groups[2]['matches'], 'order'));
+    }
+
+    public function test_group_consecutive_matches_does_not_reorder_by_round(): void
+    {
+        $matches = [
+            ['order' => 1, 'group_round' => 2],
+            ['order' => 2, 'group_round' => 1],
+            ['order' => 3, 'group_round' => 1],
+        ];
+
+        $groups = PrintPresentation::groupConsecutiveMatchesByRound($matches);
+
+        $this->assertSame([2, 1], array_column($groups, 'group_round'));
+        $this->assertSame([1], array_column($groups[0]['matches'], 'order'));
+        $this->assertSame([2, 3], array_column($groups[1]['matches'], 'order'));
+    }
+
+    public function test_group_consecutive_null_rounds_stay_separate(): void
+    {
+        $matches = [
+            ['order' => 1, 'group_round' => null],
+            ['order' => 2, 'group_round' => null],
+        ];
+
+        $groups = PrintPresentation::groupConsecutiveMatchesByRound($matches);
+
+        $this->assertCount(2, $groups);
+        $this->assertSame([1], array_column($groups[0]['matches'], 'order'));
+        $this->assertSame([2], array_column($groups[1]['matches'], 'order'));
+    }
+
     public function test_orientation_matches_frontend_threshold(): void
     {
         $this->assertSame('portrait', PrintPresentation::orientation(1));

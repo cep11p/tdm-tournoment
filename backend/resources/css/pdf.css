@@ -225,3 +225,317 @@ body {
 .print-status {
     white-space: nowrap;
 }
+
+.official-layout {
+    font-size: 8pt;
+    line-height: 1.15;
+}
+
+.official-layout--g4 {
+    font-size: 7.5pt;
+}
+
+.official-layout--g5 {
+    font-size: 7pt;
+    line-height: 1.08;
+}
+
+.official-header,
+.official-matrix,
+.official-match,
+.official-match-row,
+.official-sign {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.official-header {
+    margin: 0 0 6pt;
+    table-layout: fixed;
+}
+
+.official-header th,
+.official-header td {
+    border: 1px solid #222;
+    padding: 2pt 3pt;
+    vertical-align: middle;
+    background: #fff;
+    color: #111;
+}
+
+.official-header th {
+    width: 22mm;
+    font-size: 6.5pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    background: #f3f3f3;
+    white-space: nowrap;
+}
+
+.official-header td {
+    font-weight: bold;
+}
+
+.official-header-blank {
+    width: 32mm;
+    height: 10pt;
+}
+
+.official-layout--g5 .official-header th,
+.official-layout--g5 .official-header td,
+.official-layout--g5 .official-matrix th,
+.official-layout--g5 .official-matrix td {
+    padding: 1pt 2pt;
+}
+
+.official-matrix {
+    margin: 0 0 6pt;
+    table-layout: auto;
+}
+
+.official-layout--g5 .official-matrix {
+    margin-bottom: 4pt;
+}
+
+.official-matrix th,
+.official-matrix td {
+    border: 1px solid #222;
+    padding: 2pt 3pt;
+    vertical-align: middle;
+    background: #fff;
+    color: #111;
+}
+
+.official-matrix thead th {
+    background: #f3f3f3;
+    font-weight: bold;
+    text-align: center;
+    font-size: 6.5pt;
+    text-transform: uppercase;
+}
+
+.official-matrix-num {
+    width: 8mm;
+    text-align: center;
+    font-weight: bold;
+}
+
+.official-matrix-assoc {
+    width: 20mm;
+}
+
+.official-layout--g5 .official-matrix-assoc {
+    width: 14mm;
+}
+
+.official-matrix-cell,
+.official-matrix-pts,
+.official-matrix-pos,
+.official-matrix-empty {
+    width: 11mm;
+    text-align: center;
+}
+
+.official-layout--g5 .official-matrix-cell,
+.official-layout--g5 .official-matrix-pts,
+.official-layout--g5 .official-matrix-pos,
+.official-layout--g5 .official-matrix-empty {
+    width: 9mm;
+}
+
+.official-matrix-name-cell {
+    white-space: pre-line;
+    word-wrap: break-word;
+}
+
+.official-matrix-cell,
+.official-matrix-empty,
+.official-matrix-assoc {
+    height: 11pt;
+}
+
+.official-layout--g5 .official-matrix-cell,
+.official-layout--g5 .official-matrix-empty,
+.official-layout--g5 .official-matrix-assoc {
+    height: 9pt;
+}
+
+.matrix-cell--self {
+    background: #e6e6e6;
+    font-weight: bold;
+    color: #444;
+}
+
+.official-match-row {
+    margin: 0 0 3pt;
+    border-collapse: separate;
+    border-spacing: 3pt 0;
+}
+
+.official-layout--g5 .official-match-row {
+    margin-bottom: 2pt;
+    border-spacing: 2pt 0;
+}
+
+.official-match-wrap {
+    width: 50%;
+    vertical-align: top;
+    padding: 0;
+    border: none;
+}
+
+.official-match-wrap--single {
+    width: 100%;
+}
+
+.official-match {
+    table-layout: fixed;
+}
+
+.official-match th,
+.official-match td {
+    border: 1px solid #222;
+    padding: 1.5pt 2pt;
+    vertical-align: middle;
+    background: #fff;
+    color: #111;
+}
+
+.official-layout--g5 .official-match th,
+.official-layout--g5 .official-match td {
+    padding: 1pt 1.5pt;
+}
+
+.official-match thead th {
+    background: #f3f3f3;
+    font-weight: bold;
+    text-align: center;
+    font-size: 6.5pt;
+}
+
+.official-match-col-num,
+.official-match-num {
+    width: 7mm;
+    text-align: center;
+    font-weight: bold;
+}
+
+.official-match-col-result {
+    width: 14mm;
+}
+
+.official-match-col-set {
+    width: 8mm;
+}
+
+.official-match-col-ref {
+    width: 32mm;
+}
+
+.official-match-row--pair .official-match-col-num,
+.official-match-row--pair .official-match-num {
+    width: 6mm;
+}
+
+.official-match-row--pair .official-match-col-result {
+    width: 13mm;
+}
+
+.official-match-row--pair .official-match-col-set {
+    width: 6.5mm;
+}
+
+.official-match-row--pair .official-match-col-ref {
+    width: 22mm;
+}
+
+.official-match-row--pair .official-match thead th {
+    font-size: 5.5pt;
+}
+
+.official-match-name {
+    white-space: pre-line;
+}
+
+.official-result-cell,
+.official-set-cell {
+    height: 12pt;
+}
+
+.official-layout--g3 .official-result-cell,
+.official-layout--g3 .official-set-cell {
+    height: 16pt;
+}
+
+.official-layout--g5 .official-result-cell,
+.official-layout--g5 .official-set-cell {
+    height: 10pt;
+}
+
+.official-match-ref {
+    text-align: center;
+    vertical-align: middle;
+    font-size: 7pt;
+    white-space: pre-line;
+    word-wrap: break-word;
+}
+
+.official-notes {
+    margin-top: 4pt;
+}
+
+.official-notes-title {
+    margin: 0 0 2pt;
+    font-size: 7pt;
+    font-weight: bold;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.official-notes-block {
+    border: 1px solid #222;
+}
+
+.official-notes-line {
+    border-bottom: 1px solid #c4c4c4;
+    height: 9pt;
+}
+
+.official-layout--g5 .official-notes-line {
+    height: 7pt;
+}
+
+.official-notes-line:last-child {
+    border-bottom: none;
+}
+
+.official-sign {
+    margin-top: 4pt;
+}
+
+.official-sign td {
+    border: none;
+    padding: 0 8pt 0 0;
+    vertical-align: bottom;
+    width: 50%;
+}
+
+.official-sign-line {
+    display: inline-block;
+    border-bottom: 1px solid #111;
+    width: 48mm;
+    height: 10pt;
+    vertical-align: bottom;
+}
+
+.official-sign-role-label,
+.official-sign-role {
+    margin: 2pt 0 0;
+    font-size: 7pt;
+    color: #444;
+}
+
+.official-sign-role-label {
+    margin-top: 4pt;
+}

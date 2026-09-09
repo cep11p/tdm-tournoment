@@ -9,6 +9,11 @@ use Illuminate\Http\Request;
 final class PrintPresentation
 {
     /**
+     * @var list<string>
+     */
+    private const OFFICIAL_GROUP_SHEET_KINDS = ['g3', 'g4', 'g5'];
+
+    /**
      * @return list<int>
      */
     public static function setColumns(?int $bestOf): array
@@ -18,6 +23,65 @@ final class PrintPresentation
         }
 
         return range(1, $bestOf);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function setColumnLabels(?int $bestOf): array
+    {
+        return array_map(
+            static fn (int $setNumber): string => 'S'.$setNumber,
+            self::setColumns($bestOf),
+        );
+    }
+
+    public static function bestOfLabel(?int $bestOf): string
+    {
+        if ($bestOf === null || $bestOf < 1) {
+            return '—';
+        }
+
+        return 'Mejor de '.$bestOf;
+    }
+
+    public static function isOfficialGroupSheetKind(?string $sheetKind): bool
+    {
+        return in_array($sheetKind, self::OFFICIAL_GROUP_SHEET_KINDS, true);
+    }
+
+    /**
+     * Agrupa partidos consecutivos que comparten group_round.
+     * No reordena: respeta el orden exacto del payload.
+     *
+     * @param  list<array{group_round?: int|null}|mixed>  $matches
+     * @return list<array{group_round: int|null, matches: list<array<string, mixed>>}>
+     */
+    public static function groupConsecutiveMatchesByRound(array $matches): array
+    {
+        $groups = [];
+
+        foreach ($matches as $match) {
+            if (! is_array($match)) {
+                continue;
+            }
+
+            $round = $match['group_round'] ?? null;
+            $lastIndex = array_key_last($groups);
+            $last = $lastIndex === null ? null : $groups[$lastIndex];
+
+            if ($last !== null && $last['group_round'] === $round && $round !== null) {
+                $groups[$lastIndex]['matches'][] = $match;
+                continue;
+            }
+
+            $groups[] = [
+                'group_round' => $round,
+                'matches' => [$match],
+            ];
+        }
+
+        return $groups;
     }
 
     public static function orientation(?int $bestOf): string

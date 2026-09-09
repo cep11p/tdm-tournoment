@@ -56,6 +56,26 @@ class GroupPrintPdfTest extends TestCase
         $this->assertSame(5, app(BuildPrintGroupSheetAction::class)($setup['group'])->bestOf);
     }
 
+    public function test_g4_g5_and_generic_pdfs_are_generated_successfully(): void
+    {
+        $context = $this->tournamentContext();
+
+        foreach ([
+            ['players' => 2, 'setsToWin' => 2],
+            ['players' => 4, 'setsToWin' => 2],
+            ['players' => 5, 'setsToWin' => 2],
+            ['players' => 5, 'setsToWin' => 3],
+            ['players' => 6, 'setsToWin' => 2],
+        ] as $case) {
+            $setup = $this->createSinglesGroup($context, playerCount: $case['players'], setsToWin: $case['setsToWin']);
+            $response = $this->get($context->apiUrl("groups/{$setup['group']->id}/print/pdf"));
+
+            $response->assertOk();
+            $this->assertStringStartsWith('%PDF', $response->getContent());
+            $this->assertStringContainsString('application/pdf', (string) $response->headers->get('Content-Type'));
+        }
+    }
+
     public function test_json_print_contract_is_unchanged(): void
     {
         $context = $this->tournamentContext();
