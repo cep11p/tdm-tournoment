@@ -8,18 +8,26 @@ final class PrintGroupSheetData
      * @param  array{id: int, name: string}  $tournament
      * @param  array{id: int, name: string, type: string}  $competition
      * @param  array{id: int, name: string}  $group
-     * @param  list<array{competition_entry_id: int, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>}>  $participants
+     * @param  list<array{competition_entry_id: int, sheet_number: int|null, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>}>  $participants
      * @param  list<array{
      *     game_id: int,
      *     order: int,
      *     group_round: int|null,
      *     group_match: int|null,
-     *     side1: array{competition_entry_id: int, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>}|null,
-     *     side2: array{competition_entry_id: int, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>}|null,
-     *     referee: array{competition_entry_id: int, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>}|null,
+     *     side1_number: int|null,
+     *     side1: array{competition_entry_id: int, sheet_number: int|null, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>}|null,
+     *     side2_number: int|null,
+     *     side2: array{competition_entry_id: int, sheet_number: int|null, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>}|null,
+     *     referee_number: int|null,
+     *     referee: array{competition_entry_id: int, sheet_number: int|null, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>}|null,
      *     best_of: int|null,
      *     sets_to_win: int|null
      * }>  $matches
+     * @param  list<array{
+     *     sheet_number: int,
+     *     entry: array{competition_entry_id: int, sheet_number: int|null, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>},
+     *     cells: list<array{opponent_number: int, type: 'self'|'match', game_id: int|null}>
+     * }>  $matrix
      */
     public function __construct(
         public array $tournament,
@@ -31,6 +39,8 @@ final class PrintGroupSheetData
         public int $qualifiedPerGroup,
         public array $participants,
         public array $matches,
+        public string $sheetKind = 'generic',
+        public array $matrix = [],
     ) {}
 
     /**
@@ -42,17 +52,26 @@ final class PrintGroupSheetData
      *     sets_to_win: int,
      *     points_per_set: int,
      *     qualified_per_group: int,
-     *     participants: list<array{competition_entry_id: int, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>}>,
+     *     sheet_kind: string,
+     *     participants: list<array{competition_entry_id: int, sheet_number: int|null, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>}>,
      *     matches: list<array{
      *         game_id: int,
      *         order: int,
      *         group_round: int|null,
      *         group_match: int|null,
-     *         side1: array{competition_entry_id: int, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>}|null,
-     *         side2: array{competition_entry_id: int, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>}|null,
-     *         referee: array{competition_entry_id: int, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>}|null,
+     *         side1_number: int|null,
+     *         side1: array{competition_entry_id: int, sheet_number: int|null, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>}|null,
+     *         side2_number: int|null,
+     *         side2: array{competition_entry_id: int, sheet_number: int|null, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>}|null,
+     *         referee_number: int|null,
+     *         referee: array{competition_entry_id: int, sheet_number: int|null, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>}|null,
      *         best_of: int|null,
      *         sets_to_win: int|null
+     *     }>,
+     *     matrix: list<array{
+     *         sheet_number: int,
+     *         entry: array{competition_entry_id: int, sheet_number: int|null, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>},
+     *         cells: list<array{opponent_number: int, type: 'self'|'match', game_id: int|null}>
      *     }>
      * }
      */
@@ -66,8 +85,10 @@ final class PrintGroupSheetData
             'sets_to_win' => $this->setsToWin,
             'points_per_set' => $this->pointsPerSet,
             'qualified_per_group' => $this->qualifiedPerGroup,
+            'sheet_kind' => $this->sheetKind,
             'participants' => $this->participants,
             'matches' => $this->matches,
+            'matrix' => $this->matrix,
         ];
     }
 }

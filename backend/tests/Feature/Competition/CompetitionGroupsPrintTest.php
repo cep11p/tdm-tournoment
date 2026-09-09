@@ -307,6 +307,75 @@ class CompetitionGroupsPrintTest extends TestCase
             ->assertOk();
     }
 
+    public function test_bulk_print_preserves_g3_g4_g5_sheet_kind_order_and_numbering(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition(2);
+        $players = $context->createPlayers(12);
+        $context->registerPlayers($competition, $players);
+
+        $groupG3 = $context->createGroupWithPlayers($competition, array_slice($players, 0, 3), 'Grupo A');
+        $groupG4 = $context->createGroupWithPlayers($competition, array_slice($players, 3, 4), 'Grupo B');
+        $groupG5 = $context->createGroupWithPlayers($competition, array_slice($players, 7, 5), 'Grupo C');
+
+        $context->generateRoundRobin($groupG3)->assertCreated();
+        $context->generateRoundRobin($groupG4)->assertCreated();
+        $context->generateRoundRobin($groupG5)->assertCreated();
+
+        $sheets = collect(
+            $this->getJson($context->apiUrl("competitions/{$competition->id}/groups/print"))
+                ->assertOk()
+                ->json('data.sheets'),
+        )->keyBy('group.id');
+
+        $expected = [
+            $groupG3->id => [
+                'kind' => 'g3',
+                'pairings' => [[1, 3], [1, 2], [2, 3]],
+                'numbers' => [1, 2, 3],
+            ],
+            $groupG4->id => [
+                'kind' => 'g4',
+                'pairings' => [[1, 3], [2, 4], [1, 2], [3, 4], [1, 4], [2, 3]],
+                'numbers' => [1, 2, 3, 4],
+            ],
+            $groupG5->id => [
+                'kind' => 'g5',
+                'pairings' => [[2, 5], [3, 4], [1, 5], [2, 3], [1, 4], [5, 3], [1, 3], [4, 2], [1, 2], [4, 5]],
+                'numbers' => [1, 2, 3, 4, 5],
+            ],
+        ];
+
+        foreach ($expected as $groupId => $expectation) {
+            $sheet = $sheets->get($groupId);
+            $this->assertNotNull($sheet);
+            $this->assertSame($expectation['kind'], $sheet['sheet_kind']);
+            $this->assertSame($expectation['numbers'], array_column($sheet['participants'], 'sheet_number'));
+            $this->assertSame(
+                $expectation['pairings'],
+                array_map(
+                    static fn (array $match): array => [$match['side1_number'], $match['side2_number']],
+                    $sheet['matches'],
+                ),
+            );
+
+            $individual = $this->getJson($context->apiUrl("groups/{$groupId}/print"))
+                ->assertOk()
+                ->json('data');
+
+            $this->assertSame($individual['sheet_kind'], $sheet['sheet_kind']);
+            $this->assertSame(
+                array_column($individual['matches'], 'game_id'),
+                array_column($sheet['matches'], 'game_id'),
+            );
+            $this->assertSame(
+                array_column($individual['matches'], 'referee_number'),
+                array_column($sheet['matches'], 'referee_number'),
+            );
+            $this->assertSame($individual['matrix'], $sheet['matrix']);
+        }
+    }
+
     /**
      * @return array{competition: Competition, groupA: Group, groupB: Group}
      */
