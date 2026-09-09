@@ -1,3 +1,13 @@
+export const OFFICIAL_GROUP_SHEET_KINDS = ['g3', 'g4', 'g5']
+
+/**
+ * @param {string|null|undefined} sheetKind
+ * @returns {boolean}
+ */
+export function isOfficialGroupSheetKind(sheetKind) {
+  return OFFICIAL_GROUP_SHEET_KINDS.includes(sheetKind)
+}
+
 /**
  * @param {number|null|undefined} bestOf
  * @returns {number[]}
@@ -10,6 +20,61 @@ export function printSetColumns(bestOf) {
   }
 
   return Array.from({ length: count }, (_, index) => index + 1)
+}
+
+/**
+ * @param {number|null|undefined} bestOf
+ * @returns {string[]}
+ */
+export function printSetColumnLabels(bestOf) {
+  return printSetColumns(bestOf).map((setNumber) => `S${setNumber}`)
+}
+
+/**
+ * @param {number|null|undefined} bestOf
+ * @returns {string}
+ */
+export function printBestOfLabel(bestOf) {
+  const count = Number(bestOf)
+
+  if (!Number.isInteger(count) || count < 1) {
+    return '—'
+  }
+
+  return `Mejor de ${count}`
+}
+
+/**
+ * Agrupa partidos consecutivos que comparten group_round.
+ * No reordena: respeta el orden exacto del payload.
+ *
+ * @param {Array<{group_round?: number|null}|null|undefined>|null|undefined} matches
+ * @returns {Array<{group_round: number|null, matches: object[]}>}
+ */
+export function groupConsecutiveMatchesByRound(matches) {
+  const list = Array.isArray(matches) ? matches : []
+  const groups = []
+
+  for (const match of list) {
+    if (match == null) {
+      continue
+    }
+
+    const round = match.group_round ?? null
+    const last = groups[groups.length - 1]
+
+    if (last && last.group_round === round && round != null) {
+      last.matches.push(match)
+      continue
+    }
+
+    groups.push({
+      group_round: round,
+      matches: [match],
+    })
+  }
+
+  return groups
 }
 
 /**
