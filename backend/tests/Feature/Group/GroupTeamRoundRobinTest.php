@@ -3,13 +3,12 @@
 namespace Tests\Feature\Group;
 
 use App\Enums\AuditAction;
-use App\Enums\CompetitionType;
 use App\Enums\TeamTieModality;
 use App\Enums\TeamTieStatus;
 use App\Models\Game;
 use App\Models\TeamTie;
-use App\Models\TeamTieFormat;
 use App\Support\Competition\TeamCompetitionStructureGuard;
+use App\Support\Group\GroupSheetNumbering;
 use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
@@ -93,6 +92,50 @@ class GroupTeamRoundRobinTest extends TestCase
 
         $this->assertSame(3, $teamTies->count());
         $this->assertTrue($teamTies->every(fn (TeamTie $teamTie): bool => ! $teamTie->is_bye));
+    }
+
+    public function test_three_teams_keep_berger_order_not_official_sheet_pattern(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createTeamCompetition(4);
+        $entries = $context->registerTeams($competition, 3, 4);
+        $group = $context->createGroupWithEntries($competition, $entries);
+
+        $context->generateTeamRoundRobin($group)->assertCreated();
+
+        $numbering = GroupSheetNumbering::forCompetitionEntryIds(
+            collect($entries)->map(fn ($entry): int => (int) $entry->id)->all(),
+        );
+
+        $slots = TeamTie::query()
+            ->where('group_id', $group->id)
+            ->orderBy('group_round')
+            ->orderBy('group_match')
+            ->get()
+            ->map(fn (TeamTie $teamTie): array => [
+                (int) $teamTie->group_round,
+                (int) $teamTie->group_match,
+                $numbering[(int) $teamTie->entry1_id],
+                $numbering[(int) $teamTie->entry2_id],
+            ])
+            ->all();
+
+        $this->assertSame(
+            [
+                [1, 1, 2, 3],
+                [2, 1, 1, 3],
+                [3, 1, 1, 2],
+            ],
+            $slots,
+        );
+        $this->assertNotSame(
+            [
+                [1, 1, 1, 3],
+                [2, 1, 1, 2],
+                [3, 1, 2, 3],
+            ],
+            $slots,
+        );
     }
 
     public function test_team_tie_pairings_are_unique_bidirectionally(): void

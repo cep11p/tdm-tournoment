@@ -5,8 +5,10 @@ namespace App\Actions\Group;
 use App\Actions\Game\CreateGameAction;
 use App\Models\Game;
 use App\Models\Group;
-use App\Support\Game\GameFormatResolver;
 use App\Support\Competition\TeamCompetitionSchedulingGuard;
+use App\Support\Game\GameFormatResolver;
+use App\Support\Group\GroupSheetNumbering;
+use App\Support\Group\GroupSheetPlayingOrder;
 use App\Support\Group\RoundRobinScheduleBuilder;
 use Illuminate\Support\Collection;
 
@@ -36,35 +38,90 @@ final class BuildGroupRoundRobinGamesAction
         $round = sprintf('Round Robin - %s', $group->name);
         $competitionId = (int) $group->competition_id;
         $matchFormat = GameFormatResolver::resolveForGroup($group->competition);
-        $schedule = $this->scheduleBuilder->build($entryIds);
         $created = collect();
 
-        foreach ($schedule as $roundIndex => $roundPairings) {
-            $groupRound = $roundIndex + 1;
+        foreach ($this->scheduleSlots($entryIds) as $slot) {
+            $entry1Id = $slot['entry1_id'];
+            $entry2Id = $slot['entry2_id'];
 
-            foreach ($roundPairings as $matchIndex => $pairing) {
-                $entry1Id = $pairing['entry1_id'];
-                $entry2Id = $pairing['entry2_id'];
-
-                if ($this->gameExistsBetweenEntries($competitionId, $entry1Id, $entry2Id)) {
-                    continue;
-                }
-
-                $created->push(($this->createGame)([
-                    'competition_id' => $competitionId,
-                    'group_id' => $group->id,
-                    'entry1_id' => $entry1Id,
-                    'entry2_id' => $entry2Id,
-                    'round' => $round,
-                    'group_round' => $groupRound,
-                    'group_match' => $matchIndex + 1,
-                    'best_of' => $matchFormat['best_of'],
-                    'sets_to_win' => $matchFormat['sets_to_win'],
-                ]));
+            if ($this->gameExistsBetweenEntries($competitionId, $entry1Id, $entry2Id)) {
+                continue;
             }
+
+            $created->push(($this->createGame)([
+                'competition_id' => $competitionId,
+                'group_id' => $group->id,
+                'entry1_id' => $entry1Id,
+                'entry2_id' => $entry2Id,
+                'round' => $round,
+                'group_round' => $slot['group_round'],
+                'group_match' => $slot['group_match'],
+                'best_of' => $matchFormat['best_of'],
+                'sets_to_win' => $matchFormat['sets_to_win'],
+            ]));
         }
 
         return $created;
+    }
+
+    /**
+     * @param  list<int>  $entryIds
+     * @return list<array{entry1_id: int, entry2_id: int, group_round: int, group_match: int}>
+     */
+    private function scheduleSlots(array $entryIds): array
+    {
+        if (GroupSheetPlayingOrder::supports(count($entryIds))) {
+            return $this->officialScheduleSlots($entryIds);
+        }
+
+        return $this->bergerScheduleSlots($entryIds);
+    }
+
+    /**
+     * @param  list<int>  $entryIds
+     * @return list<array{entry1_id: int, entry2_id: int, group_round: int, group_match: int}>
+     */
+    private function officialScheduleSlots(array $entryIds): array
+    {
+        $entryIdBySheetNumber = array_flip(
+            GroupSheetNumbering::forCompetitionEntryIds($entryIds),
+        );
+        $slots = [];
+
+        foreach (GroupSheetPlayingOrder::forSize(count($entryIds)) as $fixture) {
+            $slots[] = [
+                'entry1_id' => (int) $entryIdBySheetNumber[$fixture->side1],
+                'entry2_id' => (int) $entryIdBySheetNumber[$fixture->side2],
+                'group_round' => $fixture->groupRound,
+                'group_match' => $fixture->groupMatch,
+            ];
+        }
+
+        return $slots;
+    }
+
+    /**
+     * @param  list<int>  $entryIds
+     * @return list<array{entry1_id: int, entry2_id: int, group_round: int, group_match: int}>
+     */
+    private function bergerScheduleSlots(array $entryIds): array
+    {
+        $slots = [];
+
+        foreach ($this->scheduleBuilder->build($entryIds) as $roundIndex => $roundPairings) {
+            $groupRound = $roundIndex + 1;
+
+            foreach ($roundPairings as $matchIndex => $pairing) {
+                $slots[] = [
+                    'entry1_id' => $pairing['entry1_id'],
+                    'entry2_id' => $pairing['entry2_id'],
+                    'group_round' => $groupRound,
+                    'group_match' => $matchIndex + 1,
+                ];
+            }
+        }
+
+        return $slots;
     }
 
     private function gameExistsBetweenEntries(int $competitionId, int $entry1Id, int $entry2Id): bool

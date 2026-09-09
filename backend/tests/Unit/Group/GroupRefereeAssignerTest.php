@@ -7,6 +7,7 @@ use App\Models\CompetitionEntry;
 use App\Models\Game;
 use App\Support\Group\GroupFixtureOrder;
 use App\Support\Group\GroupRefereeAssigner;
+use App\Support\Group\GroupSheetNumbering;
 use Illuminate\Support\Collection;
 use Tests\TestCase;
 
@@ -45,6 +46,32 @@ class GroupRefereeAssignerTest extends TestCase
         $counts = array_count_values(array_values($assignment));
         $this->assertCount(3, $counts);
         $this->assertTrue(collect($counts)->every(fn (int $count): bool => $count === 1));
+    }
+
+    public function test_group_of_four_fixture_follows_official_playing_order(): void
+    {
+        $games = $this->generateOrderedFixture(playerCount: 4);
+        $entryIds = $games
+            ->flatMap(fn (Game $game): array => [(int) $game->entry1_id, (int) $game->entry2_id])
+            ->unique()
+            ->values()
+            ->all();
+        $numbering = GroupSheetNumbering::forCompetitionEntryIds($entryIds);
+
+        $this->assertSame(
+            [
+                [1, 3],
+                [2, 4],
+                [1, 2],
+                [3, 4],
+                [1, 4],
+                [2, 3],
+            ],
+            $games->map(fn (Game $game): array => [
+                $numbering[(int) $game->entry1_id],
+                $numbering[(int) $game->entry2_id],
+            ])->all(),
+        );
     }
 
     public function test_group_of_four_never_assigns_a_side_keeps_equity_and_avoids_consecutive(): void

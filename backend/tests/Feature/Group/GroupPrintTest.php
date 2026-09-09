@@ -331,7 +331,7 @@ class GroupPrintTest extends TestCase
         $this->assertRefereesAreNotPlaying($payload['matches']);
         $this->assertOperationalMatrix($payload['matrix'], size: 3);
         $this->assertNoSportingResults($payload);
-        $this->assertNotSame(
+        $this->assertSame(
             GroupFixtureOrder::games($setup['group'])->pluck('id')->all(),
             array_column($payload['matches'], 'game_id'),
         );

@@ -7,9 +7,10 @@ use App\Models\Bracket;
 use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupEntry;
-
 use App\Support\Competition\CompetitionStructureGuard;
+use App\Support\Group\GroupSheetNumbering;
 use App\Support\Group\RandomGroupDistributionGuard;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class RegenerateRandomGroupsTest extends TestCase
@@ -423,5 +424,89 @@ class RegenerateRandomGroupsTest extends TestCase
             ->all();
 
         $this->assertSame($originalGroupIds, $currentGroupIds);
+    }
+
+    #[DataProvider('officialGroupSizeProvider')]
+    public function test_regenerating_random_groups_uses_official_playing_order(int $size, array $expected): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+        $players = $context->createPlayers($size);
+        $context->registerPlayers($competition, $players);
+
+        $context->generateRandomGroups($competition, groupsCount: 1)->assertCreated();
+
+        $group = Group::query()->where('competition_id', $competition->id)->firstOrFail();
+        $before = $this->persistedSheetSlots($group);
+
+        $this->assertSame($expected, $before);
+
+        $context->regenerateRandomGroups($competition, groupsCount: 1)->assertCreated();
+
+        $newGroup = Group::query()->where('competition_id', $competition->id)->firstOrFail();
+
+        $this->assertNotSame($group->id, $newGroup->id);
+        $this->assertSame($expected, $this->persistedSheetSlots($newGroup));
+    }
+
+    /**
+     * @return array<string, array{0: int, 1: list<array{0: int, 1: int, 2: int, 3: int}>}>
+     */
+    public static function officialGroupSizeProvider(): array
+    {
+        return [
+            'G3' => [3, [
+                [1, 1, 1, 3],
+                [2, 1, 1, 2],
+                [3, 1, 2, 3],
+            ]],
+            'G4' => [4, [
+                [1, 1, 1, 3],
+                [1, 2, 2, 4],
+                [2, 1, 1, 2],
+                [2, 2, 3, 4],
+                [3, 1, 1, 4],
+                [3, 2, 2, 3],
+            ]],
+            'G5' => [5, [
+                [1, 1, 2, 5],
+                [1, 2, 3, 4],
+                [2, 1, 1, 5],
+                [2, 2, 2, 3],
+                [3, 1, 1, 4],
+                [3, 2, 5, 3],
+                [4, 1, 1, 3],
+                [4, 2, 4, 2],
+                [5, 1, 1, 2],
+                [5, 2, 4, 5],
+            ]],
+        ];
+    }
+
+    /**
+     * @return list<array{0: int, 1: int, 2: int, 3: int}>
+     */
+    private function persistedSheetSlots(Group $group): array
+    {
+        $numbering = GroupSheetNumbering::forCompetitionEntryIds(
+            $group->groupEntries()
+                ->pluck('competition_entry_id')
+                ->map(fn ($id): int => (int) $id)
+                ->all(),
+        );
+
+        return Game::query()
+            ->where('group_id', $group->id)
+            ->orderBy('group_round')
+            ->orderBy('group_match')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (Game $game): array => [
+                (int) $game->group_round,
+                (int) $game->group_match,
+                $numbering[(int) $game->entry1_id],
+                $numbering[(int) $game->entry2_id],
+            ])
+            ->all();
     }
 }
