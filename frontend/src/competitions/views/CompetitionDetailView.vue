@@ -1365,6 +1365,7 @@ const handleEditCompetitionSaved = async () => {
         :has-existing-groups="hasExistingGroups"
         :is-competition-completed="isCompetitionCompleted"
         :participant-kind="participantKind"
+        :entries="registrations ?? []"
         @close="showGenerateRandomGroupsModal = false"
         @saved="handleRandomGroupsSaved"
       />
@@ -1377,6 +1378,7 @@ const handleEditCompetitionSaved = async () => {
         :existing-groups-count="existingGroupsCount"
         :is-competition-completed="isCompetitionCompleted"
         :participant-kind="participantKind"
+        :entries="registrations ?? []"
         @close="showRegenerateRandomGroupsModal = false"
         @saved="handleRegenerateRandomGroupsSaved"
       />

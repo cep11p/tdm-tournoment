@@ -19,6 +19,7 @@ use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Competition\CompetitionParticipantLabel;
 use App\Support\Competition\CompetitionStructureGuard;
 use App\Support\Group\RandomGroupDistributionGuard;
+use App\Support\Group\SeededGroupEntriesGuard;
 use App\Support\TeamTie\TeamTieRubberLifecycleGuard;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +34,7 @@ final class RegenerateRandomGroupsForCompetitionAction
     ) {}
 
     /**
+     * @param  list<int>  $seededEntryIds
      * @return array{
      *     groups_removed: int,
      *     games_removed: int,
@@ -45,7 +47,7 @@ final class RegenerateRandomGroupsForCompetitionAction
      *     groups: \Illuminate\Support\Collection<int, \App\Models\Group>,
      * }
      */
-    public function __invoke(Competition $competition, int $groupsCount): array
+    public function __invoke(Competition $competition, int $groupsCount, array $seededEntryIds = []): array
     {
         $competition->loadMissing('tournament');
         TournamentLifecycleGuard::ensureMutableForCompetition($competition);
@@ -61,9 +63,14 @@ final class RegenerateRandomGroupsForCompetitionAction
         $this->ensureNoNonPendingTeamTies($competition);
         TeamTieRubberLifecycleGuard::ensureRegenerationAllowed($competition);
 
-        $playerCount = $competition->entries()
+        $eligibleEntryIds = $competition->entries()
             ->where('status', CompetitionEntryStatus::Active)
-            ->count();
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(static fn (mixed $id): int => (int) $id)
+            ->all();
+
+        $playerCount = count($eligibleEntryIds);
 
         if ($playerCount < 2) {
             throw ValidationException::withMessages([
@@ -72,8 +79,9 @@ final class RegenerateRandomGroupsForCompetitionAction
         }
 
         RandomGroupDistributionGuard::ensureValid($playerCount, $groupsCount);
+        SeededGroupEntriesGuard::ensureValid($eligibleEntryIds, $seededEntryIds, $groupsCount);
 
-        return DB::transaction(function () use ($competition, $groupsCount): array {
+        return DB::transaction(function () use ($competition, $groupsCount, $seededEntryIds): array {
             $oldGroupsCount = $competition->groups()->count();
             $oldGamesCount = Game::query()
                 ->where('competition_id', $competition->id)
@@ -114,7 +122,7 @@ final class RegenerateRandomGroupsForCompetitionAction
 
             $competition->groups()->delete();
 
-            $buildResult = ($this->buildRandomGroups)($competition, $groupsCount);
+            $buildResult = ($this->buildRandomGroups)($competition, $groupsCount, $seededEntryIds);
 
             $result = [
                 'groups_removed' => $groupsRemoved,
@@ -149,6 +157,7 @@ final class RegenerateRandomGroupsForCompetitionAction
                     'players_assigned' => $buildResult['players_assigned'],
                     'games_created' => $buildResult['games_created'],
                     'team_ties_created' => $buildResult['team_ties_created'],
+                    'seeded_entry_ids' => $seededEntryIds,
                 ],
             ));
 

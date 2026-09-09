@@ -41,6 +41,7 @@ class GroupGenerationAuditTest extends TestCase
         $this->assertSame(Competition::class, $activity->subject_type);
         $this->assertSame($competition->id, $activity->subject_id);
         $this->assertSame(2, data_get($activity->properties, 'summary.requested_groups_count'));
+        $this->assertSame([], data_get($activity->properties, 'summary.seeded_entry_ids'));
         $this->assertSame(2, data_get($activity->properties, 'summary.groups_created'));
         $this->assertSame(6, data_get($activity->properties, 'summary.players_assigned'));
         $this->assertSame(2, data_get($activity->properties, 'new.groups_count'));
@@ -49,6 +50,31 @@ class GroupGenerationAuditTest extends TestCase
             data_get($activity->properties, 'summary.games_created'),
             data_get($activity->properties, 'new.games_count'),
         );
+    }
+
+    public function test_generation_audit_includes_selected_seeded_entry_ids(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+        $players = $context->createPlayers(8);
+        $context->registerPlayers($competition, $players);
+        $seededIds = $competition->entries()
+            ->orderBy('id')
+            ->limit(2)
+            ->pluck('id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->all();
+
+        $context->generateRandomGroups(
+            $competition,
+            groupsCount: 2,
+            seededEntryIds: $seededIds,
+        )->assertCreated();
+
+        $activity = Activity::query()->sole();
+
+        $this->assertSame(AuditAction::GROUPS_GENERATED->value, $activity->description);
+        $this->assertSame($seededIds, data_get($activity->properties, 'summary.seeded_entry_ids'));
     }
 
     public function test_initial_generation_does_not_create_child_activities(): void

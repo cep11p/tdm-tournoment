@@ -51,10 +51,10 @@ const GroupService = {
    *   groups?: unknown[],
    * }|undefined>}
    */
-  async generateRandomGroups(competitionId, { groups_count }) {
+  async generateRandomGroups(competitionId, { groups_count, seeded_entry_ids = [] }) {
     const response = await httpClient.post(
       `/competitions/${competitionId}/groups/random-generate`,
-      { groups_count },
+      { groups_count, seeded_entry_ids },
     )
 
     return response?.data
@@ -72,10 +72,10 @@ const GroupService = {
    *   groups?: unknown[],
    * }|undefined>}
    */
-  async regenerateRandomGroups(competitionId, { groups_count }) {
+  async regenerateRandomGroups(competitionId, { groups_count, seeded_entry_ids = [] }) {
     const response = await httpClient.post(
       `/competitions/${competitionId}/groups/regenerate-random`,
-      { groups_count },
+      { groups_count, seeded_entry_ids },
     )
 
     return response?.data

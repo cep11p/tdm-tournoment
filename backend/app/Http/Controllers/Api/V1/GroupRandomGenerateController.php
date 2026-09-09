@@ -20,6 +20,7 @@ class GroupRandomGenerateController extends Controller
         $result = $generateRandomGroups(
             $competition,
             (int) $request->validated('groups_count'),
+            $request->seededEntryIds(),
         );
 
         return response()->json([

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Registration;
 
+use App\Enums\CompetitionEntryStatus;
 use App\Enums\CompetitionType;
 use App\Models\CompetitionEntryMember;
 use App\Models\Player;
@@ -34,6 +35,9 @@ class RegistrationResource extends JsonResource
         return [
             'id' => $entry->id,
             'competition_id' => $entry->competition_id,
+            'status' => $entry->status instanceof CompetitionEntryStatus
+                ? $entry->status->value
+                : CompetitionEntryStatus::Active->value,
             'display_name' => CompetitionEntryDisplayName::for($entry),
             'members' => $memberPayload,
             'player' => $isSingles ? ($memberPayload[0] ?? null) : null,

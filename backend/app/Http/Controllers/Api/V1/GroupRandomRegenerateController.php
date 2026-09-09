@@ -20,6 +20,7 @@ class GroupRandomRegenerateController extends Controller
         $result = $regenerateRandomGroups(
             $competition,
             (int) $request->validated('groups_count'),
+            $request->seededEntryIds(),
         );
 
         return response()->json([

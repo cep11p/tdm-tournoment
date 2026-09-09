@@ -11,6 +11,7 @@ import {
   isValidGroupDistribution,
   maxValidGroupsCount,
 } from '../utils/calculateBalancedGroupSizes'
+import SeededEntriesPicker from './SeededEntriesPicker.vue'
 
 const props = defineProps({
   show: {
@@ -38,11 +39,16 @@ const props = defineProps({
     default: 'player',
     validator: (value) => ['player', 'pair', 'team'].includes(value),
   },
+  entries: {
+    type: Array,
+    default: () => [],
+  },
 })
 
 const emit = defineEmits(['close', 'saved'])
 
 const groupsCount = ref(2)
+const seededEntryIds = ref([])
 const isSubmitting = ref(false)
 const submitError = ref('')
 const successMessage = ref('')
@@ -96,6 +102,7 @@ const resetState = () => {
   const preferred = Math.max(1, props.existingGroupsCount || Math.min(2, props.registeredCount))
 
   groupsCount.value = max > 0 ? Math.min(preferred, max) : preferred
+  seededEntryIds.value = []
   submitError.value = ''
   successMessage.value = ''
 }
@@ -120,6 +127,7 @@ const handleConfirm = async () => {
   try {
     const result = await GroupService.regenerateRandomGroups(props.competitionId, {
       groups_count: groupsCount.value,
+      seeded_entry_ids: seededEntryIds.value,
     })
 
     successMessage.value = buildRegenerateRandomGroupsSuccessMessage(result, {
@@ -166,7 +174,7 @@ watch(
       @click.self="handleClose"
     >
       <div
-        class="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-md border border-slate-200 bg-white text-sm shadow-xl dark:border-slate-700 dark:bg-slate-900"
+        class="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-md border border-slate-200 bg-white text-sm shadow-xl dark:border-slate-700 dark:bg-slate-900"
         role="dialog"
         aria-modal="true"
         aria-labelledby="regenerate-random-groups-modal-title"
@@ -224,6 +232,14 @@ watch(
               Distribución estimada: {{ estimatedDistributionSizes }}
             </p>
           </div>
+
+          <SeededEntriesPicker
+            v-model="seededEntryIds"
+            :entries="entries"
+            :groups-count="groupsCount"
+            :disabled="isSubmitting || registeredCount < 2 || isCompetitionCompleted"
+            :participant-kind="participantKind"
+          />
 
           <p v-if="confirmDisabledReason && !canConfirm" class="text-xs text-slate-500 dark:text-slate-400">
             {{ confirmDisabledReason }}

@@ -21,6 +21,7 @@ final class GenerateRandomGroupsForCompetitionAction
     ) {}
 
     /**
+     * @param  list<int>  $seededEntryIds
      * @return array{
      *     groups_created: int,
      *     players_assigned: int,
@@ -28,7 +29,7 @@ final class GenerateRandomGroupsForCompetitionAction
      *     groups: \Illuminate\Support\Collection<int, \App\Models\Group>,
      * }
      */
-    public function __invoke(Competition $competition, int $groupsCount): array
+    public function __invoke(Competition $competition, int $groupsCount, array $seededEntryIds = []): array
     {
         $competition->loadMissing('tournament');
         TournamentLifecycleGuard::ensureMutableForCompetition($competition);
@@ -41,8 +42,8 @@ final class GenerateRandomGroupsForCompetitionAction
             ]);
         }
 
-        return DB::transaction(function () use ($competition, $groupsCount): array {
-            $result = ($this->buildRandomGroups)($competition, $groupsCount);
+        return DB::transaction(function () use ($competition, $groupsCount, $seededEntryIds): array {
+            $result = ($this->buildRandomGroups)($competition, $groupsCount, $seededEntryIds);
 
             $this->auditLogger->log(new AuditEntry(
                 action: AuditAction::GROUPS_GENERATED,
@@ -56,6 +57,7 @@ final class GenerateRandomGroupsForCompetitionAction
                 ],
                 summary: [
                     'requested_groups_count' => $groupsCount,
+                    'seeded_entry_ids' => $seededEntryIds,
                     'groups_created' => $result['groups_created'],
                     'players_assigned' => $result['players_assigned'],
                     'games_created' => $result['games_created'],

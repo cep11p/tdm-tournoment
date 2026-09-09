@@ -8,6 +8,7 @@ use App\Models\Competition;
 use App\Models\Group;
 use App\Support\Competition\CompetitionParticipantLabel;
 use App\Support\Group\RandomGroupDistributionGuard;
+use App\Support\Group\SeededGroupEntriesGuard;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -20,6 +21,7 @@ final class BuildRandomGroupsForCompetitionAction
     ) {}
 
     /**
+     * @param  list<int>  $seededEntryIds
      * @return array{
      *     groups_created: int,
      *     players_assigned: int,
@@ -28,7 +30,7 @@ final class BuildRandomGroupsForCompetitionAction
      *     groups: Collection<int, Group>,
      * }
      */
-    public function __invoke(Competition $competition, int $groupsCount): array
+    public function __invoke(Competition $competition, int $groupsCount, array $seededEntryIds = []): array
     {
         $entries = $competition->entries()
             ->where('status', CompetitionEntryStatus::Active)
@@ -60,34 +62,27 @@ final class BuildRandomGroupsForCompetitionAction
 
         RandomGroupDistributionGuard::ensureValid($entryCount, $groupsCount);
 
+        $eligibleEntryIds = $entries
+            ->map(static fn ($entry): int => (int) $entry->id)
+            ->all();
+        $validatedSeededEntryIds = SeededGroupEntriesGuard::ensureValid(
+            $eligibleEntryIds,
+            $seededEntryIds,
+            $groupsCount,
+        );
+
         $type = $competition->type instanceof CompetitionType
             ? $competition->type
             : CompetitionType::from((string) $competition->type);
 
         $groupSizes = $this->calculateBalancedGroupSizes($entryCount, $groupsCount);
-        $shuffledEntries = $entries->shuffle()->values();
-        $groups = collect();
-        $assignments = collect();
-        $entryOffset = 0;
-
-        for ($groupIndex = 0; $groupIndex < $groupsCount; $groupIndex++) {
-            $group = Group::query()->create([
-                'competition_id' => $competition->id,
-                'name' => $this->groupNameForIndex($groupIndex),
-            ]);
-
-            $groups->push($group);
-            $groupSize = $groupSizes[$groupIndex];
-
-            for ($slot = 0; $slot < $groupSize; $slot++) {
-                $assignments->push([
-                    'group' => $group,
-                    'entry' => $shuffledEntries[$entryOffset],
-                ]);
-
-                $entryOffset++;
-            }
-        }
+        [$groups, $assignments] = $this->distributeEntries(
+            $competition,
+            $entries,
+            $validatedSeededEntryIds,
+            $groupsCount,
+            $groupSizes,
+        );
 
         $this->persistGroupEntry->insertMany($assignments);
 
@@ -147,6 +142,66 @@ final class BuildRandomGroupsForCompetitionAction
         }
 
         return $sizes;
+    }
+
+    /**
+     * @param  Collection<int, \App\Models\CompetitionEntry>  $entries
+     * @param  list<int>  $seededEntryIds
+     * @param  array<int, int>  $groupSizes
+     * @return array{0: Collection<int, Group>, 1: Collection<int, array{group: Group, entry: \App\Models\CompetitionEntry}>}
+     */
+    private function distributeEntries(
+        Competition $competition,
+        Collection $entries,
+        array $seededEntryIds,
+        int $groupsCount,
+        array $groupSizes,
+    ): array {
+        $entriesById = $entries->keyBy(static fn ($entry): int => (int) $entry->id);
+        $seededEntries = collect($seededEntryIds)
+            ->map(static fn (int $entryId) => $entriesById->get($entryId))
+            ->filter()
+            ->values();
+        $seededLookup = array_fill_keys($seededEntryIds, true);
+
+        $remainingEntries = $entries
+            ->reject(static fn ($entry): bool => isset($seededLookup[(int) $entry->id]))
+            ->values()
+            ->shuffle()
+            ->values();
+
+        $groups = collect();
+        $assignments = collect();
+        $remainingOffset = 0;
+
+        for ($groupIndex = 0; $groupIndex < $groupsCount; $groupIndex++) {
+            $group = Group::query()->create([
+                'competition_id' => $competition->id,
+                'name' => $this->groupNameForIndex($groupIndex),
+            ]);
+
+            $groups->push($group);
+            $slotsRemaining = $groupSizes[$groupIndex];
+
+            if ($groupIndex < $seededEntries->count()) {
+                $assignments->push([
+                    'group' => $group,
+                    'entry' => $seededEntries[$groupIndex],
+                ]);
+                $slotsRemaining--;
+            }
+
+            for ($slot = 0; $slot < $slotsRemaining; $slot++) {
+                $assignments->push([
+                    'group' => $group,
+                    'entry' => $remainingEntries[$remainingOffset],
+                ]);
+
+                $remainingOffset++;
+            }
+        }
+
+        return [$groups, $assignments];
     }
 
     private function groupNameForIndex(int $index): string

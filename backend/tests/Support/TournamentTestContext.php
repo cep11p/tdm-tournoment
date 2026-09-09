@@ -635,10 +635,17 @@ final class TournamentTestContext
         Competition $competition,
         int $groupsCount,
         array $roles = ['organizer'],
+        ?array $seededEntryIds = null,
     ): TestResponse {
+        $payload = ['groups_count' => $groupsCount];
+
+        if ($seededEntryIds !== null) {
+            $payload['seeded_entry_ids'] = $seededEntryIds;
+        }
+
         return $this->test->postJson(
             $this->apiUrl("competitions/{$competition->id}/groups/random-generate"),
-            ['groups_count' => $groupsCount],
+            $payload,
             $this->authHeaders($roles),
         );
     }
@@ -647,10 +654,17 @@ final class TournamentTestContext
         Competition $competition,
         int $groupsCount,
         array $roles = ['organizer'],
+        ?array $seededEntryIds = null,
     ): TestResponse {
+        $payload = ['groups_count' => $groupsCount];
+
+        if ($seededEntryIds !== null) {
+            $payload['seeded_entry_ids'] = $seededEntryIds;
+        }
+
         return $this->test->postJson(
             $this->apiUrl("competitions/{$competition->id}/groups/regenerate-random"),
-            ['groups_count' => $groupsCount],
+            $payload,
             $this->authHeaders($roles),
         );
     }
