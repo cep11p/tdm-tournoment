@@ -1,6 +1,6 @@
 <script setup>
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/vue/24/outline'
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 
 import GameService from '../services/GameService'
 import { gameMatchupLabel, getGameSideDisplayName } from '../utils/gameDisplay'
@@ -73,6 +73,7 @@ const activeGame = ref(null)
 const setRows = ref([])
 const isSavingResult = ref(false)
 const resultError = ref('')
+const formRoot = ref(null)
 
 const playerName = (player) => {
   if (!player?.id) {
@@ -216,6 +217,24 @@ watch(isDirty, (dirty) => {
   }
 })
 
+const isScoreInputEditable = (input) =>
+  input instanceof HTMLInputElement &&
+  !input.disabled &&
+  !input.readOnly &&
+  input.dataset.scoreInput != null
+
+const focusFirstEditableScoreInput = () => {
+  if (!props.show || isNavigationLocked.value || isFinishedGame.value) {
+    return
+  }
+
+  const input = [...(formRoot.value?.querySelectorAll('[data-score-input]') ?? [])].find(
+    isScoreInputEditable,
+  )
+
+  input?.focus()
+}
+
 watch(
   () => [props.show, props.game?.id, props.game?.sets?.length, props.game?.status],
   () => {
@@ -235,6 +254,21 @@ watch(
     resultError.value = ''
   },
   { immediate: true },
+)
+
+watch(
+  () => [
+    props.show,
+    props.game?.id,
+    props.game?.sets?.length,
+    props.game?.status,
+    isSavingResult.value,
+    props.isBusy,
+  ],
+  async () => {
+    await nextTick()
+    focusFirstEditableScoreInput()
+  },
 )
 
 const handleClose = () => {
@@ -380,7 +414,7 @@ const handleSave = async () => {
         aria-labelledby="game-result-modal-title"
       >
         <div class="overflow-y-auto overflow-x-hidden p-4">
-          <form class="space-y-4" @submit.prevent="handleSave">
+          <form ref="formRoot" class="space-y-4" @submit.prevent="handleSave">
             <div class="min-w-0">
               <h2 id="game-result-modal-title" class="text-lg font-semibold text-slate-900 dark:text-slate-100">
                 Cargar resultado
@@ -500,6 +534,7 @@ const handleSave = async () => {
                   v-model="row.player1Score"
                   type="number"
                   min="0"
+                  data-score-input
                   :disabled="row.locked || isNavigationLocked || isFinishedGame"
                   :placeholder="sideDisplayName(activeGame, 1)"
                   class="min-w-0 w-full rounded-md border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
@@ -508,6 +543,7 @@ const handleSave = async () => {
                   v-model="row.player2Score"
                   type="number"
                   min="0"
+                  data-score-input
                   :disabled="row.locked || isNavigationLocked || isFinishedGame"
                   :placeholder="sideDisplayName(activeGame, 2)"
                   class="min-w-0 w-full rounded-md border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
