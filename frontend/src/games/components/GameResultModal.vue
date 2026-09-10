@@ -1,8 +1,12 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/vue/24/outline'
+import { computed, ref, watch } from 'vue'
 
 import GameService from '../services/GameService'
 import { gameMatchupLabel, getGameSideDisplayName } from '../utils/gameDisplay'
+
+const DIRTY_NAVIGATION_MESSAGE =
+  'Hay cambios sin guardar. ¿Querés descartarlos y continuar?'
 
 const props = defineProps({
   show: {
@@ -13,9 +17,37 @@ const props = defineProps({
     type: Object,
     default: null,
   },
+  showGroupNavigation: {
+    type: Boolean,
+    default: false,
+  },
+  groups: {
+    type: Array,
+    default: () => [],
+  },
+  selectedGroupId: {
+    type: [Number, String],
+    default: null,
+  },
+  roundLabel: {
+    type: String,
+    default: '',
+  },
+  matchLabel: {
+    type: String,
+    default: '',
+  },
+  canGoPrevious: {
+    type: Boolean,
+    default: false,
+  },
+  canGoNext: {
+    type: Boolean,
+    default: false,
+  },
 })
 
-const emit = defineEmits(['close', 'saved'])
+const emit = defineEmits(['close', 'saved', 'previous', 'next', 'change-group'])
 
 const activeGame = ref(null)
 const setRows = ref([])
@@ -128,10 +160,43 @@ const collectSetsToSubmit = () => {
   return { error: null, sets: setsToSubmit }
 }
 
+const isFinishedGame = computed(() => activeGame.value?.status === 'finished')
+
+const canSaveResult = computed(
+  () => Boolean(activeGame.value?.id) && !isFinishedGame.value && !isSavingResult.value,
+)
+
+const isDirty = computed(() =>
+  setRows.value.some(
+    (row) => !row.locked && (row.player1Score !== '' || row.player2Score !== ''),
+  ),
+)
+
+const confirmIfDirty = () => {
+  if (!isDirty.value) {
+    return true
+  }
+
+  return window.confirm(DIRTY_NAVIGATION_MESSAGE)
+}
+
+const coerceGroupId = (value) => {
+  const asNumber = Number(value)
+
+  return Number.isFinite(asNumber) && value !== '' ? asNumber : value
+}
+
 watch(
   () => [props.show, props.game?.id, props.game?.sets?.length, props.game?.status],
   () => {
-    if (!props.show || !props.game) {
+    if (!props.show) {
+      return
+    }
+
+    if (!props.game) {
+      activeGame.value = null
+      setRows.value = []
+      resultError.value = ''
       return
     }
 
@@ -150,6 +215,45 @@ const handleClose = () => {
   emit('close')
 }
 
+const handlePrevious = () => {
+  if (!props.canGoPrevious || isSavingResult.value) {
+    return
+  }
+
+  if (!confirmIfDirty()) {
+    return
+  }
+
+  emit('previous')
+}
+
+const handleNext = () => {
+  if (!props.canGoNext || isSavingResult.value) {
+    return
+  }
+
+  if (!confirmIfDirty()) {
+    return
+  }
+
+  emit('next')
+}
+
+const handleGroupSelect = (event) => {
+  const nextGroupId = coerceGroupId(event.target.value)
+
+  if (String(nextGroupId) === String(props.selectedGroupId)) {
+    return
+  }
+
+  if (!confirmIfDirty()) {
+    event.target.value = props.selectedGroupId == null ? '' : String(props.selectedGroupId)
+    return
+  }
+
+  emit('change-group', nextGroupId)
+}
+
 const isGameFinishedAfterSaveError = (error, game) => {
   if (game?.status !== 'finished') {
     return false
@@ -164,7 +268,7 @@ const isGameFinishedAfterSaveError = (error, game) => {
 }
 
 const handleSave = async () => {
-  if (!activeGame.value?.id || isSavingResult.value) {
+  if (!canSaveResult.value) {
     return
   }
 
@@ -216,7 +320,7 @@ const handleSave = async () => {
 <template>
   <Teleport to="body">
     <div
-      v-if="show && activeGame"
+      v-if="show && (activeGame || showGroupNavigation)"
       class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"
       @click.self="handleClose"
     >
@@ -232,15 +336,81 @@ const handleSave = async () => {
               <h2 id="game-result-modal-title" class="text-lg font-semibold text-slate-900 dark:text-slate-100">
                 Cargar resultado
               </h2>
-              <p class="mt-1 break-words font-medium text-slate-900 dark:text-slate-100">
-                {{ gameMatchupLabel(activeGame) }}
-              </p>
-              <p v-if="matchFormatLabel(activeGame)" class="text-slate-600 dark:text-slate-300">
-                {{ matchFormatLabel(activeGame) }}
+
+              <div v-if="showGroupNavigation" class="mt-3 space-y-2">
+                <div class="flex justify-center">
+                  <label class="sr-only" for="game-result-group-select">Grupo</label>
+                  <select
+                    id="game-result-group-select"
+                    :value="selectedGroupId ?? ''"
+                    class="max-w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-center font-medium text-slate-800 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+                    :disabled="isSavingResult || groups.length === 0"
+                    @change="handleGroupSelect"
+                  >
+                    <option
+                      v-for="group in groups"
+                      :key="group.id"
+                      :value="group.id"
+                    >
+                      {{ group.name }}
+                    </option>
+                  </select>
+                </div>
+
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                    :disabled="!canGoPrevious || isSavingResult"
+                    aria-label="Partido anterior"
+                    @click="handlePrevious"
+                  >
+                    <ChevronLeftIcon class="h-6 w-6" aria-hidden="true" />
+                  </button>
+
+                  <p class="min-w-0 flex-1 text-center font-medium text-slate-800 dark:text-slate-100">
+                    {{ roundLabel }}
+                  </p>
+
+                  <button
+                    type="button"
+                    class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                    :disabled="!canGoNext || isSavingResult"
+                    aria-label="Partido siguiente"
+                    @click="handleNext"
+                  >
+                    <ChevronRightIcon class="h-6 w-6" aria-hidden="true" />
+                  </button>
+                </div>
+
+                <p
+                  v-if="matchLabel"
+                  class="text-center text-xs text-slate-500 dark:text-slate-400"
+                >
+                  {{ matchLabel }}
+                </p>
+              </div>
+
+              <template v-if="activeGame">
+                <p
+                  class="break-words font-medium text-slate-900 dark:text-slate-100"
+                  :class="showGroupNavigation ? 'mt-3' : 'mt-1'"
+                >
+                  {{ gameMatchupLabel(activeGame) }}
+                </p>
+                <p v-if="matchFormatLabel(activeGame)" class="text-slate-600 dark:text-slate-300">
+                  {{ matchFormatLabel(activeGame) }}
+                </p>
+              </template>
+              <p
+                v-else
+                class="mt-3 text-center text-slate-600 dark:text-slate-300"
+              >
+                Este grupo no tiene partidos para navegar.
               </p>
             </div>
 
-            <div class="min-w-0 space-y-2">
+            <div v-if="activeGame" class="min-w-0 space-y-2">
               <div
                 v-for="row in setRows"
                 :key="row.setNumber"
@@ -253,7 +423,7 @@ const handleSave = async () => {
                   v-model="row.player1Score"
                   type="number"
                   min="0"
-                  :disabled="row.locked || isSavingResult"
+                  :disabled="row.locked || isSavingResult || isFinishedGame"
                   :placeholder="sideDisplayName(activeGame, 1)"
                   class="min-w-0 w-full rounded-md border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                 />
@@ -261,14 +431,17 @@ const handleSave = async () => {
                   v-model="row.player2Score"
                   type="number"
                   min="0"
-                  :disabled="row.locked || isSavingResult"
+                  :disabled="row.locked || isSavingResult || isFinishedGame"
                   :placeholder="sideDisplayName(activeGame, 2)"
                   class="min-w-0 w-full rounded-md border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
             </div>
 
-            <p class="text-xs text-slate-500 dark:text-slate-400">
+            <p v-if="isFinishedGame" class="text-xs text-slate-500 dark:text-slate-400">
+              Este partido ya tiene resultado. La corrección se hace desde el detalle del partido.
+            </p>
+            <p v-else-if="activeGame" class="text-xs text-slate-500 dark:text-slate-400">
               Completá los sets en orden. No hace falta llenar todos si el partido se define antes.
             </p>
 
@@ -284,9 +457,10 @@ const handleSave = async () => {
                 Cancelar
               </button>
               <button
+                v-if="activeGame"
                 type="submit"
                 class="rounded-md bg-emerald-700 px-3 py-2 font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
-                :disabled="isSavingResult"
+                :disabled="!canSaveResult"
               >
                 {{ isSavingResult ? 'Guardando...' : 'Guardar resultado' }}
               </button>

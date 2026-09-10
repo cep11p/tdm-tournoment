@@ -39,6 +39,11 @@ import {
 import GroupPlayerStatusModal from '../components/GroupPlayerStatusModal.vue'
 import { getGroupPlayerStatusLabel } from '../constants/groupPlayerStatus'
 import GroupService from '../services/GroupService'
+import {
+  buildGroupResultNavigation,
+  selectGameWhenChangingGroup,
+  sortCompetitionGroupsByName,
+} from '../utils/groupResultNavigation'
 import TeamTieService from '../../team-ties/services/TeamTieService'
 import {
   getTeamTieStatusBadgeClasses,
@@ -280,15 +285,23 @@ const loadStandings = async () => {
   }
 }
 
-const games = ref([])
+const allCompetitionGames = ref([])
+const competitionGroups = ref([])
 const teamTies = ref([])
 const isLoadingGames = ref(false)
 const isLoadingTeamTies = ref(false)
 const gamesError = ref('')
 const teamTiesError = ref('')
 const selectedGame = ref(null)
+const activeModalGroupId = ref(null)
 const resultSuccessMessage = ref('')
 const resultError = ref('')
+
+const games = computed(() =>
+  allCompetitionGames.value.filter(
+    (game) => Number(game.group_id) === Number(groupId.value),
+  ),
+)
 
 const hasGroupGames = computed(() => games.value.length > 0)
 const hasGroupTeamTies = computed(() => teamTies.value.length > 0)
@@ -360,7 +373,7 @@ const loadGroupTeamTies = async () => {
 const loadGroupSchedule = async () => {
   if (isTeam.value) {
     await loadGroupTeamTies()
-    games.value = []
+    allCompetitionGames.value = []
     return
   }
 
@@ -368,9 +381,24 @@ const loadGroupSchedule = async () => {
   teamTies.value = []
 }
 
+const loadCompetitionGroups = async () => {
+  if (!competitionId.value) {
+    competitionGroups.value = []
+    return
+  }
+
+  try {
+    competitionGroups.value = sortCompetitionGroupsByName(
+      await GroupService.listByCompetition(competitionId.value),
+    )
+  } catch {
+    competitionGroups.value = []
+  }
+}
+
 const loadGroupGames = async () => {
   if (!competitionId.value || !groupId.value) {
-    games.value = []
+    allCompetitionGames.value = []
     return
   }
 
@@ -378,13 +406,9 @@ const loadGroupGames = async () => {
   gamesError.value = ''
 
   try {
-    const allGames = await GameService.listByCompetition(competitionId.value)
-
-    games.value = allGames.filter(
-      (game) => Number(game.group_id) === Number(groupId.value),
-    )
+    allCompetitionGames.value = await GameService.listByCompetition(competitionId.value)
   } catch (error) {
-    games.value = []
+    allCompetitionGames.value = []
     gamesError.value =
       error?.response?.data?.message || 'No se pudo cargar los partidos del grupo.'
   } finally {
@@ -679,14 +703,72 @@ const byeGameCardClasses =
 const gamesAccordionSummaryClasses =
   'flex cursor-pointer list-none items-center gap-2 rounded-md py-1 text-sm font-medium text-slate-700 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100 [&::-webkit-details-marker]:hidden'
 
+const modalGroupOptions = computed(() => {
+  if (competitionGroups.value.length > 0) {
+    return competitionGroups.value
+  }
+
+  if (!groupId.value) {
+    return []
+  }
+
+  return [{ id: Number(groupId.value), name: groupName.value }]
+})
+
+const groupResultNav = computed(() =>
+  buildGroupResultNavigation({
+    games: allCompetitionGames.value,
+    groupId: activeModalGroupId.value,
+    gameId: selectedGame.value?.id ?? null,
+    groups: modalGroupOptions.value,
+  }),
+)
+
+const isGroupResultModalOpen = computed(
+  () => Boolean(selectedGame.value) || activeModalGroupId.value != null,
+)
+
 const openResultModal = (game) => {
   selectedGame.value = game
+  activeModalGroupId.value = game?.group_id ?? Number(groupId.value)
   resultSuccessMessage.value = ''
   resultError.value = ''
 }
 
 const closeResultModal = () => {
   selectedGame.value = null
+  activeModalGroupId.value = null
+}
+
+const handleModalPrevious = () => {
+  const previousGame = groupResultNav.value.previousGame
+
+  if (!previousGame) {
+    return
+  }
+
+  selectedGame.value = previousGame
+}
+
+const handleModalNext = () => {
+  const nextGame = groupResultNav.value.nextGame
+
+  if (!nextGame) {
+    return
+  }
+
+  selectedGame.value = nextGame
+}
+
+const handleModalGroupChange = (nextGroupId) => {
+  const nextGame = selectGameWhenChangingGroup(
+    allCompetitionGames.value,
+    nextGroupId,
+    selectedGame.value?.group_round ?? null,
+  )
+
+  activeModalGroupId.value = nextGroupId
+  selectedGame.value = nextGame
 }
 
 const handleResultSaved = async () => {
@@ -748,6 +830,7 @@ onMounted(async () => {
     loadGroupPlayers(),
     loadStandings(),
     loadGroupSchedule(),
+    loadCompetitionGroups(),
   ])
 })
 </script>
@@ -1277,10 +1360,20 @@ onMounted(async () => {
 
     <GameResultModal
       v-if="!isTeam"
-      :show="Boolean(selectedGame)"
+      :show="isGroupResultModalOpen"
       :game="selectedGame"
+      :show-group-navigation="true"
+      :groups="groupResultNav.groups"
+      :selected-group-id="activeModalGroupId"
+      :round-label="groupResultNav.roundLabel"
+      :match-label="groupResultNav.matchLabel"
+      :can-go-previous="groupResultNav.canGoPrevious"
+      :can-go-next="groupResultNav.canGoNext"
       @close="closeResultModal"
       @saved="handleResultSaved"
+      @previous="handleModalPrevious"
+      @next="handleModalNext"
+      @change-group="handleModalGroupChange"
     />
 
     <GroupPlayerStatusModal
