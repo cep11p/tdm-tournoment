@@ -2,8 +2,11 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  areAllCompetitionGroupsComplete,
   buildGroupResultNavigation,
   findClosestRound,
+  findFirstPendingGameInGroup,
+  findNextGroupWithPendingGames,
   findNextPendingGame,
   getMatchContextLabel,
   getNavigableGamesForGroup,
@@ -414,5 +417,100 @@ describe('findNextPendingGame', () => {
 
     assert.equal(findNextPendingGame(withLegacyPending, 1, 1).id, 2)
     assert.equal(findNextPendingGame(fromLegacy, 1, null), null)
+  })
+})
+
+describe('findNextGroupWithPendingGames', () => {
+  const groupGames = (groupId, status, startId) =>
+    buildGroupGames({ groupId, rounds: 1, matchesPerRound: 1, startId }).map((game) => ({
+      ...game,
+      status,
+    }))
+
+  it('sugiere B cuando A está completo y B tiene pendientes', () => {
+    const groups = [
+      { id: 1, name: 'Grupo A' },
+      { id: 2, name: 'Grupo B' },
+    ]
+    const games = [
+      ...groupGames(1, 'finished', 1),
+      ...groupGames(2, 'pending', 10),
+    ]
+
+    assert.equal(findNextGroupWithPendingGames(groups, games, 1).name, 'Grupo B')
+  })
+
+  it('salta un grupo completo y elige el siguiente con pendientes', () => {
+    const groups = [
+      { id: 1, name: 'Grupo A' },
+      { id: 2, name: 'Grupo B' },
+      { id: 3, name: 'Grupo C' },
+    ]
+    const games = [
+      ...groupGames(1, 'finished', 1),
+      ...groupGames(2, 'finished', 10),
+      ...groupGames(3, 'pending', 20),
+    ]
+
+    assert.equal(findNextGroupWithPendingGames(groups, games, 1).name, 'Grupo C')
+  })
+
+  it('devuelve null si todos los grupos están completos', () => {
+    const groups = [
+      { id: 1, name: 'Grupo A' },
+      { id: 2, name: 'Grupo B' },
+    ]
+    const games = [
+      ...groupGames(1, 'finished', 1),
+      ...groupGames(2, 'finished', 10),
+    ]
+
+    assert.equal(findNextGroupWithPendingGames(groups, games, 1), null)
+    assert.equal(areAllCompetitionGroupsComplete(groups, games), true)
+  })
+
+  it('respeta el orden por nombre aunque los grupos lleguen desordenados', () => {
+    const groups = [
+      { id: 3, name: 'Grupo C' },
+      { id: 1, name: 'Grupo A' },
+      { id: 2, name: 'Grupo B' },
+    ]
+    const games = [
+      ...groupGames(1, 'finished', 1),
+      ...groupGames(2, 'pending', 10),
+      ...groupGames(3, 'pending', 20),
+    ]
+
+    assert.equal(findNextGroupWithPendingGames(groups, games, 1).name, 'Grupo B')
+  })
+
+  it('trata in_progress como grupo incompleto', () => {
+    const groups = [
+      { id: 1, name: 'Grupo A' },
+      { id: 2, name: 'Grupo B' },
+    ]
+    const games = [
+      ...groupGames(1, 'finished', 1),
+      ...groupGames(2, 'in_progress', 10),
+    ]
+
+    assert.equal(findNextGroupWithPendingGames(groups, games, 1).name, 'Grupo B')
+    assert.equal(findFirstPendingGameInGroup(games, 2).status, 'in_progress')
+  })
+
+  it('no cuenta BYE ni not_needed como pendientes', () => {
+    const groups = [
+      { id: 1, name: 'Grupo A' },
+      { id: 2, name: 'Grupo B' },
+      { id: 3, name: 'Grupo C' },
+    ]
+    const games = [
+      { id: 1, group_id: 1, group_round: 1, group_match: 1, status: 'finished', is_bye: false },
+      { id: 2, group_id: 2, group_round: 1, group_match: 1, status: 'pending', is_bye: true },
+      { id: 3, group_id: 2, group_round: 1, group_match: 2, status: 'not_needed', is_bye: false },
+      { id: 4, group_id: 3, group_round: 1, group_match: 1, status: 'pending', is_bye: false },
+    ]
+
+    assert.equal(findNextGroupWithPendingGames(groups, games, 1).name, 'Grupo C')
   })
 })

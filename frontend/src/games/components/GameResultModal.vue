@@ -53,9 +53,21 @@ const props = defineProps({
     type: String,
     default: '',
   },
+  nextGroup: {
+    type: Object,
+    default: null,
+  },
+  competitionCompleteMessage: {
+    type: String,
+    default: '',
+  },
+  isBusy: {
+    type: Boolean,
+    default: false,
+  },
 })
 
-const emit = defineEmits(['close', 'saved', 'previous', 'next', 'change-group'])
+const emit = defineEmits(['close', 'saved', 'previous', 'next', 'change-group', 'dirty-change', 'go-to-group'])
 
 const activeGame = ref(null)
 const setRows = ref([])
@@ -169,9 +181,13 @@ const collectSetsToSubmit = () => {
 }
 
 const isFinishedGame = computed(() => activeGame.value?.status === 'finished')
+const isNavigationLocked = computed(() => isSavingResult.value || props.isBusy)
 
 const canSaveResult = computed(
-  () => Boolean(activeGame.value?.id) && !isFinishedGame.value && !isSavingResult.value,
+  () =>
+    Boolean(activeGame.value?.id) &&
+    !isFinishedGame.value &&
+    !isNavigationLocked.value,
 )
 
 const isDirty = computed(() =>
@@ -193,6 +209,12 @@ const coerceGroupId = (value) => {
 
   return Number.isFinite(asNumber) && value !== '' ? asNumber : value
 }
+
+watch(isDirty, (dirty) => {
+  if (dirty) {
+    emit('dirty-change')
+  }
+})
 
 watch(
   () => [props.show, props.game?.id, props.game?.sets?.length, props.game?.status],
@@ -224,7 +246,7 @@ const handleClose = () => {
 }
 
 const handlePrevious = () => {
-  if (!props.canGoPrevious || isSavingResult.value) {
+  if (!props.canGoPrevious || isNavigationLocked.value) {
     return
   }
 
@@ -236,7 +258,7 @@ const handlePrevious = () => {
 }
 
 const handleNext = () => {
-  if (!props.canGoNext || isSavingResult.value) {
+  if (!props.canGoNext || isNavigationLocked.value) {
     return
   }
 
@@ -248,6 +270,11 @@ const handleNext = () => {
 }
 
 const handleGroupSelect = (event) => {
+  if (isNavigationLocked.value) {
+    event.target.value = props.selectedGroupId == null ? '' : String(props.selectedGroupId)
+    return
+  }
+
   const nextGroupId = coerceGroupId(event.target.value)
 
   if (String(nextGroupId) === String(props.selectedGroupId)) {
@@ -260,6 +287,18 @@ const handleGroupSelect = (event) => {
   }
 
   emit('change-group', nextGroupId)
+}
+
+const handleGoToGroup = () => {
+  if (isNavigationLocked.value || !props.nextGroup?.id) {
+    return
+  }
+
+  if (!confirmIfDirty()) {
+    return
+  }
+
+  emit('go-to-group', props.nextGroup.id)
 }
 
 const isGameFinishedAfterSaveError = (error, game) => {
@@ -335,7 +374,7 @@ const handleSave = async () => {
       @click.self="handleClose"
     >
       <div
-        class="mx-auto flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-md border border-slate-200 bg-white text-sm shadow-xl dark:border-slate-700 dark:bg-slate-900"
+        class="mx-auto flex max-h-[90vh] w-full max-w-xl min-w-0 flex-col overflow-hidden rounded-md border border-slate-200 bg-white text-sm shadow-xl dark:border-slate-700 dark:bg-slate-900"
         role="dialog"
         aria-modal="true"
         aria-labelledby="game-result-modal-title"
@@ -348,48 +387,52 @@ const handleSave = async () => {
               </h2>
 
               <div v-if="showGroupNavigation" class="mt-3 space-y-2">
-                <div class="flex justify-center">
-                  <label class="sr-only" for="game-result-group-select">Grupo</label>
-                  <select
-                    id="game-result-group-select"
-                    :value="selectedGroupId ?? ''"
-                    class="max-w-full rounded-md border border-slate-300 bg-white px-3 py-1.5 text-center font-medium text-slate-800 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
-                    :disabled="isSavingResult || groups.length === 0"
-                    @change="handleGroupSelect"
-                  >
-                    <option
-                      v-for="group in groups"
-                      :key="group.id"
-                      :value="group.id"
+                <div class="flex justify-center px-1">
+                  <label class="w-full max-w-xs">
+                    <span class="mb-1 block text-center text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      Grupo
+                    </span>
+                    <select
+                      id="game-result-group-select"
+                      :value="selectedGroupId ?? ''"
+                      class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-center font-medium text-slate-800 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+                      :disabled="isNavigationLocked || groups.length === 0"
+                      @change="handleGroupSelect"
                     >
-                      {{ group.name }}
-                    </option>
-                  </select>
+                      <option
+                        v-for="group in groups"
+                        :key="group.id"
+                        :value="group.id"
+                      >
+                        {{ group.name }}
+                      </option>
+                    </select>
+                  </label>
                 </div>
 
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1 sm:gap-2">
                   <button
                     type="button"
                     class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                    :disabled="!canGoPrevious || isSavingResult"
+                    :disabled="!canGoPrevious || isNavigationLocked"
                     aria-label="Partido anterior"
                     @click="handlePrevious"
                   >
-                    <ChevronLeftIcon class="h-6 w-6" aria-hidden="true" />
+                    <ChevronLeftIcon class="h-5 w-5" aria-hidden="true" />
                   </button>
 
-                  <p class="min-w-0 flex-1 text-center font-medium text-slate-800 dark:text-slate-100">
+                  <p class="min-w-0 flex-1 truncate px-1 text-center text-sm font-semibold text-slate-800 dark:text-slate-100">
                     {{ roundLabel }}
                   </p>
 
                   <button
                     type="button"
                     class="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
-                    :disabled="!canGoNext || isSavingResult"
+                    :disabled="!canGoNext || isNavigationLocked"
                     aria-label="Partido siguiente"
                     @click="handleNext"
                   >
-                    <ChevronRightIcon class="h-6 w-6" aria-hidden="true" />
+                    <ChevronRightIcon class="h-5 w-5" aria-hidden="true" />
                   </button>
                 </div>
 
@@ -400,12 +443,29 @@ const handleSave = async () => {
                   {{ matchLabel }}
                 </p>
 
-                <p
-                  v-if="groupCompleteMessage"
-                  class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-xs font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
+                <div
+                  v-if="competitionCompleteMessage || groupCompleteMessage"
+                  class="space-y-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-center dark:border-emerald-900 dark:bg-emerald-950/30"
                 >
-                  {{ groupCompleteMessage }}
-                </p>
+                  <p class="text-xs font-medium text-emerald-800 dark:text-emerald-100">
+                    {{ competitionCompleteMessage || groupCompleteMessage }}
+                  </p>
+                  <p
+                    v-if="!competitionCompleteMessage && nextGroup?.name"
+                    class="text-xs text-emerald-800/80 dark:text-emerald-200/80"
+                  >
+                    Siguiente grupo disponible: {{ nextGroup.name }}
+                  </p>
+                  <button
+                    v-if="!competitionCompleteMessage && nextGroup?.id"
+                    type="button"
+                    class="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                    :disabled="isNavigationLocked"
+                    @click="handleGoToGroup"
+                  >
+                    Ir a {{ nextGroup.name }}
+                  </button>
+                </div>
               </div>
 
               <template v-if="activeGame">
@@ -431,7 +491,7 @@ const handleSave = async () => {
               <div
                 v-for="row in setRows"
                 :key="row.setNumber"
-                class="grid min-w-0 grid-cols-[auto_1fr_1fr] items-center gap-2"
+                class="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2"
               >
                 <span class="shrink-0 font-medium text-slate-700 dark:text-slate-200">
                   Set {{ row.setNumber }}
@@ -440,7 +500,7 @@ const handleSave = async () => {
                   v-model="row.player1Score"
                   type="number"
                   min="0"
-                  :disabled="row.locked || isSavingResult || isFinishedGame"
+                  :disabled="row.locked || isNavigationLocked || isFinishedGame"
                   :placeholder="sideDisplayName(activeGame, 1)"
                   class="min-w-0 w-full rounded-md border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                 />
@@ -448,7 +508,7 @@ const handleSave = async () => {
                   v-model="row.player2Score"
                   type="number"
                   min="0"
-                  :disabled="row.locked || isSavingResult || isFinishedGame"
+                  :disabled="row.locked || isNavigationLocked || isFinishedGame"
                   :placeholder="sideDisplayName(activeGame, 2)"
                   class="min-w-0 w-full rounded-md border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                 />
@@ -465,7 +525,7 @@ const handleSave = async () => {
             <p v-if="statusMessage" class="text-emerald-700 dark:text-emerald-300">{{ statusMessage }}</p>
             <p v-if="resultError" class="text-red-600 dark:text-red-400">{{ resultError }}</p>
 
-            <div class="flex justify-end gap-2">
+            <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 class="rounded-md border border-slate-300 px-3 py-2 font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"

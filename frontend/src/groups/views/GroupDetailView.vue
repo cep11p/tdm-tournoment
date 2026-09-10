@@ -40,8 +40,11 @@ import GroupPlayerStatusModal from '../components/GroupPlayerStatusModal.vue'
 import { getGroupPlayerStatusLabel } from '../constants/groupPlayerStatus'
 import GroupService from '../services/GroupService'
 import {
+  areAllCompetitionGroupsComplete,
   buildGroupResultNavigation,
+  findFirstPendingGameInGroup,
   findNavigableGame,
+  findNextGroupWithPendingGames,
   findNextPendingGame,
   isGroupScheduleComplete,
   selectGameWhenChangingGroup,
@@ -273,18 +276,24 @@ const playerStatusBadgeClasses = (status) => {
 
 const playerStatusLabel = (groupPlayer) => getGroupPlayerStatusLabel(groupPlayer?.status ?? 'active')
 
-const loadStandings = async () => {
-  isLoadingStandings.value = true
+const loadStandings = async ({ silent = false } = {}) => {
+  if (!silent) {
+    isLoadingStandings.value = true
+  }
 
   try {
     const { standings: groupStandings, meta } = await StandingService.listByGroup(groupId.value)
     standings.value = groupStandings
     standingsMeta.value = meta
   } catch {
-    standings.value = []
-    standingsMeta.value = {}
+    if (!silent) {
+      standings.value = []
+      standingsMeta.value = {}
+    }
   } finally {
-    isLoadingStandings.value = false
+    if (!silent) {
+      isLoadingStandings.value = false
+    }
   }
 }
 
@@ -300,6 +309,7 @@ const activeModalGroupId = ref(null)
 const resultSuccessMessage = ref('')
 const modalStatusMessage = ref('')
 const resultError = ref('')
+const isRefreshingAfterSave = ref(false)
 
 const games = computed(() =>
   allCompetitionGames.value.filter(
@@ -374,14 +384,14 @@ const loadGroupTeamTies = async () => {
   }
 }
 
-const loadGroupSchedule = async () => {
+const loadGroupSchedule = async (options) => {
   if (isTeam.value) {
     await loadGroupTeamTies()
     allCompetitionGames.value = []
     return
   }
 
-  await loadGroupGames()
+  await loadGroupGames(options)
   teamTies.value = []
 }
 
@@ -400,23 +410,36 @@ const loadCompetitionGroups = async () => {
   }
 }
 
-const loadGroupGames = async () => {
+const loadGroupGames = async ({ silent = false } = {}) => {
   if (!competitionId.value || !groupId.value) {
-    allCompetitionGames.value = []
+    if (!silent) {
+      allCompetitionGames.value = []
+    }
     return
   }
 
-  isLoadingGames.value = true
-  gamesError.value = ''
+  if (!silent) {
+    isLoadingGames.value = true
+    gamesError.value = ''
+  }
 
   try {
     allCompetitionGames.value = await GameService.listByCompetition(competitionId.value)
+    gamesError.value = ''
   } catch (error) {
-    allCompetitionGames.value = []
-    gamesError.value =
-      error?.response?.data?.message || 'No se pudo cargar los partidos del grupo.'
+    if (!silent) {
+      allCompetitionGames.value = []
+      gamesError.value =
+        error?.response?.data?.message || 'No se pudo cargar los partidos del grupo.'
+    }
+
+    if (silent) {
+      throw error
+    }
   } finally {
-    isLoadingGames.value = false
+    if (!silent) {
+      isLoadingGames.value = false
+    }
   }
 }
 
@@ -737,7 +760,7 @@ const activeModalGroupName = computed(() => {
 })
 
 const modalGroupCompleteMessage = computed(() => {
-  if (activeModalGroupId.value == null) {
+  if (isRefreshingAfterSave.value || activeModalGroupId.value == null) {
     return ''
   }
 
@@ -746,6 +769,35 @@ const modalGroupCompleteMessage = computed(() => {
   }
 
   return `✓ Todos los partidos del ${activeModalGroupName.value} están cargados.`
+})
+
+const suggestedNextGroup = computed(() => {
+  if (isRefreshingAfterSave.value || !modalGroupCompleteMessage.value) {
+    return null
+  }
+
+  return findNextGroupWithPendingGames(
+    modalGroupOptions.value,
+    allCompetitionGames.value,
+    activeModalGroupId.value,
+  )
+})
+
+const modalCompetitionCompleteMessage = computed(() => {
+  if (isRefreshingAfterSave.value || activeModalGroupId.value == null) {
+    return ''
+  }
+
+  if (
+    !areAllCompetitionGroupsComplete(
+      modalGroupOptions.value,
+      allCompetitionGames.value,
+    )
+  ) {
+    return ''
+  }
+
+  return '✓ Todos los grupos de la competencia están completos.'
 })
 
 const isGroupResultModalOpen = computed(
@@ -799,17 +851,30 @@ const handleModalGroupChange = (nextGroupId) => {
   selectedGame.value = nextGame
 }
 
+const handleGoToSuggestedGroup = (groupId) => {
+  const nextGame = findFirstPendingGameInGroup(allCompetitionGames.value, groupId)
+
+  modalStatusMessage.value = ''
+  activeModalGroupId.value = groupId
+  selectedGame.value = nextGame
+}
+
+const handleModalDirtyChange = () => {
+  modalStatusMessage.value = ''
+}
+
 const handleResultSaved = async (payload) => {
   const savedGame = payload?.game ?? selectedGame.value
   resultError.value = ''
+  isRefreshingAfterSave.value = true
 
   try {
-    await loadGroupSchedule()
+    await loadGroupSchedule({ silent: true })
 
     const savedGroupId = savedGame?.group_id ?? activeModalGroupId.value
 
     if (Number(savedGroupId) === Number(groupId.value)) {
-      await loadStandings()
+      await loadStandings({ silent: true })
     }
 
     const freshSavedGame =
@@ -817,6 +882,7 @@ const handleResultSaved = async (payload) => {
 
     if (!freshSavedGame) {
       resultSuccessMessage.value = 'Resultado registrado correctamente.'
+      modalStatusMessage.value = 'Resultado registrado correctamente.'
       return
     }
 
@@ -843,8 +909,17 @@ const handleResultSaved = async (payload) => {
 
     selectedGame.value = freshSavedGame
   } catch (error) {
+    modalStatusMessage.value = ''
+    resultSuccessMessage.value = ''
+
+    if (savedGame) {
+      selectedGame.value = savedGame
+    }
+
     resultError.value =
       error?.response?.data?.message || 'No se pudo actualizar la lista de partidos.'
+  } finally {
+    isRefreshingAfterSave.value = false
   }
 }
 
@@ -1434,12 +1509,17 @@ onMounted(async () => {
       :can-go-previous="groupResultNav.canGoPrevious"
       :can-go-next="groupResultNav.canGoNext"
       :group-complete-message="modalGroupCompleteMessage"
+      :competition-complete-message="modalCompetitionCompleteMessage"
+      :next-group="suggestedNextGroup"
       :status-message="modalStatusMessage"
+      :is-busy="isRefreshingAfterSave"
       @close="closeResultModal"
       @saved="handleResultSaved"
       @previous="handleModalPrevious"
       @next="handleModalNext"
       @change-group="handleModalGroupChange"
+      @go-to-group="handleGoToSuggestedGroup"
+      @dirty-change="handleModalDirtyChange"
     />
 
     <GroupPlayerStatusModal

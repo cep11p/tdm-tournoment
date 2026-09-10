@@ -230,6 +230,41 @@ export function isGroupScheduleComplete(games, groupId) {
   return navigableGames.length > 0 && !navigableGames.some(isLoadableGroupGame)
 }
 
+export function findFirstPendingGameInGroup(games, groupId) {
+  return getNavigableGamesForGroup(games, groupId).find(isLoadableGroupGame) ?? null
+}
+
+export function findNextGroupWithPendingGames(groups, games, currentGroupId) {
+  const orderedGroups = sortCompetitionGroupsByName(groups)
+
+  if (orderedGroups.length === 0) {
+    return null
+  }
+
+  const currentIndex = orderedGroups.findIndex(
+    (group) => Number(group.id) === Number(currentGroupId),
+  )
+  const searchOrder =
+    currentIndex < 0
+      ? orderedGroups
+      : [...orderedGroups.slice(currentIndex + 1), ...orderedGroups.slice(0, currentIndex)]
+
+  return (
+    searchOrder.find((group) => findFirstPendingGameInGroup(games, group.id) != null) ?? null
+  )
+}
+
+export function areAllCompetitionGroupsComplete(groups, games) {
+  const groupsWithSchedule = sortCompetitionGroupsByName(groups).filter(
+    (group) => getNavigableGamesForGroup(games, group.id).length > 0,
+  )
+
+  return (
+    groupsWithSchedule.length > 0 &&
+    groupsWithSchedule.every((group) => isGroupScheduleComplete(games, group.id))
+  )
+}
+
 export function sortCompetitionGroupsByName(groups) {
   return [...(Array.isArray(groups) ? groups : [])].sort((left, right) =>
     String(left?.name ?? '').localeCompare(String(right?.name ?? ''), 'es', {
