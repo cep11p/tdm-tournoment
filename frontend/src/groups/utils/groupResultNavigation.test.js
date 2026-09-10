@@ -4,11 +4,13 @@ import { describe, it } from 'node:test'
 import {
   buildGroupResultNavigation,
   findClosestRound,
+  findNextPendingGame,
   getMatchContextLabel,
   getNavigableGamesForGroup,
   getNextNavigableGame,
   getPreviousNavigableGame,
   getRoundContextLabel,
+  isGroupScheduleComplete,
   selectGameWhenChangingGroup,
   sortCompetitionGroupsByName,
 } from './groupResultNavigation.js'
@@ -307,5 +309,110 @@ describe('buildGroupResultNavigation', () => {
     assert.deepEqual(fixtureKey(navigation.previousGame), [1, 1])
     assert.deepEqual(fixtureKey(navigation.nextGame), [2, 1])
     assert.deepEqual(navigation.groups.map((group) => group.name), ['Grupo A', 'Grupo B'])
+  })
+})
+
+describe('findNextPendingGame', () => {
+  const mark = (game, status) => ({ ...game, status })
+
+  it('abre el pendiente restante de la misma ronda', () => {
+    const games = buildGroupGames({ groupId: 4, rounds: 3, matchesPerRound: 2 }).map((game) =>
+      game.group_round === 1 && game.group_match === 1 ? mark(game, 'finished') : game,
+    )
+
+    const next = findNextPendingGame(games, 4, 1)
+
+    assert.deepEqual(fixtureKey(next), [1, 2])
+  })
+
+  it('prioriza un pendiente anterior de la misma ronda', () => {
+    const games = buildGroupGames({ groupId: 4, rounds: 3, matchesPerRound: 2 }).map((game) =>
+      game.group_round === 1 && game.group_match === 2 ? mark(game, 'finished') : game,
+    )
+
+    const next = findNextPendingGame(games, 4, 1)
+
+    assert.deepEqual(fixtureKey(next), [1, 1])
+  })
+
+  it('pasa a la siguiente ronda si la actual quedó completa', () => {
+    const games = buildGroupGames({ groupId: 4, rounds: 3, matchesPerRound: 2 }).map((game) =>
+      game.group_round === 1 ? mark(game, 'finished') : game,
+    )
+
+    const next = findNextPendingGame(games, 4, 1)
+
+    assert.deepEqual(fixtureKey(next), [2, 1])
+  })
+
+  it('salta finished de la ronda siguiente', () => {
+    const games = buildGroupGames({ groupId: 4, rounds: 3, matchesPerRound: 2 }).map((game) => {
+      if (game.group_round === 1) {
+        return mark(game, 'finished')
+      }
+
+      if (game.group_round === 2 && game.group_match === 1) {
+        return mark(game, 'finished')
+      }
+
+      return game
+    })
+
+    const next = findNextPendingGame(games, 4, 1)
+
+    assert.deepEqual(fixtureKey(next), [2, 2])
+  })
+
+  it('trata in_progress como candidato operativo', () => {
+    const games = buildGroupGames({ groupId: 4, rounds: 3, matchesPerRound: 2 }).map((game) => {
+      if (game.group_round === 1 && game.group_match === 1) {
+        return mark(game, 'finished')
+      }
+
+      if (game.group_round === 1 && game.group_match === 2) {
+        return mark(game, 'in_progress')
+      }
+
+      return game
+    })
+
+    const next = findNextPendingGame(games, 4, 1)
+
+    assert.equal(next.status, 'in_progress')
+    assert.deepEqual(fixtureKey(next), [1, 2])
+  })
+
+  it('devuelve null si el grupo está completo', () => {
+    const games = buildGroupGames({ groupId: 4, rounds: 3, matchesPerRound: 2 }).map((game) =>
+      mark(game, 'finished'),
+    )
+
+    assert.equal(findNextPendingGame(games, 4, 3), null)
+    assert.equal(isGroupScheduleComplete(games, 4), true)
+  })
+
+  it('no elige BYE ni not_needed', () => {
+    const games = [
+      { id: 1, group_id: 1, group_round: 1, group_match: 1, status: 'finished', is_bye: false },
+      { id: 2, group_id: 1, group_round: 2, group_match: 1, status: 'pending', is_bye: true },
+      { id: 3, group_id: 1, group_round: 2, group_match: 2, status: 'not_needed', is_bye: false },
+      { id: 4, group_id: 1, group_round: 3, group_match: 1, status: 'pending', is_bye: false },
+    ]
+
+    assert.equal(findNextPendingGame(games, 1, 1).id, 4)
+  })
+
+  it('desde una ronda numerada completa cae a group_round null, y no vuelve atrás', () => {
+    const withLegacyPending = [
+      { id: 1, group_id: 1, group_round: 1, group_match: 1, status: 'finished', is_bye: false },
+      { id: 2, group_id: 1, group_round: null, group_match: null, status: 'pending', is_bye: false },
+    ]
+    const fromLegacy = [
+      { id: 1, group_id: 1, group_round: 1, group_match: 1, status: 'pending', is_bye: false },
+      { id: 2, group_id: 1, group_round: null, group_match: null, status: 'finished', is_bye: false },
+    ]
+
+    assert.equal(findNextPendingGame(withLegacyPending, 1, 1).id, 2)
+    assert.equal(findNextPendingGame(fromLegacy, 1, null), null)
   })
 })

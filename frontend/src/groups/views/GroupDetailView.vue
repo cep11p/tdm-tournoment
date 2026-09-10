@@ -41,6 +41,9 @@ import { getGroupPlayerStatusLabel } from '../constants/groupPlayerStatus'
 import GroupService from '../services/GroupService'
 import {
   buildGroupResultNavigation,
+  findNavigableGame,
+  findNextPendingGame,
+  isGroupScheduleComplete,
   selectGameWhenChangingGroup,
   sortCompetitionGroupsByName,
 } from '../utils/groupResultNavigation'
@@ -295,6 +298,7 @@ const teamTiesError = ref('')
 const selectedGame = ref(null)
 const activeModalGroupId = ref(null)
 const resultSuccessMessage = ref('')
+const modalStatusMessage = ref('')
 const resultError = ref('')
 
 const games = computed(() =>
@@ -724,6 +728,26 @@ const groupResultNav = computed(() =>
   }),
 )
 
+const activeModalGroupName = computed(() => {
+  const group = modalGroupOptions.value.find(
+    (currentGroup) => Number(currentGroup.id) === Number(activeModalGroupId.value),
+  )
+
+  return group?.name || groupName.value
+})
+
+const modalGroupCompleteMessage = computed(() => {
+  if (activeModalGroupId.value == null) {
+    return ''
+  }
+
+  if (!isGroupScheduleComplete(allCompetitionGames.value, activeModalGroupId.value)) {
+    return ''
+  }
+
+  return `✓ Todos los partidos del ${activeModalGroupName.value} están cargados.`
+})
+
 const isGroupResultModalOpen = computed(
   () => Boolean(selectedGame.value) || activeModalGroupId.value != null,
 )
@@ -732,6 +756,7 @@ const openResultModal = (game) => {
   selectedGame.value = game
   activeModalGroupId.value = game?.group_id ?? Number(groupId.value)
   resultSuccessMessage.value = ''
+  modalStatusMessage.value = ''
   resultError.value = ''
 }
 
@@ -747,6 +772,7 @@ const handleModalPrevious = () => {
     return
   }
 
+  modalStatusMessage.value = ''
   selectedGame.value = previousGame
 }
 
@@ -757,6 +783,7 @@ const handleModalNext = () => {
     return
   }
 
+  modalStatusMessage.value = ''
   selectedGame.value = nextGame
 }
 
@@ -767,17 +794,54 @@ const handleModalGroupChange = (nextGroupId) => {
     selectedGame.value?.group_round ?? null,
   )
 
+  modalStatusMessage.value = ''
   activeModalGroupId.value = nextGroupId
   selectedGame.value = nextGame
 }
 
-const handleResultSaved = async () => {
-  closeResultModal()
+const handleResultSaved = async (payload) => {
+  const savedGame = payload?.game ?? selectedGame.value
   resultError.value = ''
 
   try {
-    await Promise.all([loadGroupSchedule(), loadStandings()])
+    await loadGroupSchedule()
+
+    const savedGroupId = savedGame?.group_id ?? activeModalGroupId.value
+
+    if (Number(savedGroupId) === Number(groupId.value)) {
+      await loadStandings()
+    }
+
+    const freshSavedGame =
+      findNavigableGame(allCompetitionGames.value, savedGame?.id) ?? savedGame
+
+    if (!freshSavedGame) {
+      resultSuccessMessage.value = 'Resultado registrado correctamente.'
+      return
+    }
+
+    activeModalGroupId.value = freshSavedGame.group_id ?? savedGroupId
     resultSuccessMessage.value = 'Resultado registrado correctamente.'
+    modalStatusMessage.value = 'Resultado registrado correctamente.'
+
+    if (freshSavedGame.status !== 'finished') {
+      selectedGame.value = freshSavedGame
+      return
+    }
+
+    const nextPending = findNextPendingGame(
+      allCompetitionGames.value,
+      freshSavedGame.group_id ?? savedGroupId,
+      freshSavedGame.group_round ?? null,
+    )
+
+    if (nextPending) {
+      selectedGame.value = nextPending
+      activeModalGroupId.value = nextPending.group_id
+      return
+    }
+
+    selectedGame.value = freshSavedGame
   } catch (error) {
     resultError.value =
       error?.response?.data?.message || 'No se pudo actualizar la lista de partidos.'
@@ -1369,6 +1433,8 @@ onMounted(async () => {
       :match-label="groupResultNav.matchLabel"
       :can-go-previous="groupResultNav.canGoPrevious"
       :can-go-next="groupResultNav.canGoNext"
+      :group-complete-message="modalGroupCompleteMessage"
+      :status-message="modalStatusMessage"
       @close="closeResultModal"
       @saved="handleResultSaved"
       @previous="handleModalPrevious"

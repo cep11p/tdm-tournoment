@@ -45,6 +45,14 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  groupCompleteMessage: {
+    type: String,
+    default: '',
+  },
+  statusMessage: {
+    type: String,
+    default: '',
+  },
 })
 
 const emit = defineEmits(['close', 'saved', 'previous', 'next', 'change-group'])
@@ -283,8 +291,10 @@ const handleSave = async () => {
   resultError.value = ''
 
   try {
+    let updatedGame = activeGame.value
+
     for (const set of sets) {
-      const updatedGame = await GameService.recordSet(activeGame.value.id, set)
+      updatedGame = await GameService.recordSet(activeGame.value.id, set)
       activeGame.value = updatedGame
       setRows.value = buildSetRows(updatedGame)
 
@@ -293,7 +303,7 @@ const handleSave = async () => {
       }
     }
 
-    emit('saved')
+    emit('saved', { game: updatedGame })
   } catch (error) {
     let refreshedGame = null
 
@@ -306,7 +316,7 @@ const handleSave = async () => {
     }
 
     if (isGameFinishedAfterSaveError(error, refreshedGame)) {
-      emit('saved')
+      emit('saved', { game: refreshedGame })
       return
     }
 
@@ -389,6 +399,13 @@ const handleSave = async () => {
                 >
                   {{ matchLabel }}
                 </p>
+
+                <p
+                  v-if="groupCompleteMessage"
+                  class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-xs font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
+                >
+                  {{ groupCompleteMessage }}
+                </p>
               </div>
 
               <template v-if="activeGame">
@@ -445,6 +462,7 @@ const handleSave = async () => {
               Completá los sets en orden. No hace falta llenar todos si el partido se define antes.
             </p>
 
+            <p v-if="statusMessage" class="text-emerald-700 dark:text-emerald-300">{{ statusMessage }}</p>
             <p v-if="resultError" class="text-red-600 dark:text-red-400">{{ resultError }}</p>
 
             <div class="flex justify-end gap-2">

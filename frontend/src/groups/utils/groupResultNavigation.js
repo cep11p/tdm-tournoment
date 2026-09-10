@@ -16,6 +16,10 @@ export function isNavigableGroupGame(game) {
   return true
 }
 
+export function isLoadableGroupGame(game) {
+  return isNavigableGroupGame(game) && (game.status === 'pending' || game.status === 'in_progress')
+}
+
 export function compareByGroupFixture(left, right) {
   const leftHasRound = left?.group_round != null
   const rightHasRound = right?.group_round != null
@@ -190,6 +194,40 @@ export function selectGameWhenChangingGroup(allGames, targetGroupId, currentRoun
   const roundGames = getGamesInRound(games, round)
 
   return roundGames[0] ?? games[0]
+}
+
+export function findNextPendingGame(games, groupId, currentRound) {
+  const loadableGames = getNavigableGamesForGroup(games, groupId).filter(isLoadableGroupGame)
+
+  const sameRound = loadableGames.filter((game) =>
+    currentRound == null ? game.group_round == null : game.group_round === currentRound,
+  )
+
+  if (sameRound.length > 0) {
+    return sameRound[0]
+  }
+
+  if (currentRound == null) {
+    return null
+  }
+
+  const laterNumbered = loadableGames.filter(
+    (game) => game.group_round != null && game.group_round > currentRound,
+  )
+
+  if (laterNumbered.length > 0) {
+    return laterNumbered[0]
+  }
+
+  const legacy = loadableGames.filter((game) => game.group_round == null)
+
+  return legacy[0] ?? null
+}
+
+export function isGroupScheduleComplete(games, groupId) {
+  const navigableGames = getNavigableGamesForGroup(games, groupId)
+
+  return navigableGames.length > 0 && !navigableGames.some(isLoadableGroupGame)
 }
 
 export function sortCompetitionGroupsByName(groups) {
