@@ -18,6 +18,7 @@ const props = defineProps({
 
 const setColumns = computed(() => printSetColumns(props.sheet?.best_of))
 const matchRounds = computed(() => groupConsecutiveMatchesByRound(props.sheet?.matches))
+const stackMatches = computed(() => Number(props.sheet?.best_of) < 5)
 const matrixRows = computed(() => (Array.isArray(props.sheet?.matrix) ? props.sheet.matrix : []))
 const matrixNumbers = computed(() => {
   const first = matrixRows.value[0]
@@ -144,7 +145,7 @@ const notesLineCount = computed(() => {
         v-for="(round, roundIndex) in matchRounds"
         :key="`round-${round.group_round ?? roundIndex}`"
         class="match-round"
-        :class="{ 'match-round--pair': round.matches.length > 1 }"
+        :class="{ 'match-round--pair': !stackMatches && round.matches.length > 1 }"
       >
         <GroupPrintMatchBlock
           v-for="(match, matchIndex) in round.matches"
@@ -200,7 +201,7 @@ const notesLineCount = computed(() => {
 .official-layout--g5 .header-table td,
 .official-layout--g5 .matrix-table th,
 .official-layout--g5 .matrix-table td {
-  padding: 0.08rem 0.18rem;
+  padding: 0.08rem 0.14rem;
 }
 
 .official-layout--g5 .matrix-cell,
@@ -212,8 +213,10 @@ const notesLineCount = computed(() => {
 .header-table,
 .matrix-table {
   width: 100%;
+  max-width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
+  box-sizing: border-box;
 }
 
 .header-table th,
@@ -221,10 +224,11 @@ const notesLineCount = computed(() => {
 .matrix-table th,
 .matrix-table td {
   border: 1px solid #222;
-  padding: 0.14rem 0.28rem;
+  padding: 0.14rem 0.22rem;
   background: #fff;
   color: #111;
   vertical-align: middle;
+  box-sizing: border-box;
 }
 
 .header-col-label {
@@ -269,34 +273,55 @@ const notesLineCount = computed(() => {
 
 .matrix-col-num,
 .matrix-num {
-  width: 8mm;
+  width: 7mm;
   text-align: center;
   font-weight: 700;
 }
 
-.matrix-col-name {
+.matrix-col-name,
+.matrix-name {
   width: auto;
+  min-width: 0;
 }
 
 .matrix-col-assoc {
-  width: 22mm;
+  width: 20mm;
 }
 
-.matrix-col-cell,
-.matrix-col-pts,
-.matrix-col-pos {
-  width: 11mm;
+.matrix-col-cell {
+  width: 9.5mm;
   text-align: center;
 }
 
-.official-layout--g5 .matrix-col-assoc {
+.matrix-col-pts,
+.matrix-col-pos {
+  text-align: center;
+  white-space: nowrap;
+  letter-spacing: 0;
+}
+
+.matrix-col-pts {
+  width: 13mm;
+}
+
+.matrix-col-pos {
   width: 16mm;
 }
 
-.official-layout--g5 .matrix-col-cell,
-.official-layout--g5 .matrix-col-pts,
+.official-layout--g5 .matrix-col-assoc {
+  width: 15mm;
+}
+
+.official-layout--g5 .matrix-col-cell {
+  width: 8mm;
+}
+
+.official-layout--g5 .matrix-col-pts {
+  width: 12mm;
+}
+
 .official-layout--g5 .matrix-col-pos {
-  width: 9mm;
+  width: 15mm;
 }
 
 .matrix-name {
@@ -339,23 +364,29 @@ const notesLineCount = computed(() => {
 .official-matches {
   display: flex;
   flex-direction: column;
-  gap: 0.32rem;
-}
-
-.official-layout--g5 .official-matches {
-  gap: 0.2rem;
+  gap: 0.28rem;
 }
 
 .match-round {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0.32rem;
+  gap: 0.28rem;
   page-break-inside: avoid;
   break-inside: avoid;
 }
 
 .match-round--pair {
   grid-template-columns: 1fr 1fr;
+}
+
+.official-layout--g4 .official-matches,
+.official-layout--g4 .match-round {
+  gap: 0.22rem;
+}
+
+.official-layout--g5 .official-matches,
+.official-layout--g5 .match-round {
+  gap: 0.12rem;
 }
 
 .official-notes {
@@ -437,25 +468,30 @@ const notesLineCount = computed(() => {
 }
 
 .official-layout--g5 :deep(.match-col-result) {
-  width: 12mm;
+  width: 16mm;
 }
 
 .official-layout--g5 :deep(.match-col-set) {
-  width: 7.5mm;
+  width: 8.5mm;
 }
 
 .official-layout--g5 :deep(.match-col-ref) {
-  width: 24mm;
+  width: 32mm;
 }
 
-.official-layout--bo5 :deep(.match-col-set),
-.official-layout--bo7 :deep(.match-col-set) {
-  width: 7mm;
+.official-layout--bo5 .match-round--pair :deep(.match-col-result),
+.official-layout--bo7 .match-round--pair :deep(.match-col-result) {
+  width: 16mm;
 }
 
-.official-layout--bo5 :deep(.match-col-ref),
-.official-layout--bo7 :deep(.match-col-ref) {
-  width: 22mm;
+.official-layout--bo5 .match-round--pair :deep(.match-col-set),
+.official-layout--bo7 .match-round--pair :deep(.match-col-set) {
+  width: 8mm;
+}
+
+.official-layout--bo5 .match-round--pair :deep(.match-col-ref),
+.official-layout--bo7 .match-round--pair :deep(.match-col-ref) {
+  width: 26mm;
 }
 
 @media print {

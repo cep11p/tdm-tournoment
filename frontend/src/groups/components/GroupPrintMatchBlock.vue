@@ -104,15 +104,15 @@ const refereeName = computed(() => {
 }
 
 .match-col-result {
-  width: 14mm;
+  width: 18mm;
 }
 
 .match-col-set {
-  width: 8.5mm;
+  width: 9mm;
 }
 
 .match-col-ref {
-  width: 28mm;
+  width: 36mm;
 }
 
 .match-block th,
@@ -131,6 +131,7 @@ const refereeName = computed(() => {
   font-size: 0.62rem;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .match-num {

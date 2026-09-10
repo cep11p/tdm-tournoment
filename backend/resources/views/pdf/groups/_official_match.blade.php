@@ -7,10 +7,10 @@
     );
     $refereeName = trim((string) ($match['referee']['display_name'] ?? ''));
     $paired = $paired ?? false;
-    $numWidth = $paired ? '6mm' : '8mm';
-    $resultWidth = $paired ? '11mm' : '16mm';
-    $setWidth = $paired ? '6mm' : '9mm';
-    $refWidth = $paired ? '18mm' : '34mm';
+    $numWidth = $paired ? '7mm' : '8mm';
+    $resultWidth = $paired ? '16mm' : '18mm';
+    $setWidth = $paired ? '8mm' : '9mm';
+    $refWidth = $paired ? '28mm' : '36mm';
 @endphp
 
 <table class="official-match">

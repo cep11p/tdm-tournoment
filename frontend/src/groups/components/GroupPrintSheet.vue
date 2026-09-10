@@ -61,11 +61,11 @@ const resolvedOrientation = computed(() => {
 }
 
 .print-sheet--g5 {
-  padding: 8mm 8mm;
+  padding: 8mm 12mm;
 }
 
 .print-sheet--g4 {
-  padding: 10mm 9mm;
+  padding: 10mm 12mm;
 }
 
 .print-sheet--official {
@@ -73,6 +73,8 @@ const resolvedOrientation = computed(() => {
   flex-direction: column;
   break-inside: avoid;
   page-break-inside: avoid;
+  padding-left: 12mm;
+  padding-right: 12mm;
 }
 
 @media screen {
@@ -97,6 +99,10 @@ const resolvedOrientation = computed(() => {
   .print-sheet--g5,
   .print-sheet--g4 {
     padding: 0;
+  }
+
+  .print-sheet--official {
+    padding: 0 4mm;
   }
 }
 </style>

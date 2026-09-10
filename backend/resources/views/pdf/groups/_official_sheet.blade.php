@@ -87,25 +87,46 @@
             </tbody>
         </table>
 
+        @php
+            $stackMatches = \App\Support\Print\PrintPresentation::orientation($sheet->bestOf) === 'portrait';
+        @endphp
         @foreach ($matchRounds as $round)
             @php
                 $roundMatches = $round['matches'];
                 $roundCount = count($roundMatches);
+                $stackRound = $stackMatches || $roundCount === 1;
             @endphp
-            <table class="official-match-row{{ $roundCount > 1 ? ' official-match-row--pair' : '' }}">
-                <tr>
-                    @foreach ($roundMatches as $match)
-                        <td class="official-match-wrap{{ $roundCount === 1 ? ' official-match-wrap--single' : '' }}">
-                            @include('pdf.groups._official_match', [
-                                'match' => $match,
-                                'setColumns' => $setColumns,
-                                'setLabels' => $setLabels,
-                                'paired' => $roundCount > 1,
-                            ])
-                        </td>
-                    @endforeach
-                </tr>
-            </table>
+            @if ($stackRound)
+                @foreach ($roundMatches as $match)
+                    <table class="official-match-row">
+                        <tr>
+                            <td class="official-match-wrap official-match-wrap--single">
+                                @include('pdf.groups._official_match', [
+                                    'match' => $match,
+                                    'setColumns' => $setColumns,
+                                    'setLabels' => $setLabels,
+                                    'paired' => false,
+                                ])
+                            </td>
+                        </tr>
+                    </table>
+                @endforeach
+            @else
+                <table class="official-match-row official-match-row--pair">
+                    <tr>
+                        @foreach ($roundMatches as $match)
+                            <td class="official-match-wrap">
+                                @include('pdf.groups._official_match', [
+                                    'match' => $match,
+                                    'setColumns' => $setColumns,
+                                    'setLabels' => $setLabels,
+                                    'paired' => true,
+                                ])
+                            </td>
+                        @endforeach
+                    </tr>
+                </table>
+            @endif
         @endforeach
 
         <div class="official-notes">

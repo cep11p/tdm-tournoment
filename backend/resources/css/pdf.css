@@ -229,6 +229,9 @@ body {
 .official-layout {
     font-size: 8pt;
     line-height: 1.15;
+    width: 100%;
+    padding: 0 4mm;
+    box-sizing: border-box;
 }
 
 .official-layout--g4 {
@@ -246,7 +249,9 @@ body {
 .official-match-row,
 .official-sign {
     width: 100%;
+    max-width: 100%;
     border-collapse: collapse;
+    box-sizing: border-box;
 }
 
 .official-header {
@@ -257,10 +262,11 @@ body {
 .official-header th,
 .official-header td {
     border: 1px solid #222;
-    padding: 2pt 3pt;
+    padding: 2pt 2.5pt;
     vertical-align: middle;
     background: #fff;
     color: #111;
+    box-sizing: border-box;
 }
 
 .official-header th {
@@ -286,12 +292,12 @@ body {
 .official-layout--g5 .official-header td,
 .official-layout--g5 .official-matrix th,
 .official-layout--g5 .official-matrix td {
-    padding: 1pt 2pt;
+    padding: 1pt 1.5pt;
 }
 
 .official-matrix {
     margin: 0 0 6pt;
-    table-layout: auto;
+    table-layout: fixed;
 }
 
 .official-layout--g5 .official-matrix {
@@ -301,10 +307,11 @@ body {
 .official-matrix th,
 .official-matrix td {
     border: 1px solid #222;
-    padding: 2pt 3pt;
+    padding: 2pt 2pt;
     vertical-align: middle;
     background: #fff;
     color: #111;
+    box-sizing: border-box;
 }
 
 .official-matrix thead th {
@@ -316,35 +323,58 @@ body {
 }
 
 .official-matrix-num {
-    width: 8mm;
+    width: 7mm;
     text-align: center;
     font-weight: bold;
 }
 
 .official-matrix-assoc {
-    width: 20mm;
+    width: 18mm;
 }
 
 .official-layout--g5 .official-matrix-assoc {
     width: 14mm;
 }
 
-.official-matrix-cell,
-.official-matrix-pts,
-.official-matrix-pos,
-.official-matrix-empty {
-    width: 11mm;
+.official-matrix-cell {
+    width: 9mm;
     text-align: center;
 }
 
-.official-layout--g5 .official-matrix-cell,
-.official-layout--g5 .official-matrix-pts,
-.official-layout--g5 .official-matrix-pos,
-.official-layout--g5 .official-matrix-empty {
-    width: 9mm;
+.official-matrix-pts,
+.official-matrix-pos {
+    text-align: center;
+    white-space: nowrap;
 }
 
+.official-matrix-pts {
+    width: 13mm;
+}
+
+.official-matrix-pos {
+    width: 16mm;
+}
+
+.official-matrix-empty {
+    text-align: center;
+}
+
+.official-layout--g5 .official-matrix-cell {
+    width: 8mm;
+}
+
+.official-layout--g5 .official-matrix-pts {
+    width: 12mm;
+}
+
+.official-layout--g5 .official-matrix-pos {
+    width: 15mm;
+}
+
+.official-matrix-name,
 .official-matrix-name-cell {
+    width: auto;
+    min-width: 0;
     white-space: pre-line;
     word-wrap: break-word;
 }
@@ -370,11 +400,25 @@ body {
 .official-match-row {
     margin: 0 0 3pt;
     border-collapse: separate;
-    border-spacing: 3pt 0;
+    border-spacing: 0;
+}
+
+.official-layout--g4 .official-match-row {
+    margin-bottom: 2.5pt;
 }
 
 .official-layout--g5 .official-match-row {
-    margin-bottom: 2pt;
+    margin-bottom: 1.5pt;
+}
+
+.official-layout--bo5 .official-match-row,
+.official-layout--bo7 .official-match-row {
+    margin-bottom: 1pt;
+}
+
+.official-match-row--pair {
+    width: 100%;
+    table-layout: fixed;
     border-spacing: 2pt 0;
 }
 
@@ -385,12 +429,17 @@ body {
     border: none;
 }
 
+.official-match-row--pair .official-match-wrap {
+    width: 49%;
+}
+
 .official-match-wrap--single {
     width: 100%;
 }
 
 .official-match {
     table-layout: fixed;
+    width: 100%;
 }
 
 .official-match th,
@@ -412,46 +461,43 @@ body {
     font-weight: bold;
     text-align: center;
     font-size: 6.5pt;
+    white-space: nowrap;
 }
 
 .official-match-col-num,
 .official-match-num {
-    width: 7mm;
+    width: 8mm;
     text-align: center;
     font-weight: bold;
 }
 
 .official-match-col-result {
-    width: 14mm;
+    width: 18mm;
 }
 
 .official-match-col-set {
-    width: 8mm;
+    width: 9mm;
 }
 
 .official-match-col-ref {
-    width: 32mm;
+    width: 36mm;
 }
 
 .official-match-row--pair .official-match-col-num,
 .official-match-row--pair .official-match-num {
-    width: 6mm;
+    width: 7mm;
 }
 
 .official-match-row--pair .official-match-col-result {
-    width: 13mm;
+    width: 16mm;
 }
 
 .official-match-row--pair .official-match-col-set {
-    width: 6.5mm;
+    width: 8mm;
 }
 
 .official-match-row--pair .official-match-col-ref {
-    width: 22mm;
-}
-
-.official-match-row--pair .official-match thead th {
-    font-size: 5.5pt;
+    width: 28mm;
 }
 
 .official-match-name {
@@ -470,7 +516,7 @@ body {
 
 .official-layout--g5 .official-result-cell,
 .official-layout--g5 .official-set-cell {
-    height: 10pt;
+    height: 9pt;
 }
 
 .official-match-ref {
@@ -506,6 +552,21 @@ body {
     height: 7pt;
 }
 
+.official-layout--bo5 .official-notes,
+.official-layout--bo7 .official-notes {
+    margin-top: 2pt;
+}
+
+.official-layout--bo5 .official-notes-line,
+.official-layout--bo7 .official-notes-line {
+    height: 6pt;
+}
+
+.official-layout--bo5 .official-sign,
+.official-layout--bo7 .official-sign {
+    margin-top: 2pt;
+}
+
 .official-notes-line:last-child {
     border-bottom: none;
 }
@@ -538,4 +599,9 @@ body {
 
 .official-sign-role-label {
     margin-top: 4pt;
+}
+
+.official-layout--bo5 .official-sign-role-label,
+.official-layout--bo7 .official-sign-role-label {
+    margin-top: 1pt;
 }

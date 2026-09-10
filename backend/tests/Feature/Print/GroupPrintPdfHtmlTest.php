@@ -70,7 +70,8 @@ class GroupPrintPdfHtmlTest extends TestCase
             $this->officialPairings($html),
         );
         $this->assertSetLabels($html, 3, matchBlocks: 6);
-        $this->assertSame(3, substr_count($html, 'official-match-row--pair"'));
+        $this->assertSame(6, substr_count($html, 'class="official-match-wrap official-match-wrap--single"'));
+        $this->assertStringNotContainsString('class="official-match-row official-match-row--pair"', $html);
     }
 
     public function test_g5_uses_official_layout_with_orientation_preserved(): void
@@ -86,7 +87,8 @@ class GroupPrintPdfHtmlTest extends TestCase
             $this->officialPairings($html),
         );
         $this->assertSetLabels($html, 3, matchBlocks: 10);
-        $this->assertSame(5, substr_count($html, 'official-match-row--pair"'));
+        $this->assertSame(10, substr_count($html, 'class="official-match-wrap official-match-wrap--single"'));
+        $this->assertStringNotContainsString('class="official-match-row official-match-row--pair"', $html);
     }
 
     public function test_g5_best_of_five_renders_s1_to_s5(): void
@@ -99,6 +101,8 @@ class GroupPrintPdfHtmlTest extends TestCase
             [[2, 5], [3, 4], [1, 5], [2, 3], [1, 4], [5, 3], [1, 3], [4, 2], [1, 2], [4, 5]],
             $this->officialPairings($html),
         );
+        $this->assertSame(5, substr_count($html, 'official-match-row--pair"'));
+        $this->assertStringNotContainsString('class="official-match-wrap official-match-wrap--single"', $html);
     }
 
     public function test_sheet_shows_display_names_and_assigned_referee(): void
