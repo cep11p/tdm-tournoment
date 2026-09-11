@@ -190,6 +190,52 @@ class GroupQualifiersCollectorTest extends TestCase
         }
     }
 
+    public function test_collects_qualifiers_from_every_current_group_including_a_late_one(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+        $groups = [];
+
+        foreach (['Grupo A', 'Grupo B', 'Grupo C', 'Grupo D'] as $name) {
+            $players = $context->createPlayers(2);
+            $context->registerPlayers($competition, $players);
+            $group = $context->createGroupWithPlayers($competition, $players, $name);
+            $context->generateRoundRobin($group)->assertCreated();
+            $game = $group->games()->sole();
+            $context->finishGame($game, $game->singlesPlayer1())->assertOk();
+            $groups[$name] = $group;
+        }
+
+        $qualifiers = app(GroupQualifiersCollector::class)->collect($competition->fresh());
+
+        $this->assertCount(8, $qualifiers);
+        $this->assertSame(
+            ['Grupo A', 'Grupo B', 'Grupo C', 'Grupo D'],
+            $qualifiers->pluck('groupName')->unique()->sort()->values()->all(),
+        );
+        $this->assertCount(2, $qualifiers->where('groupId', $groups['Grupo D']->id));
+    }
+
+    public function test_throws_when_a_late_group_has_no_entries(): void
+    {
+        $context = $this->tournamentContext();
+        $setup = $context->createFourQualifierGroupPhase(finishGroupGames: true);
+        $context->createGroup($setup['competition'], 'Grupo D');
+
+        $this->expectException(ValidationException::class);
+
+        try {
+            app(GroupQualifiersCollector::class)->collect($setup['competition']->fresh());
+        } catch (ValidationException $exception) {
+            $this->assertSame(
+                ['El grupo "Grupo D" necesita al menos 2 jugadores.'],
+                $exception->errors()['group'],
+            );
+
+            throw $exception;
+        }
+    }
+
     /**
      * @return array{
      *     competition: Competition,

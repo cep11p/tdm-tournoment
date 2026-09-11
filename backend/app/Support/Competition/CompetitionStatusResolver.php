@@ -12,6 +12,7 @@ use App\Models\Game;
 use App\Models\TeamTie;
 use App\Support\Bracket\BracketPodiumSupport;
 use App\Support\Bracket\GroupBracketReadiness;
+use App\Support\Group\GroupScheduleCompletion;
 
 final class CompetitionStatusResolver
 {
@@ -116,20 +117,6 @@ final class CompetitionStatusResolver
                     'Generar enfrentamientos de grupo',
                 );
             }
-        } else {
-            $groupGamesQuery = Game::query()
-                ->where('competition_id', $competition->id)
-                ->whereNotNull('group_id')
-                ->whereNull('bracket_id');
-
-            if (! (clone $groupGamesQuery)->exists()) {
-                return self::summary(
-                    'group_stage_pending',
-                    'Fase de grupos pendiente',
-                    'Hay grupos configurados, pero todavía no se generaron los partidos.',
-                    'Generar partidos de grupo',
-                );
-            }
         }
 
         if ($competition->brackets()->exists()) {
@@ -158,15 +145,20 @@ final class CompetitionStatusResolver
                 ->whereNotNull('group_id')
                 ->whereIn('status', [TeamTieStatus::Pending, TeamTieStatus::InProgress])
                 ->exists();
+            $hasIncompleteSchedule = false;
         } else {
-            $groupGamesQuery = Game::query()
-                ->where('competition_id', $competition->id)
-                ->whereNotNull('group_id')
-                ->whereNull('bracket_id');
+            $hasOpenGroupSchedule = false;
+            $hasIncompleteSchedule = false;
 
-            $hasOpenGroupSchedule = (clone $groupGamesQuery)
-                ->whereIn('status', [GameStatus::Pending, GameStatus::InProgress])
-                ->exists();
+            foreach ($competition->groups()->get() as $group) {
+                if (GroupScheduleCompletion::hasOpenGames($group)) {
+                    $hasOpenGroupSchedule = true;
+                }
+
+                if (! GroupScheduleCompletion::hasCompleteGamesSchedule($group)) {
+                    $hasIncompleteSchedule = true;
+                }
+            }
         }
 
         if ($hasOpenGroupSchedule) {
@@ -179,6 +171,15 @@ final class CompetitionStatusResolver
                 $isTeamCompetition
                     ? 'Completar enfrentamientos de grupos'
                     : 'Completar partidos de grupos',
+            );
+        }
+
+        if ($hasIncompleteSchedule) {
+            return self::summary(
+                'group_stage_pending',
+                'Fase de grupos pendiente',
+                'Hay grupos configurados, pero todavía no se generaron los partidos.',
+                'Generar partidos de grupo',
             );
         }
 

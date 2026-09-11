@@ -9,6 +9,7 @@ use App\Enums\GameStatus;
 use App\Enums\TeamTieStatus;
 use App\Models\Competition;
 use App\Models\Group;
+use App\Support\Group\GroupScheduleCompletion;
 use App\Support\Group\GroupStandingsResolver;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
@@ -74,6 +75,12 @@ final class GroupQualifiersCollector
             if (! $group->games()->exists()) {
                 throw ValidationException::withMessages([
                     'group' => [sprintf('El grupo "%s" no tiene partidos generados.', $group->name)],
+                ]);
+            }
+
+            if (! GroupScheduleCompletion::hasCompleteGamesSchedule($group)) {
+                throw ValidationException::withMessages([
+                    'group' => [sprintf('El grupo "%s" no tiene el round-robin completo.', $group->name)],
                 ]);
             }
 
