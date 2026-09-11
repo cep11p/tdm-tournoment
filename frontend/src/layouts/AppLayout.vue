@@ -109,7 +109,7 @@ const handleLogout = async () => {
 
     <div
       class="min-h-screen min-w-0"
-      :class="isPrintView ? 'block' : 'mx-auto flex max-w-7xl'"
+      :class="isPrintView ? 'block' : 'flex'"
     >
       <aside
         v-if="!isPrintView"
@@ -193,7 +193,7 @@ const handleLogout = async () => {
 
         <main
           class="min-w-0 flex-1"
-          :class="isPrintView ? 'bg-slate-100 p-4 dark:bg-slate-950 print:bg-white print:p-0' : 'bg-slate-100 p-4 dark:bg-slate-950 md:p-6'"
+          :class="isPrintView ? 'bg-slate-100 p-4 dark:bg-slate-950 print:bg-white print:p-0' : 'mx-auto w-full max-w-[1360px] bg-slate-100 p-4 dark:bg-slate-950 md:p-6'"
         >
           <slot />
         </main>
