@@ -47,8 +47,8 @@ class GroupPhaseTest extends TestCase
         $response = $this->postJson($context->apiUrl("groups/{$group->id}/round-robin-games"));
 
         $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['group']);
+            ->assertCreated()
+            ->assertJsonCount(0, 'data');
 
         $this->assertSame(3, Game::query()->where('group_id', $group->id)->count());
     }

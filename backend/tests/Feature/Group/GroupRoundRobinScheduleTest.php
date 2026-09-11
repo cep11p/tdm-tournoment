@@ -215,12 +215,7 @@ class GroupRoundRobinScheduleTest extends TestCase
             $entries[] = $this->createSinglesEntryWithId($competition, $player, $ids[$index]);
         }
 
-        $group = $context->createGroup($competition);
-
-        foreach ($entries as $entry) {
-            $context->assignEntryToGroupViaApi($group, $entry)->assertCreated();
-        }
-
+        $group = $context->createGroupWithEntries($competition, $entries);
         $context->generateRoundRobin($group)->assertCreated();
 
         $this->assertSame(
@@ -266,12 +261,7 @@ class GroupRoundRobinScheduleTest extends TestCase
             [$players[4], $players[5]],
             [$players[6], $players[7]],
         ]);
-        $group = $context->createGroup($competition);
-
-        foreach ($entries as $entry) {
-            $context->assignEntryToGroupViaApi($group, $entry)->assertCreated();
-        }
-
+        $group = $context->createGroupWithEntries($competition, $entries);
         $context->generateRoundRobin($group)->assertCreated();
 
         $this->assertOfficialSheetSlots($group, [

@@ -2,6 +2,7 @@
 
 namespace App\Actions\GroupPlayer;
 
+use App\Actions\Group\GenerateGroupRoundRobinGamesAction;
 use App\Actions\Group\PersistGroupEntryAction;
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
@@ -22,6 +23,7 @@ final class AssignPlayerToGroupAction
         private readonly AuditLogger $auditLogger,
         private readonly ResolveCompetitionEntryForGroup $resolveCompetitionEntryForGroup,
         private readonly PersistGroupEntryAction $persistGroupEntry,
+        private readonly GenerateGroupRoundRobinGamesAction $generateRoundRobin,
     ) {}
 
     /**
@@ -38,11 +40,23 @@ final class AssignPlayerToGroupAction
         $entry = ($this->resolveCompetitionEntryForGroup)($group->competition, $payload);
 
         return DB::transaction(function () use ($group, $entry): GroupEntry {
-            $groupEntry = ($this->persistGroupEntry)($group, $entry);
+            $lockedGroup = Group::query()
+                ->whereKey($group->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $lockedGroup->setRelation('competition', $group->competition);
+            $lockedGroup->groupEntries()->lockForUpdate()->get();
+            $lockedGroup->games()->lockForUpdate()->get();
+
+            $groupEntry = ($this->persistGroupEntry)($lockedGroup, $entry);
             $groupEntry->load([
                 'competitionEntry.members.player:id,first_name,last_name,nickname',
                 'competitionEntry.competition',
             ]);
+
+            if ($this->shouldSyncRoundRobin($lockedGroup)) {
+                ($this->generateRoundRobin)->syncLocked($lockedGroup);
+            }
 
             $status = $groupEntry->status ?? GroupPlayerStatus::Active;
             $entryContext = AuditContextBuilder::fromGroupEntry($groupEntry);
@@ -70,5 +84,14 @@ final class AssignPlayerToGroupAction
 
             return $groupEntry;
         });
+    }
+
+    private function shouldSyncRoundRobin(Group $group): bool
+    {
+        if ($group->competition->isTeam()) {
+            return false;
+        }
+
+        return $group->groupEntries()->count() >= 2;
     }
 }

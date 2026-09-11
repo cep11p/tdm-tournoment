@@ -9,6 +9,7 @@ use App\Models\Group;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
+use App\Support\Competition\LateGroupMutationGuard;
 use App\Support\Competition\TeamCompetitionSchedulingGuard;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Collection;
@@ -31,8 +32,33 @@ final class GenerateGroupRoundRobinGamesAction
         TournamentLifecycleGuard::ensureMutableForGroup($group);
         CompetitionFormatGuard::ensureGroupStage($group->competition);
         TeamCompetitionSchedulingGuard::ensureGamesRoundRobinAllowed($group->competition);
+        LateGroupMutationGuard::ensureAllowed($group->competition);
 
-        $entryCount = $group->groupEntries()->count();
+        return DB::transaction(fn (): Collection => $this->syncLocked($group));
+    }
+
+    /**
+     * Completa el round-robin del grupo. Debe invocarse dentro de una transacción
+     * ya abierta. Toma locks en orden: Group → GroupEntries → Games.
+     *
+     * @return Collection<int, Game>
+     */
+    public function syncLocked(Group $group): Collection
+    {
+        $lockedGroup = Group::query()
+            ->whereKey($group->id)
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        if ($group->relationLoaded('competition')) {
+            $lockedGroup->setRelation('competition', $group->competition);
+        } else {
+            $lockedGroup->loadMissing('competition');
+        }
+
+        $lockedGroup->groupEntries()->lockForUpdate()->get();
+        $existingBefore = $lockedGroup->games()->lockForUpdate()->count();
+        $entryCount = $lockedGroup->groupEntries()->count();
 
         if ($entryCount < 2) {
             throw ValidationException::withMessages([
@@ -40,34 +66,30 @@ final class GenerateGroupRoundRobinGamesAction
             ]);
         }
 
-        if ($group->games()->exists()) {
-            throw ValidationException::withMessages([
-                'group' => ['Los partidos del round robin ya fueron generados para este grupo.'],
-            ]);
+        $created = ($this->buildRoundRobin)($lockedGroup);
+        $gamesCreated = $created->count();
+
+        if ($gamesCreated === 0) {
+            return $created;
         }
 
-        $playerCount = $entryCount;
+        $this->auditLogger->log(new AuditEntry(
+            action: AuditAction::GROUPS_ROUND_ROBIN_GENERATED,
+            logName: 'groups',
+            subject: $lockedGroup,
+            context: AuditContextBuilder::fromGroup($lockedGroup),
+            new: [
+                'games_count' => $gamesCreated,
+                'games_total_after' => $existingBefore + $gamesCreated,
+            ],
+            summary: [
+                'player_count' => $entryCount,
+                'games_created' => $gamesCreated,
+                'existing_games_before' => $existingBefore,
+                'games_total_after' => $existingBefore + $gamesCreated,
+            ],
+        ));
 
-        return DB::transaction(function () use ($group, $playerCount): Collection {
-            $created = ($this->buildRoundRobin)($group);
-            $gamesCreated = $created->count();
-
-            $this->auditLogger->log(new AuditEntry(
-                action: AuditAction::GROUPS_ROUND_ROBIN_GENERATED,
-                logName: 'groups',
-                subject: $group,
-                context: AuditContextBuilder::fromGroup($group),
-                new: [
-                    'games_count' => $gamesCreated,
-                ],
-                summary: [
-                    'player_count' => $playerCount,
-                    'games_created' => $gamesCreated,
-                    'existing_games_before' => 0,
-                ],
-            ));
-
-            return $created;
-        });
+        return $created;
     }
 }

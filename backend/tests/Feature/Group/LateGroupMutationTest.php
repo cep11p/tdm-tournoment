@@ -78,8 +78,9 @@ class LateGroupMutationTest extends TestCase
         $response->assertCreated();
         $this->assertDatabaseCount('group_entries', 5);
         $this->assertSame(3, $setup['groupA']->groupEntries()->count());
+        $this->assertSame(3, $setup['groupA']->games()->count());
         $this->assertSame(
-            $gamesBefore,
+            $gamesBefore + 2,
             Game::query()->where('competition_id', $setup['competition']->id)->count(),
         );
     }

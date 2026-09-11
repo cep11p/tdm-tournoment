@@ -598,9 +598,10 @@ final class TournamentTestContext
         string $name = 'Grupo A',
     ): Group {
         $group = $this->createGroup($competition, $name);
+        $persistGroupEntry = app(PersistGroupEntryAction::class);
 
         foreach ($entries as $entry) {
-            $this->assignEntryToGroupViaApi($group, $entry)->assertCreated();
+            ($persistGroupEntry)($group, $entry);
         }
 
         return $group->fresh();

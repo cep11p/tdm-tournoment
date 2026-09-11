@@ -5,8 +5,8 @@ namespace Tests\Feature\Audit;
 use App\Actions\Group\GenerateGroupRoundRobinGamesAction;
 use App\Enums\AuditAction;
 use App\Models\Game;
-use RuntimeException;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 use Spatie\Activitylog\Models\Activity;
 use Tests\TestCase;
 
@@ -57,7 +57,7 @@ class RoundRobinAuditTest extends TestCase
         $this->assertSame(0, Activity::query()->where('description', AuditAction::GAME_CREATED->value)->count());
     }
 
-    public function test_second_round_robin_execution_returns_422_without_extra_activity(): void
+    public function test_second_round_robin_execution_is_noop_without_extra_activity(): void
     {
         $context = $this->tournamentContext();
         $competition = $context->createCompetition();
@@ -69,9 +69,12 @@ class RoundRobinAuditTest extends TestCase
 
         $countAfterFirst = Activity::query()->count();
 
-        $context->generateRoundRobin($group)->assertUnprocessable();
+        $context->generateRoundRobin($group)
+            ->assertCreated()
+            ->assertJsonCount(0, 'data');
 
         $this->assertSame($countAfterFirst, Activity::query()->count());
+        $this->assertSame(3, Game::query()->where('group_id', $group->id)->count());
     }
 
     public function test_round_robin_transaction_rollback_reverts_games_and_activity(): void

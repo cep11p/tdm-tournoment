@@ -7,6 +7,7 @@ use App\Models\Game;
 use App\Models\Group;
 use App\Support\Competition\TeamCompetitionSchedulingGuard;
 use App\Support\Game\GameFormatResolver;
+use App\Support\Group\GroupRoundRobinSlotAllocator;
 use App\Support\Group\GroupSheetNumbering;
 use App\Support\Group\GroupSheetPlayingOrder;
 use App\Support\Group\RoundRobinScheduleBuilder;
@@ -38,27 +39,43 @@ final class BuildGroupRoundRobinGamesAction
         $round = sprintf('Round Robin - %s', $group->name);
         $competitionId = (int) $group->competition_id;
         $matchFormat = GameFormatResolver::resolveForGroup($group->competition);
+        $scheduleSlots = $this->scheduleSlots($entryIds);
+        $existingGames = $group->games()->get();
+        $existingPairs = GroupRoundRobinSlotAllocator::pairKeysFromGames($existingGames);
+        $occupiedSlots = GroupRoundRobinSlotAllocator::occupiedFromGames($existingGames);
+        $officialMaxRound = GroupRoundRobinSlotAllocator::officialMaxRound($scheduleSlots);
         $created = collect();
 
-        foreach ($this->scheduleSlots($entryIds) as $slot) {
+        foreach ($scheduleSlots as $slot) {
             $entry1Id = $slot['entry1_id'];
             $entry2Id = $slot['entry2_id'];
+            $pairKey = GroupRoundRobinSlotAllocator::pairKey($entry1Id, $entry2Id);
 
-            if ($this->gameExistsBetweenEntries($competitionId, $entry1Id, $entry2Id)) {
+            if (isset($existingPairs[$pairKey])) {
                 continue;
             }
 
-            $created->push(($this->createGame)([
+            $allocated = GroupRoundRobinSlotAllocator::allocate(
+                $slot['group_round'],
+                $slot['group_match'],
+                $occupiedSlots,
+                $officialMaxRound,
+            );
+
+            $game = ($this->createGame)([
                 'competition_id' => $competitionId,
                 'group_id' => $group->id,
                 'entry1_id' => $entry1Id,
                 'entry2_id' => $entry2Id,
                 'round' => $round,
-                'group_round' => $slot['group_round'],
-                'group_match' => $slot['group_match'],
+                'group_round' => $allocated['group_round'],
+                'group_match' => $allocated['group_match'],
                 'best_of' => $matchFormat['best_of'],
                 'sets_to_win' => $matchFormat['sets_to_win'],
-            ]));
+            ]);
+
+            $existingPairs[$pairKey] = true;
+            $created->push($game);
         }
 
         return $created;
@@ -122,21 +139,5 @@ final class BuildGroupRoundRobinGamesAction
         }
 
         return $slots;
-    }
-
-    private function gameExistsBetweenEntries(int $competitionId, int $entry1Id, int $entry2Id): bool
-    {
-        return Game::query()
-            ->where('competition_id', $competitionId)
-            ->where(function ($query) use ($entry1Id, $entry2Id): void {
-                $query->where(function ($query) use ($entry1Id, $entry2Id): void {
-                    $query->where('entry1_id', $entry1Id)
-                        ->where('entry2_id', $entry2Id);
-                })->orWhere(function ($query) use ($entry1Id, $entry2Id): void {
-                    $query->where('entry1_id', $entry2Id)
-                        ->where('entry2_id', $entry1Id);
-                });
-            })
-            ->exists();
     }
 }
