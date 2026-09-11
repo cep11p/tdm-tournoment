@@ -4,10 +4,19 @@ import { computed, ref, watch } from 'vue'
 import PlayerFilters from '../../players/components/PlayerFilters.vue'
 import PlayerService from '../../players/services/PlayerService'
 import {
-  isPlayerRegistrationRowSelectable,
+  PLAYER_REGISTRATION_ROW_STATUS,
   resolvePlayerRegistrationRowStatus,
 } from '../../players/utils/playerRegistrationRowStatus'
 import RegistrationService from '../services/RegistrationService'
+import {
+  canSelectPlayer,
+  emptyPairSlots,
+  firstFreeSlot,
+  isPairComplete,
+  isPlayerAlreadySelected,
+  removePlayerFromSlot,
+  selectPlayer,
+} from '../utils/pairSelection'
 
 const props = defineProps({
   show: {
@@ -34,25 +43,24 @@ const searchQuery = ref('')
 const categoryId = ref('')
 const clubId = ref('')
 const players = ref([])
-const player1Id = ref('')
-const player2Id = ref('')
+const selectedPlayers = ref(emptyPairSlots())
+const hasSearched = ref(false)
 const isLoadingPlayers = ref(false)
 const isSubmitting = ref(false)
 const loadError = ref('')
 const submitError = ref('')
+
+const bothSlotsOccupied = computed(() => firstFreeSlot(selectedPlayers.value) === -1)
+
+const isConfirmDisabled = computed(
+  () => !isPairComplete(selectedPlayers.value) || isSubmitting.value,
+)
 
 const playerRowStatus = (player) =>
   resolvePlayerRegistrationRowStatus(player, {
     registeredPlayerIds: props.registeredMemberIds,
     competitionCategorySlug: props.competitionCategorySlug,
   })
-
-const selectablePlayers = computed(() =>
-  players.value.filter((player) => isPlayerRegistrationRowSelectable(playerRowStatus(player))),
-)
-
-const playerOptions = (excludePlayerId = null) =>
-  selectablePlayers.value.filter((player) => player.id !== excludePlayerId)
 
 const playerDisplayName = (player) => {
   const fullName = `${player.first_name ?? ''} ${player.last_name ?? ''}`.trim()
@@ -64,21 +72,57 @@ const playerDisplayName = (player) => {
   return fullName || `Jugador #${player.id}`
 }
 
-const isConfirmDisabled = computed(
-  () =>
-    !player1Id.value ||
-    !player2Id.value ||
-    player1Id.value === player2Id.value ||
-    isSubmitting.value,
-)
+const displayCategory = (player) => player.category?.name || 'Sin categoría'
+const displayClub = (player) => player.club?.name || 'Sin club'
+
+const rowStatusLabel = (player) => {
+  if (isPlayerAlreadySelected(player, selectedPlayers.value)) {
+    return 'Ya elegido'
+  }
+
+  if (props.registeredMemberIds?.has?.(player.id)) {
+    return 'Ya inscripto'
+  }
+
+  switch (playerRowStatus(player)) {
+    case PLAYER_REGISTRATION_ROW_STATUS.UNAVAILABLE:
+      return 'No disponible'
+    case PLAYER_REGISTRATION_ROW_STATUS.CATEGORY_MISMATCH:
+      return 'Categoría distinta'
+    case PLAYER_REGISTRATION_ROW_STATUS.CATEGORY_UNINFORMED:
+      return 'Sin categoría'
+    default:
+      return 'Disponible'
+  }
+}
+
+const rowStatusClass = (player) => {
+  if (isPlayerAlreadySelected(player, selectedPlayers.value)) {
+    return 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100'
+  }
+
+  switch (playerRowStatus(player)) {
+    case PLAYER_REGISTRATION_ROW_STATUS.CATEGORY_MISMATCH:
+      return 'bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100'
+    case PLAYER_REGISTRATION_ROW_STATUS.CATEGORY_UNINFORMED:
+      return 'bg-sky-100 text-sky-900 dark:bg-sky-950/40 dark:text-sky-100'
+    case PLAYER_REGISTRATION_ROW_STATUS.UNAVAILABLE:
+      return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+    default:
+      return 'text-slate-500 dark:text-slate-400'
+  }
+}
+
+const canSelectRow = (player) =>
+  canSelectPlayer(player, selectedPlayers.value, playerRowStatus(player))
 
 const resetState = () => {
   searchQuery.value = ''
   categoryId.value = ''
   clubId.value = ''
   players.value = []
-  player1Id.value = ''
-  player2Id.value = ''
+  selectedPlayers.value = emptyPairSlots()
+  hasSearched.value = false
   loadError.value = ''
   submitError.value = ''
 }
@@ -111,7 +155,26 @@ const handleClose = () => {
 
 const handleSearch = async () => {
   submitError.value = ''
+  hasSearched.value = true
   await loadPlayers()
+}
+
+const handleSelectPlayer = (player) => {
+  if (isSubmitting.value) {
+    return
+  }
+
+  submitError.value = ''
+  selectedPlayers.value = selectPlayer(player, selectedPlayers.value, playerRowStatus(player))
+}
+
+const handleRemovePlayer = (index) => {
+  if (isSubmitting.value) {
+    return
+  }
+
+  submitError.value = ''
+  selectedPlayers.value = removePlayerFromSlot(selectedPlayers.value, index)
 }
 
 const handleConfirm = async () => {
@@ -124,8 +187,8 @@ const handleConfirm = async () => {
 
   try {
     const registration = await RegistrationService.registerPair(props.competitionId, [
-      Number(player1Id.value),
-      Number(player2Id.value),
+      selectedPlayers.value[0].id,
+      selectedPlayers.value[1].id,
     ])
 
     emit('saved', registration)
@@ -148,15 +211,8 @@ watch(
     }
 
     resetState()
-    loadPlayers()
   },
 )
-
-watch(player1Id, (value) => {
-  if (value && value === player2Id.value) {
-    player2Id.value = ''
-  }
-})
 </script>
 
 <template>
@@ -167,7 +223,7 @@ watch(player1Id, (value) => {
       @click.self="handleClose"
     >
       <div
-        class="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-md border border-slate-200 bg-white text-sm shadow-xl dark:border-slate-700 dark:bg-slate-900"
+        class="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-md border border-slate-200 bg-white text-sm shadow-xl dark:border-slate-700 dark:bg-slate-900"
         role="dialog"
         aria-modal="true"
         aria-labelledby="register-pair-modal-title"
@@ -185,6 +241,46 @@ watch(player1Id, (value) => {
             </p>
           </div>
 
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <article
+              v-for="(player, slotIndex) in selectedPlayers"
+              :key="`pair-slot-${slotIndex}`"
+              class="rounded-md border border-slate-200 p-3 dark:border-slate-700"
+            >
+              <div class="mb-2 flex items-center justify-between gap-2">
+                <h3 class="font-medium text-slate-800 dark:text-slate-100">
+                  Jugador {{ slotIndex + 1 }}
+                </h3>
+                <button
+                  v-if="player"
+                  type="button"
+                  class="text-xs font-medium text-slate-600 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-70 dark:text-slate-300 dark:hover:text-slate-100"
+                  :disabled="isSubmitting"
+                  @click="handleRemovePlayer(slotIndex)"
+                >
+                  Quitar
+                </button>
+              </div>
+
+              <template v-if="player">
+                <p class="font-medium text-slate-900 dark:text-slate-100">
+                  {{ playerDisplayName(player) }}
+                </p>
+                <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                  {{ displayCategory(player) }} · {{ displayClub(player) }}
+                </p>
+              </template>
+              <p v-else class="text-slate-500 dark:text-slate-400">Sin seleccionar</p>
+            </article>
+          </div>
+
+          <p
+            v-if="bothSlotsOccupied"
+            class="text-sm text-slate-600 dark:text-slate-300"
+          >
+            Quitá un jugador para reemplazarlo.
+          </p>
+
           <PlayerFilters
             v-model:search-query="searchQuery"
             v-model:category-id="categoryId"
@@ -198,70 +294,57 @@ watch(player1Id, (value) => {
           <p v-else-if="isLoadingPlayers" class="text-slate-600 dark:text-slate-300">
             Cargando jugadores...
           </p>
-
-          <template v-else>
-            <div class="space-y-1">
-              <label
-                class="block text-sm font-medium text-slate-700 dark:text-slate-200"
-                for="register-pair-player-1"
-              >
-                Jugador 1
-              </label>
-              <select
-                id="register-pair-player-1"
-                v-model="player1Id"
-                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500 dark:border-slate-600 dark:bg-slate-950"
-                :disabled="isSubmitting"
-              >
-                <option value="" disabled>Seleccionar jugador</option>
-                <option
-                  v-for="player in playerOptions(player2Id ? Number(player2Id) : null)"
-                  :key="`p1-${player.id}`"
-                  :value="player.id"
-                >
-                  {{ playerDisplayName(player) }}
-                </option>
-              </select>
-            </div>
-
-            <div class="space-y-1">
-              <label
-                class="block text-sm font-medium text-slate-700 dark:text-slate-200"
-                for="register-pair-player-2"
-              >
-                Jugador 2
-              </label>
-              <select
-                id="register-pair-player-2"
-                v-model="player2Id"
-                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500 dark:border-slate-600 dark:bg-slate-950"
-                :disabled="isSubmitting"
-              >
-                <option value="" disabled>Seleccionar jugador</option>
-                <option
-                  v-for="player in playerOptions(player1Id ? Number(player1Id) : null)"
-                  :key="`p2-${player.id}`"
-                  :value="player.id"
-                >
-                  {{ playerDisplayName(player) }}
-                </option>
-              </select>
-            </div>
-
-            <p
-              v-if="player1Id && player2Id && player1Id === player2Id"
-              class="text-sm text-red-600 dark:text-red-400"
+          <p
+            v-else-if="!hasSearched"
+            class="rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
+          >
+            Usá los filtros para buscar jugadores.
+          </p>
+          <p
+            v-else-if="players.length === 0"
+            class="rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
+          >
+            No hay jugadores disponibles con esa búsqueda.
+          </p>
+          <ul
+            v-else
+            class="divide-y divide-slate-200 overflow-hidden rounded-md border border-slate-200 dark:divide-slate-700 dark:border-slate-700"
+          >
+            <li
+              v-for="player in players"
+              :key="player.id"
+              class="flex items-center gap-3 px-3 py-2"
+              :class="
+                playerRowStatus(player) === PLAYER_REGISTRATION_ROW_STATUS.UNAVAILABLE
+                  ? 'bg-slate-50 dark:bg-slate-800/40'
+                  : ''
+              "
             >
-              Los dos jugadores deben ser distintos.
-            </p>
-
-            <p
-              v-else-if="selectablePlayers.length === 0"
-              class="rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
-            >
-              No hay jugadores disponibles con esa búsqueda.
-            </p>
-          </template>
+              <div class="min-w-0 flex-1">
+                <p class="font-medium text-slate-900 dark:text-slate-100">
+                  {{ playerDisplayName(player) }}
+                </p>
+                <p class="text-xs text-slate-600 dark:text-slate-400">
+                  {{ displayCategory(player) }} · {{ displayClub(player) }}
+                </p>
+              </div>
+              <span
+                class="inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
+                :class="rowStatusClass(player)"
+              >
+                {{ rowStatusLabel(player) }}
+              </span>
+              <button
+                v-if="canSelectRow(player)"
+                type="button"
+                class="shrink-0 rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                :disabled="isSubmitting"
+                @click="handleSelectPlayer(player)"
+              >
+                Seleccionar
+              </button>
+            </li>
+          </ul>
 
           <p v-if="submitError" class="text-red-600 dark:text-red-400">{{ submitError }}</p>
         </div>
