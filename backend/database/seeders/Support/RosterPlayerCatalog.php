@@ -6,9 +6,9 @@ final class RosterPlayerCatalog
 {
     /**
      * Unique club roster recovered from FriendlyTournamentRoster.
-     * Category is the highest one the player appeared in.
+     * Category is the highest one the player appeared in, or null when unknown.
      *
-     * @var list<array{first_name: string, last_name: string, category: string}>
+     * @var list<array{first_name: string, last_name: string, category: string|null}>
      */
     public const PLAYERS = [
         ['first_name' => 'Santino', 'last_name' => 'Schepisi', 'category' => 'primera'],
@@ -47,10 +47,18 @@ final class RosterPlayerCatalog
         ['first_name' => 'Emilce', 'last_name' => 'Soberon', 'category' => 'cuarta'],
         ['first_name' => 'Naila', 'last_name' => 'Torres', 'category' => 'cuarta'],
         ['first_name' => 'Clovis', 'last_name' => 'Contreras', 'category' => 'cuarta'],
+        ['first_name' => 'Esteban', 'last_name' => 'Sacco', 'category' => null],
+        ['first_name' => 'Sofia', 'last_name' => 'Contreras', 'category' => null],
+        ['first_name' => 'Eduardo', 'last_name' => 'Sacco', 'category' => null],
+        ['first_name' => 'Guillermo', 'last_name' => 'Fabian', 'category' => null],
+        ['first_name' => 'Sergio', 'last_name' => 'Lopez', 'category' => null],
+        ['first_name' => 'Jonathan', 'last_name' => '', 'category' => null],
+        ['first_name' => 'Gianlevis', 'last_name' => 'Schierisi', 'category' => null],
+        ['first_name' => 'Santiago', 'last_name' => 'Contreras', 'category' => null],
     ];
 
     /**
-     * @return list<array{first_name: string, last_name: string, category: string}>
+     * @return list<array{first_name: string, last_name: string, category: string|null}>
      */
     public static function definitions(): array
     {

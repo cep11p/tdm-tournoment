@@ -39,11 +39,15 @@ class RosterPlayersSeeder extends Seeder
                 continue;
             }
 
+            $categorySlug = $definition['category'] ?? null;
+
             ($createPlayer)([
                 'first_name' => $definition['first_name'],
                 'last_name' => $definition['last_name'],
                 'nickname' => null,
-                'category_id' => $categoryIds[$definition['category']] ?? null,
+                'category_id' => is_string($categorySlug) && $categorySlug !== ''
+                    ? ($categoryIds[$categorySlug] ?? null)
+                    : null,
             ]);
             $created++;
         }

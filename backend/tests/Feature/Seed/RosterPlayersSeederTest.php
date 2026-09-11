@@ -18,21 +18,35 @@ class RosterPlayersSeederTest extends TestCase
         $definitions = RosterPlayerCatalog::definitions();
         $categoryIds = Category::query()->pluck('id', 'slug');
 
-        $this->assertCount(36, $definitions);
-        $this->assertSame(36, Player::query()->count());
+        $this->assertCount(44, $definitions);
+        $this->assertSame(44, Player::query()->count());
         $this->assertDatabaseHas('players', [
             'first_name' => 'Emiliano',
             'last_name' => 'Morón',
             'category_id' => $categoryIds['primera'],
         ]);
 
+        $identityKeys = collect($definitions)
+            ->map(fn (array $definition): string => $definition['first_name'].'|'.$definition['last_name']);
+        $this->assertSame($identityKeys->count(), $identityKeys->unique()->count());
+
         foreach ($definitions as $definition) {
             $this->assertDatabaseHas('players', [
                 'first_name' => $definition['first_name'],
                 'last_name' => $definition['last_name'],
-                'category_id' => $categoryIds[$definition['category']],
+                'category_id' => $definition['category'] === null
+                    ? null
+                    : $categoryIds[$definition['category']],
             ]);
         }
+
+        $this->assertSame(1, Player::query()->where('first_name', 'Jonathan')->count());
+        $this->assertDatabaseHas('players', [
+            'first_name' => 'Jonathan',
+            'last_name' => '',
+            'nickname' => null,
+            'category_id' => null,
+        ]);
     }
 
     public function test_is_idempotent(): void
@@ -40,7 +54,7 @@ class RosterPlayersSeederTest extends TestCase
         $this->seed(RosterPlayersSeeder::class);
         $this->seed(RosterPlayersSeeder::class);
 
-        $this->assertSame(36, Player::query()->count());
+        $this->assertSame(44, Player::query()->count());
     }
 
     public function test_does_not_reuse_demo_players(): void
@@ -48,7 +62,7 @@ class RosterPlayersSeederTest extends TestCase
         $this->seed(DemoPlayersSeeder::class);
         $this->seed(RosterPlayersSeeder::class);
 
-        $this->assertSame(16 + 36, Player::query()->count());
+        $this->assertSame(16 + 44, Player::query()->count());
         $this->assertDatabaseHas('players', [
             'first_name' => 'Carlos',
             'last_name' => 'Perez',
