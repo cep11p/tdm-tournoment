@@ -11,7 +11,7 @@ use App\Models\GroupEntry;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
-use App\Support\Competition\CompetitionStructureGuard;
+use App\Support\Competition\LateGroupMutationGuard;
 use App\Support\Competition\ResolveCompetitionEntryForGroup;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
@@ -33,7 +33,7 @@ final class AssignPlayerToGroupAction
         $group->loadMissing('competition.tournament');
         TournamentLifecycleGuard::ensureMutableForGroup($group);
         CompetitionFormatGuard::ensureGroupStage($group->competition);
-        CompetitionStructureGuard::ensureEditable($group->competition);
+        LateGroupMutationGuard::ensureAllowed($group->competition);
 
         $entry = ($this->resolveCompetitionEntryForGroup)($group->competition, $payload);
 

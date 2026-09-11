@@ -4,12 +4,12 @@ namespace App\Actions\Group;
 
 use App\Data\Audit\AuditEntry;
 use App\Enums\AuditAction;
-use App\Models\Group;
 use App\Models\Competition;
+use App\Models\Group;
 use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
-use App\Support\Competition\CompetitionStructureGuard;
+use App\Support\Competition\LateGroupMutationGuard;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +26,7 @@ final class CreateGroupAction
         $competition = Competition::query()->findOrFail($payload['competition_id']);
         TournamentLifecycleGuard::ensureMutableForCompetition($competition);
         CompetitionFormatGuard::ensureGroupStage($competition);
-        CompetitionStructureGuard::ensureEditable($competition);
+        LateGroupMutationGuard::ensureAllowed($competition);
 
         return DB::transaction(function () use ($payload): Group {
             try {

@@ -2,9 +2,8 @@
 
 namespace Tests\Feature\Registration;
 
-use App\Support\Competition\CompetitionStructureGuard;
-use App\Support\Competition\CompetitionEntryGuard;
 use App\Models\Game;
+use App\Support\Competition\CompetitionEntryGuard;
 use Tests\TestCase;
 
 class RegistrationConstraintsTest extends TestCase
@@ -120,7 +119,7 @@ class RegistrationConstraintsTest extends TestCase
             ->assertJsonPath('errors.competition.0', CompetitionEntryGuard::LOCK_MESSAGE);
     }
 
-    public function test_rejects_registration_when_games_are_in_progress(): void
+    public function test_allows_registration_when_games_are_in_progress_and_bracket_was_not_generated(): void
     {
         $context = $this->tournamentContext();
         $setup = $context->createPendingSinglesGame();
@@ -133,9 +132,7 @@ class RegistrationConstraintsTest extends TestCase
             $context->createPlayers(1)[0],
         );
 
-        $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['competition'])
-            ->assertJsonPath('errors.competition.0', CompetitionStructureGuard::LOCK_MESSAGE);
+        $response->assertCreated();
+        $this->assertDatabaseCount('competition_entries', 3);
     }
 }

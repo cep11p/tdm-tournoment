@@ -5,8 +5,8 @@ namespace Tests\Feature\Competition;
 use App\Enums\CompetitionFormat;
 use App\Enums\GameStatus;
 use App\Models\Game;
-use App\Support\Competition\CompetitionStructureGuard;
 use App\Support\Competition\CompetitionEntryGuard;
+use App\Support\Competition\CompetitionStructureGuard;
 use Tests\TestCase;
 
 class CompetitionStructureEditableTest extends TestCase
@@ -140,17 +140,16 @@ class CompetitionStructureEditableTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath('data.is_structure_editable', false)
-            ->assertJsonPath('data.structure_lock_reason', CompetitionStructureGuard::LOCK_MESSAGE);
+            ->assertJsonPath('data.structure_lock_reason', CompetitionStructureGuard::LOCK_MESSAGE)
+            ->assertJsonPath('data.is_registrations_editable', true)
+            ->assertJsonPath('data.registrations_lock_reason', null);
 
         $registerResponse = $context->registerPlayerViaApi(
             $setup['competition'],
             $context->createPlayers(1)[0],
         );
 
-        $registerResponse
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['competition'])
-            ->assertJsonPath('errors.competition.0', CompetitionStructureGuard::LOCK_MESSAGE);
+        $registerResponse->assertCreated();
     }
 
     public function test_competition_with_finished_non_bye_game_is_locked(): void
