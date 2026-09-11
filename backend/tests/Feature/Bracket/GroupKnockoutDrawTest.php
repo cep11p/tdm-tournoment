@@ -395,10 +395,12 @@ class GroupKnockoutDrawTest extends TestCase
             $this->assertNull($semifinal->singlesWinnerId());
         }
 
+        // Fallback Q3 usa seeding estándar: A1 y B1 quedan en mitades opuestas
+        // (A1 vs B2, B1 vs A2), no A1 vs B1 en semifinal.
         $this->assertSame($groupAFirst->id, $semifinals[0]->singlesPlayer1Id());
-        $this->assertSame($groupBFirst->id, $semifinals[0]->singlesPlayer2Id());
-        $this->assertSame($groupASecond->id, $semifinals[1]->singlesPlayer1Id());
-        $this->assertSame($groupBSecond->id, $semifinals[1]->singlesPlayer2Id());
+        $this->assertSame($groupBSecond->id, $semifinals[0]->singlesPlayer2Id());
+        $this->assertSame($groupBFirst->id, $semifinals[1]->singlesPlayer1Id());
+        $this->assertSame($groupASecond->id, $semifinals[1]->singlesPlayer2Id());
     }
 
     /**

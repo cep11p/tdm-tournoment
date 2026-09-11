@@ -105,6 +105,7 @@ final class CreateBracketKnockoutAction
         return $this->buildBracketFromEntryIds(
             competition: $competition,
             entryIds: $entryIds,
+            firstRoundSlots: BracketSupport::firstRoundSlots($entryIds),
             qualifiersPerGroup: 0,
             payload: $payload,
         );
@@ -167,15 +168,35 @@ final class CreateBracketKnockoutAction
             return $this->buildBracketFromEntryIds(
                 competition: $competition,
                 entryIds: $entryIds,
+                firstRoundSlots: BracketSupport::firstRoundSlots($entryIds),
                 qualifiersPerGroup: $qualifiersPerGroup,
                 payload: $payload,
                 groupQualifiers: $groupQualifiers,
             );
         }
 
-        $entryIds = $qualifiersPerGroup === 2
-            ? $this->groupKnockoutDrawBuilder->build($groupQualifiers, $qualifiersPerGroup)
-            : $this->legacyGlobalSeededEntryIds($groupQualifiers);
+        if ($qualifiersPerGroup === 2) {
+            $entryIds = $this->groupKnockoutDrawBuilder->build($groupQualifiers, $qualifiersPerGroup);
+
+            if (count($entryIds) < 2) {
+                throw ValidationException::withMessages([
+                    'qualified_per_group' => [
+                        'Se requieren al menos 2 clasificados para generar el cuadro eliminatorio.',
+                    ],
+                ]);
+            }
+
+            return $this->buildBracketFromEntryIds(
+                competition: $competition,
+                entryIds: $entryIds,
+                firstRoundSlots: $this->adjacentFoldFirstRoundSlots($entryIds),
+                qualifiersPerGroup: $qualifiersPerGroup,
+                payload: $payload,
+                groupQualifiers: $groupQualifiers,
+            );
+        }
+
+        $entryIds = $this->legacyGlobalSeededEntryIds($groupQualifiers);
 
         if (count($entryIds) < 2) {
             throw ValidationException::withMessages([
@@ -188,6 +209,7 @@ final class CreateBracketKnockoutAction
         return $this->buildBracketFromEntryIds(
             competition: $competition,
             entryIds: $entryIds,
+            firstRoundSlots: BracketSupport::firstRoundSlots($entryIds),
             qualifiersPerGroup: $qualifiersPerGroup,
             payload: $payload,
             groupQualifiers: $groupQualifiers,
@@ -213,12 +235,45 @@ final class CreateBracketKnockoutAction
     }
 
     /**
+     * Pairing Q2: seed k vs seed (size - k + 1), pensado para el draw grupal.
+     *
      * @param  array<int, int>  $entryIds
+     * @return list<array{bracketMatch: int, entry1Id: int, entry2Id: int|null, isBye: bool}>
+     */
+    private function adjacentFoldFirstRoundSlots(array $entryIds): array
+    {
+        $qualifierCount = count($entryIds);
+        $bracketSize = BracketSupport::nextPowerOfTwo($qualifierCount);
+        $matchCount = (int) ($bracketSize / 2);
+        $slots = [];
+
+        for ($matchIndex = 0; $matchIndex < $matchCount; $matchIndex++) {
+            $topSeed = $matchIndex + 1;
+            $bottomSeed = $bracketSize - $matchIndex;
+            $bottomEntryId = $bottomSeed <= $qualifierCount
+                ? $entryIds[$bottomSeed - 1]
+                : null;
+
+            $slots[] = [
+                'bracketMatch' => $matchIndex + 1,
+                'entry1Id' => $entryIds[$topSeed - 1],
+                'entry2Id' => $bottomEntryId,
+                'isBye' => $bottomEntryId === null,
+            ];
+        }
+
+        return $slots;
+    }
+
+    /**
+     * @param  array<int, int>  $entryIds
+     * @param  list<array{bracketMatch: int, entry1Id: int, entry2Id: int|null, isBye: bool}>  $firstRoundSlots
      * @param  Collection<int, GroupQualifierData>|null  $groupQualifiers
      */
     private function buildBracketFromEntryIds(
         Competition $competition,
         array $entryIds,
+        array $firstRoundSlots,
         int $qualifiersPerGroup,
         array $payload,
         ?Collection $groupQualifiers = null,
@@ -255,6 +310,7 @@ final class CreateBracketKnockoutAction
         return DB::transaction(function () use (
             $competition,
             $entryIds,
+            $firstRoundSlots,
             $qualifierCount,
             $bracketSize,
             $byesCount,
@@ -274,15 +330,10 @@ final class CreateBracketKnockoutAction
 
             $this->persistGroupEntryOrigins($bracket, $groupQualifiers, $entryIds);
 
-            $matchCount = (int) ($bracketSize / 2);
-
-            for ($matchIndex = 0; $matchIndex < $matchCount; $matchIndex++) {
-                $topSeed = $matchIndex + 1;
-                $bottomSeed = $bracketSize - $matchIndex;
-                $topEntryId = $entryIds[$topSeed - 1];
-                $bottomEntryId = $bottomSeed <= $qualifierCount
-                    ? $entryIds[$bottomSeed - 1]
-                    : null;
+            foreach ($firstRoundSlots as $slot) {
+                $topEntryId = $slot['entry1Id'];
+                $bottomEntryId = $slot['entry2Id'];
+                $bracketMatch = $slot['bracketMatch'];
 
                 if ($competition->isTeam()) {
                     ($this->createBracketTeamTie)(
@@ -291,7 +342,7 @@ final class CreateBracketKnockoutAction
                         entry1Id: $topEntryId,
                         entry2Id: $bottomEntryId,
                         bracketRound: 1,
-                        bracketMatch: $matchIndex + 1,
+                        bracketMatch: $bracketMatch,
                         bracketPurpose: BracketGamePurpose::Main,
                         roundLabel: $roundLabel,
                     );
@@ -299,7 +350,7 @@ final class CreateBracketKnockoutAction
                     continue;
                 }
 
-                if ($bottomEntryId === null) {
+                if ($slot['isBye']) {
                     ($this->createGame)([
                         'competition_id' => $competition->id,
                         'bracket_id' => $bracket->id,
@@ -311,7 +362,7 @@ final class CreateBracketKnockoutAction
                         'is_bye' => true,
                         'round' => $roundLabel,
                         'bracket_round' => 1,
-                        'bracket_match' => $matchIndex + 1,
+                        'bracket_match' => $bracketMatch,
                     ]);
 
                     continue;
@@ -324,7 +375,7 @@ final class CreateBracketKnockoutAction
                     'entry2_id' => $bottomEntryId,
                     'round' => $roundLabel,
                     'bracket_round' => 1,
-                    'bracket_match' => $matchIndex + 1,
+                    'bracket_match' => $bracketMatch,
                     'is_bye' => false,
                     'best_of' => $matchFormat['best_of'],
                     'sets_to_win' => $matchFormat['sets_to_win'],
@@ -337,7 +388,7 @@ final class CreateBracketKnockoutAction
                 qualifiedPlayers: $qualifierCount,
                 bracketSize: $bracketSize,
                 byesCount: $byesCount,
-                matchesCreated: $matchCount,
+                matchesCreated: count($firstRoundSlots),
             );
 
             return $this->loadBracket($bracket);

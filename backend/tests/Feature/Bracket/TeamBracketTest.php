@@ -84,6 +84,49 @@ class TeamBracketTest extends TestCase
         $this->assertNotNull($byeTie->winner_entry_id);
     }
 
+    public function test_five_teams_use_standard_seed_geometry_and_bye_has_no_rubbers(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createTeamCompetition(4, format: CompetitionFormat::KnockoutDirect);
+        $entries = $context->registerTeams($competition, 5, 4);
+        $context->createBracket($competition)->assertCreated();
+
+        $bracket = Bracket::query()->where('competition_id', $competition->id)->sole();
+        $roundOne = TeamTie::query()
+            ->where('bracket_id', $bracket->id)
+            ->mainBracket()
+            ->where('bracket_round', 1)
+            ->orderBy('bracket_match')
+            ->get();
+
+        $this->assertSame(8, $bracket->bracket_size);
+        $this->assertSame(3, $bracket->byes_count);
+        $this->assertCount(4, $roundOne);
+        $this->assertSame(0, Game::query()->whereNotNull('bracket_id')->count());
+
+        $this->assertSame((int) $entries[0]->id, (int) $roundOne[0]->entry1_id);
+        $this->assertNull($roundOne[0]->entry2_id);
+        $this->assertTrue($roundOne[0]->is_bye);
+        $this->assertSame(TeamTieStatus::Finished, $roundOne[0]->status);
+        $this->assertSame((int) $entries[0]->id, (int) $roundOne[0]->winner_entry_id);
+        $this->assertSame(0, $roundOne[0]->teamTieGames()->count());
+
+        $this->assertSame((int) $entries[3]->id, (int) $roundOne[1]->entry1_id);
+        $this->assertSame((int) $entries[4]->id, (int) $roundOne[1]->entry2_id);
+        $this->assertFalse($roundOne[1]->is_bye);
+        $this->assertGreaterThan(0, $roundOne[1]->teamTieGames()->count());
+
+        $this->assertSame((int) $entries[1]->id, (int) $roundOne[2]->entry1_id);
+        $this->assertNull($roundOne[2]->entry2_id);
+        $this->assertTrue($roundOne[2]->is_bye);
+        $this->assertSame(0, $roundOne[2]->teamTieGames()->count());
+
+        $this->assertSame((int) $entries[2]->id, (int) $roundOne[3]->entry1_id);
+        $this->assertNull($roundOne[3]->entry2_id);
+        $this->assertTrue($roundOne[3]->is_bye);
+        $this->assertSame(0, $roundOne[3]->teamTieGames()->count());
+    }
+
     public function test_rubber_games_have_null_bracket_id(): void
     {
         $context = $this->tournamentContext();

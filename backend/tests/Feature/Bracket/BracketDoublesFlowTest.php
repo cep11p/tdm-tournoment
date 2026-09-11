@@ -259,4 +259,44 @@ class BracketDoublesFlowTest extends TestCase
             $this->assertNotEmpty($response->json('data.side1.display_name'));
         }
     }
+
+    public function test_five_pairs_use_standard_seed_geometry(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createDoublesKnockoutDirectCompetition();
+        $players = $context->createPlayers(10);
+        $entries = $context->registerPairs($competition, [
+            [$players[0], $players[1]],
+            [$players[2], $players[3]],
+            [$players[4], $players[5]],
+            [$players[6], $players[7]],
+            [$players[8], $players[9]],
+        ]);
+
+        $context->createBracket($competition)->assertCreated();
+
+        $bracket = Bracket::query()->where('competition_id', $competition->id)->sole();
+        $roundOne = $context->bracketGamesForRound($bracket, 1);
+
+        $this->assertSame(8, $bracket->bracket_size);
+        $this->assertSame(3, $bracket->byes_count);
+        $this->assertCount(4, $roundOne);
+
+        $this->assertSame($entries[0]->id, (int) $roundOne[0]->entry1_id);
+        $this->assertNull($roundOne[0]->entry2_id);
+        $this->assertTrue($roundOne[0]->is_bye);
+        $this->assertSame($entries[0]->id, (int) $roundOne[0]->winner_entry_id);
+
+        $this->assertSame($entries[3]->id, (int) $roundOne[1]->entry1_id);
+        $this->assertSame($entries[4]->id, (int) $roundOne[1]->entry2_id);
+        $this->assertFalse($roundOne[1]->is_bye);
+
+        $this->assertSame($entries[1]->id, (int) $roundOne[2]->entry1_id);
+        $this->assertNull($roundOne[2]->entry2_id);
+        $this->assertTrue($roundOne[2]->is_bye);
+
+        $this->assertSame($entries[2]->id, (int) $roundOne[3]->entry1_id);
+        $this->assertNull($roundOne[3]->entry2_id);
+        $this->assertTrue($roundOne[3]->is_bye);
+    }
 }
