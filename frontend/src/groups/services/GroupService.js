@@ -1,5 +1,9 @@
 import httpClient from '../../services/httpClient'
 import { buildApiUrl } from '../../shared/utils/downloadFileUrl'
+import {
+  buildMoveEntryRequest,
+  buildRemoveEntryRequest,
+} from '../utils/groupCompositionApi'
 
 const unwrap = (response) => response?.data?.data
 
@@ -27,6 +31,30 @@ const GroupService = {
     const response = await httpClient.post(`/groups/${groupId}/players`, {
       competition_entry_id,
     })
+
+    return unwrap(response) ?? null
+  },
+
+  /**
+   * Quita una participación del grupo. El backend reconcilia el fixture:
+   * no llamar después a generateRoundRobin.
+   */
+  async removeEntry(groupId, competitionEntryId) {
+    const { url } = buildRemoveEntryRequest(groupId, competitionEntryId)
+    await httpClient.delete(url)
+  },
+
+  /**
+   * Mueve una participación a otro grupo de la misma competencia.
+   * Una sola request: el backend actualiza origen y destino.
+   */
+  async moveEntry(sourceGroupId, competitionEntryId, targetGroupId) {
+    const { url, data } = buildMoveEntryRequest(
+      sourceGroupId,
+      competitionEntryId,
+      targetGroupId,
+    )
+    const response = await httpClient.post(url, data)
 
     return unwrap(response) ?? null
   },

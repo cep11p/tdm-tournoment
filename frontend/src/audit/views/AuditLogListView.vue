@@ -24,6 +24,8 @@ const AUDIT_ACTIONS = [
   { value: 'groups.generated', label: 'Generación de grupos' },
   { value: 'group.created', label: 'Creación de grupo' },
   { value: 'group.player_assigned', label: 'Asignación de jugador a grupo' },
+  { value: 'group.player_removed', label: 'Quitar jugador de grupo' },
+  { value: 'group.player_moved', label: 'Mover jugador de grupo' },
   { value: 'groups.round_robin_generated', label: 'Generación de todos contra todos' },
   { value: 'groups.regenerated', label: 'Regeneración de grupos' },
   { value: 'bracket.created', label: 'Generación de llave' },

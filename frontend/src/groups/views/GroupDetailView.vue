@@ -37,12 +37,20 @@ import {
 } from '../../standings/utils/resolveGroupQualification'
 import GroupPlayerStatusModal from '../components/GroupPlayerStatusModal.vue'
 import AssignGroupEntryModal from '../components/AssignGroupEntryModal.vue'
+import GroupEntryActionsMenu from '../components/GroupEntryActionsMenu.vue'
+import MoveGroupEntryModal from '../components/MoveGroupEntryModal.vue'
+import RemoveGroupEntryModal from '../components/RemoveGroupEntryModal.vue'
 import { getGroupPlayerStatusLabel } from '../constants/groupPlayerStatus'
 import GroupService from '../services/GroupService'
 import {
   canMutateGroupComposition,
   groupCompositionLockMessage,
 } from '../utils/canMutateGroupComposition'
+import {
+  canEditGroupEntry,
+  groupEntryLockMessage,
+} from '../utils/canEditGroupEntry'
+import { listMoveTargetGroups } from '../utils/listMoveTargetGroups'
 import {
   collectAssignedEntryIds,
   listUnassignedEntries,
@@ -85,11 +93,13 @@ const isTeam = computed(() => isTeamCompetition(competition.value))
 const hasTeamTieFormat = computed(() => Boolean(competition.value?.team_tie_format_id))
 const canGenerateRoundRobin = computed(() => !isTeam.value || hasTeamTieFormat.value)
 
-const canAddGroupEntry = computed(
+const canEditGroupComposition = computed(
   () =>
     canManageGroups.value &&
     canMutateGroupComposition(competition.value, { hasBracket: hasBracket.value }),
 )
+
+const canAddGroupEntry = canEditGroupComposition
 
 const compositionLockMessage = computed(() =>
   groupCompositionLockMessage({ hasBracket: hasBracket.value }),
@@ -103,12 +113,37 @@ const addGroupEntryLabel = computed(() => {
   return 'Agregar participante'
 })
 
+const moveGroupEntryLabel = computed(() => {
+  if (participantKind.value === 'pair') {
+    return 'Mover pareja'
+  }
+
+  return 'Mover a otro grupo'
+})
+
+const removeGroupEntryLabel = computed(() => {
+  if (participantKind.value === 'pair') {
+    return 'Quitar pareja'
+  }
+
+  return 'Quitar del grupo'
+})
+
+const entryActionsLockMessage = computed(() =>
+  groupEntryLockMessage({ participantKind: participantKind.value }),
+)
+
 const groupPlayers = ref([])
 const isLoadingGroupPlayers = ref(false)
 const groupPlayersError = ref('')
 const registrations = ref([])
 const showAssignEntryModal = ref(false)
 const assignEntrySuccessMessage = ref('')
+const openEntryActionsId = ref(null)
+const selectedEntryForRemove = ref(null)
+const selectedEntryForMove = ref(null)
+const showRemoveEntryModal = ref(false)
+const showMoveEntryModal = ref(false)
 
 const standings = ref([])
 const standingsMeta = ref({})
@@ -281,6 +316,54 @@ const availableEntries = computed(() =>
     collectAssignedEntryIds(competitionGroups.value, groupPlayers.value),
   ),
 )
+
+const moveTargetGroups = computed(() =>
+  listMoveTargetGroups(competitionGroups.value, {
+    currentGroupId: groupId.value,
+    competitionId: competitionId.value || competition.value?.id,
+  }),
+)
+
+const hasMoveTargets = computed(() => moveTargetGroups.value.length > 0)
+
+const isGroupEntryEditable = (groupPlayer) => {
+  if (isLoadingGames.value) {
+    return false
+  }
+
+  return canEditGroupEntry(groupPlayer?.competition_entry_id, games.value, {
+    groupId: groupId.value,
+  })
+}
+
+const entryActionsDisabledMessage = (groupPlayer) => {
+  if (isLoadingGames.value) {
+    return 'Cargando partidos del grupo...'
+  }
+
+  if (!isGroupEntryEditable(groupPlayer)) {
+    return entryActionsLockMessage.value
+  }
+
+  return ''
+}
+
+const closeEntryActionsMenu = () => {
+  openEntryActionsId.value = null
+}
+
+const toggleEntryActionsMenu = (groupPlayer) => {
+  const entryId = Number(groupPlayer?.competition_entry_id)
+
+  if (!entryId) {
+    return
+  }
+
+  openEntryActionsId.value = openEntryActionsId.value === entryId ? null : entryId
+}
+
+const entryActionsMenuLabel = (groupPlayer) =>
+  `Acciones de ${groupEntryDisplayName(groupPlayer)}`
 
 const groupPlayersCountLabel = computed(() => {
   const count = groupPlayersCount.value
@@ -987,9 +1070,7 @@ const openAssignEntryModal = async () => {
   showAssignEntryModal.value = true
 }
 
-const handleAssignEntrySaved = async (payload) => {
-  showAssignEntryModal.value = false
-  assignEntrySuccessMessage.value = payload?.message || 'Participante agregado.'
+const refreshGroupComposition = async () => {
   await Promise.all([
     loadGroupPlayers(),
     loadStandings(),
@@ -998,6 +1079,49 @@ const handleAssignEntrySaved = async (payload) => {
     loadRegistrations(),
     loadCompetition(),
   ])
+}
+
+const handleAssignEntrySaved = async (payload) => {
+  showAssignEntryModal.value = false
+  assignEntrySuccessMessage.value = payload?.message || 'Participante agregado.'
+  await refreshGroupComposition()
+}
+
+const openRemoveEntryModal = (groupPlayer) => {
+  closeEntryActionsMenu()
+  assignEntrySuccessMessage.value = ''
+  selectedEntryForRemove.value = groupPlayer
+  showRemoveEntryModal.value = true
+}
+
+const closeRemoveEntryModal = () => {
+  showRemoveEntryModal.value = false
+  selectedEntryForRemove.value = null
+}
+
+const handleRemoveEntrySaved = async (payload) => {
+  closeRemoveEntryModal()
+  assignEntrySuccessMessage.value = payload?.message || 'Participante quitado del grupo.'
+  await refreshGroupComposition()
+}
+
+const openMoveEntryModal = async (groupPlayer) => {
+  closeEntryActionsMenu()
+  assignEntrySuccessMessage.value = ''
+  selectedEntryForMove.value = groupPlayer
+  await loadCompetitionGroups()
+  showMoveEntryModal.value = true
+}
+
+const closeMoveEntryModal = () => {
+  showMoveEntryModal.value = false
+  selectedEntryForMove.value = null
+}
+
+const handleMoveEntrySaved = async (payload) => {
+  closeMoveEntryModal()
+  assignEntrySuccessMessage.value = payload?.message || 'Participante movido.'
+  await refreshGroupComposition()
 }
 
 const handleGenerateRoundRobin = async () => {
@@ -1204,7 +1328,8 @@ onMounted(async () => {
             class="rounded border px-3 py-2"
             :class="playerCardClasses(entry)"
           >
-            <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <div class="flex items-start gap-x-2 gap-y-1">
+            <div class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
               <span
                 v-if="entry.position"
                 class="inline-flex min-w-[2.5rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold"
@@ -1235,15 +1360,36 @@ onMounted(async () => {
                 </span>
                 {{ qualificationLabel(entry.qualification) }}
               </span>
+            </div>
 
+            <div
+              v-if="(canChangePlayerStatus(entry.groupPlayer) && canManageGroups) || canEditGroupComposition"
+              class="ml-auto flex shrink-0 items-center gap-1"
+            >
               <button
                 v-if="canChangePlayerStatus(entry.groupPlayer) && canManageGroups"
                 type="button"
-                class="ml-auto rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                class="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
                 @click="openPlayerStatusModal(entry.groupPlayer)"
               >
                 Retirar / descalificar
               </button>
+
+              <GroupEntryActionsMenu
+                v-if="canEditGroupComposition"
+                :open="Number(openEntryActionsId) === Number(entry.groupPlayer.competition_entry_id)"
+                :can-edit="isGroupEntryEditable(entry.groupPlayer)"
+                :has-move-targets="hasMoveTargets"
+                :lock-message="entryActionsDisabledMessage(entry.groupPlayer)"
+                :move-label="moveGroupEntryLabel"
+                :remove-label="removeGroupEntryLabel"
+                :menu-label="entryActionsMenuLabel(entry.groupPlayer)"
+                @toggle="toggleEntryActionsMenu(entry.groupPlayer)"
+                @close="closeEntryActionsMenu"
+                @move="openMoveEntryModal(entry.groupPlayer)"
+                @remove="openRemoveEntryModal(entry.groupPlayer)"
+              />
+            </div>
             </div>
 
             <p
@@ -1633,6 +1779,26 @@ onMounted(async () => {
       :current-member-count="groupPlayers.length"
       @close="showAssignEntryModal = false"
       @saved="handleAssignEntrySaved"
+    />
+
+    <RemoveGroupEntryModal
+      :show="showRemoveEntryModal"
+      :group-id="groupId"
+      :group-name="groupName"
+      :competition="competition"
+      :group-entry="selectedEntryForRemove"
+      @close="closeRemoveEntryModal"
+      @saved="handleRemoveEntrySaved"
+    />
+
+    <MoveGroupEntryModal
+      :show="showMoveEntryModal"
+      :source-group-id="groupId"
+      :competition="competition"
+      :group-entry="selectedEntryForMove"
+      :target-groups="moveTargetGroups"
+      @close="closeMoveEntryModal"
+      @saved="handleMoveEntrySaved"
     />
 
     <GroupPlayerStatusModal

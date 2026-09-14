@@ -230,6 +230,35 @@ export function buildAuditSummary(auditLog) {
       return `${participantName} asignado a ${groupName}`
     }
 
+    case 'group.player_removed': {
+      const participantName =
+        summary.display_name ??
+        auditLog?.context?.display_name ??
+        summary.player_name ??
+        auditLog?.context?.player_name ??
+        'Participante'
+      const groupName = summary.group_name ?? auditLog?.context?.group_name ?? 'grupo'
+      return `${participantName} quitado de ${groupName}`
+    }
+
+    case 'group.player_moved': {
+      const participantName =
+        summary.display_name ??
+        auditLog?.context?.display_name ??
+        summary.player_name ??
+        auditLog?.context?.player_name ??
+        'Participante'
+      const sourceName =
+        summary.source_group_name ??
+        auditLog?.context?.source_group_name ??
+        'grupo origen'
+      const targetName =
+        summary.target_group_name ??
+        auditLog?.context?.target_group_name ??
+        'grupo destino'
+      return `${participantName} movido de ${sourceName} a ${targetName}`
+    }
+
     case 'groups.round_robin_generated': {
       const count = summary.games_created ?? summary.games_count
       const formatted = formatCount(count, 'partido de todos contra todos creado', 'partidos de todos contra todos creados')

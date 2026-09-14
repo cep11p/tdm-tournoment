@@ -12,6 +12,16 @@ import {
   canMutateGroupComposition,
   groupCompositionLockMessage,
 } from './canMutateGroupComposition.js'
+import {
+  canEditGroupEntry,
+  entryHasStartedOrFinishedGames,
+  groupEntryLockMessage,
+} from './canEditGroupEntry.js'
+import { listMoveTargetGroups } from './listMoveTargetGroups.js'
+import {
+  buildMoveEntryRequest,
+  buildRemoveEntryRequest,
+} from './groupCompositionApi.js'
 
 describe('suggestNextGroupName', () => {
   it('sugiere Grupo A si no hay grupos', () => {
@@ -184,5 +194,168 @@ describe('canMutateGroupComposition', () => {
       ),
       true,
     )
+  })
+
+  it('no muestra controles cuando la competencia está completed', () => {
+    assert.equal(
+      canMutateGroupComposition(
+        { type: 'singles', has_group_stage: true, status_summary: { code: 'completed' } },
+        { hasBracket: false },
+      ),
+      false,
+    )
+  })
+})
+
+describe('canEditGroupEntry', () => {
+  const groupId = 4
+
+  const game = ({
+    entryId = 10,
+    otherEntryId = 11,
+    status = 'pending',
+    extra = {},
+  } = {}) => ({
+    id: extra.id ?? 1,
+    group_id: extra.group_id ?? groupId,
+    status,
+    side1: { competition_entry_id: extra.side1 ?? entryId },
+    side2: { competition_entry_id: extra.side2 ?? otherEntryId },
+    ...extra,
+  })
+
+  it('permite editar una entry sin Games', () => {
+    assert.equal(canEditGroupEntry(10, [], { groupId }), true)
+    assert.equal(entryHasStartedOrFinishedGames(10, [], { groupId }), false)
+  })
+
+  it('permite editar una entry con solo Games pending', () => {
+    const games = [
+      game({ entryId: 10, otherEntryId: 11, status: 'pending' }),
+      game({ entryId: 10, otherEntryId: 12, status: 'pending', extra: { id: 2 } }),
+    ]
+
+    assert.equal(canEditGroupEntry(10, games, { groupId }), true)
+  })
+
+  it('bloquea si esa entry tiene un Game in_progress', () => {
+    const games = [
+      game({ entryId: 10, otherEntryId: 11, status: 'pending' }),
+      game({ entryId: 10, otherEntryId: 12, status: 'in_progress', extra: { id: 2 } }),
+    ]
+
+    assert.equal(canEditGroupEntry(10, games, { groupId }), false)
+  })
+
+  it('bloquea si esa entry tiene un Game finished', () => {
+    const games = [game({ entryId: 10, otherEntryId: 11, status: 'finished' })]
+
+    assert.equal(canEditGroupEntry(10, games, { groupId }), false)
+    assert.equal(entryHasStartedOrFinishedGames(10, games, { groupId }), true)
+  })
+
+  it('sigue editable si el finished es de otras entries', () => {
+    const games = [
+      game({ entryId: 20, otherEntryId: 21, status: 'finished' }),
+      game({ entryId: 10, otherEntryId: 11, status: 'pending', extra: { id: 2 } }),
+    ]
+
+    assert.equal(canEditGroupEntry(10, games, { groupId }), true)
+  })
+
+  it('reconoce entry1_id / entry2_id además de side1/side2', () => {
+    const games = [
+      {
+        id: 1,
+        group_id: groupId,
+        status: 'finished',
+        entry1_id: 10,
+        entry2_id: 11,
+      },
+    ]
+
+    assert.equal(canEditGroupEntry(10, games, { groupId }), false)
+    assert.equal(canEditGroupEntry(12, games, { groupId }), true)
+  })
+
+  it('trata la pareja como una sola CompetitionEntry', () => {
+    const games = [
+      {
+        id: 1,
+        group_id: groupId,
+        status: 'finished',
+        side1: {
+          competition_entry_id: 50,
+          display_name: 'Pérez / Gómez',
+          members: [
+            { id: 1, first_name: 'Carlos', last_name: 'Pérez' },
+            { id: 2, first_name: 'Juan', last_name: 'Gómez' },
+          ],
+        },
+        side2: {
+          competition_entry_id: 51,
+          display_name: 'Ruiz / Díaz',
+          members: [
+            { id: 3, first_name: 'Ana', last_name: 'Ruiz' },
+            { id: 4, first_name: 'Luis', last_name: 'Díaz' },
+          ],
+        },
+      },
+    ]
+
+    assert.equal(canEditGroupEntry(50, games, { groupId }), false)
+    assert.equal(canEditGroupEntry(51, games, { groupId }), false)
+    assert.equal(canEditGroupEntry(1, games, { groupId }), true)
+    assert.equal(
+      groupEntryLockMessage({ participantKind: 'pair' }),
+      'Esta pareja ya tiene partidos iniciados o finalizados y no puede quitarse ni moverse.',
+    )
+  })
+})
+
+describe('listMoveTargetGroups', () => {
+  const groups = [
+    { id: 4, name: 'Grupo D', competition_id: 1 },
+    { id: 2, name: 'Grupo B', competition_id: 1 },
+    { id: 1, name: 'Grupo A', competition_id: 1 },
+    { id: 3, name: 'Grupo C', competition_id: 1 },
+    { id: 9, name: 'Grupo A', competition_id: 2 },
+  ]
+
+  it('excluye el grupo actual', () => {
+    assert.deepEqual(
+      listMoveTargetGroups(groups, { currentGroupId: 4, competitionId: 1 }).map((group) => group.name),
+      ['Grupo A', 'Grupo B', 'Grupo C'],
+    )
+  })
+
+  it('solo ofrece grupos de la misma competencia', () => {
+    const targets = listMoveTargetGroups(groups, { currentGroupId: 1, competitionId: 1 })
+
+    assert.equal(targets.some((group) => group.id === 9), false)
+    assert.deepEqual(
+      targets.map((group) => group.id),
+      [2, 3, 4],
+    )
+  })
+})
+
+describe('groupCompositionApi', () => {
+  it('quita con DELETE al integrante del grupo', () => {
+    assert.deepEqual(buildRemoveEntryRequest(12, 88), {
+      method: 'delete',
+      url: '/groups/12/players/88',
+    })
+  })
+
+  it('mueve con un solo POST y el body de la API', () => {
+    assert.deepEqual(buildMoveEntryRequest(12, 88, 45), {
+      method: 'post',
+      url: '/groups/12/move-player',
+      data: {
+        competition_entry_id: 88,
+        target_group_id: 45,
+      },
+    })
   })
 })
