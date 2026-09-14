@@ -1,5 +1,5 @@
 <script setup>
-import { ChevronDownIcon, UserGroupIcon } from '@heroicons/vue/24/outline'
+import { ChevronDownIcon, PlusIcon, UserGroupIcon } from '@heroicons/vue/24/outline'
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
@@ -8,7 +8,6 @@ import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import { usePermissions } from '../../composables/usePermissions'
 import BracketService from '../../brackets/services/BracketService'
 import CompetitionService from '../../competitions/services/CompetitionService'
-import { structureLockReason } from '../../competitions/utils/competitionStructure'
 import {
   getParticipantKind,
   isMultiMemberCompetition,
@@ -37,8 +36,18 @@ import {
   resolveGroupQualification,
 } from '../../standings/utils/resolveGroupQualification'
 import GroupPlayerStatusModal from '../components/GroupPlayerStatusModal.vue'
+import AssignGroupEntryModal from '../components/AssignGroupEntryModal.vue'
 import { getGroupPlayerStatusLabel } from '../constants/groupPlayerStatus'
 import GroupService from '../services/GroupService'
+import {
+  canMutateGroupComposition,
+  groupCompositionLockMessage,
+} from '../utils/canMutateGroupComposition'
+import {
+  collectAssignedEntryIds,
+  listUnassignedEntries,
+} from '../utils/unassignedCompetitionEntries'
+import RegistrationService from '../../registrations/services/RegistrationService'
 import {
   areAllCompetitionGroupsComplete,
   buildGroupResultNavigation,
@@ -76,11 +85,30 @@ const isTeam = computed(() => isTeamCompetition(competition.value))
 const hasTeamTieFormat = computed(() => Boolean(competition.value?.team_tie_format_id))
 const canGenerateRoundRobin = computed(() => !isTeam.value || hasTeamTieFormat.value)
 
-const competitionStructureLockReason = computed(() => structureLockReason(competition.value))
+const canAddGroupEntry = computed(
+  () =>
+    canManageGroups.value &&
+    canMutateGroupComposition(competition.value, { hasBracket: hasBracket.value }),
+)
+
+const compositionLockMessage = computed(() =>
+  groupCompositionLockMessage({ hasBracket: hasBracket.value }),
+)
+
+const addGroupEntryLabel = computed(() => {
+  if (participantKind.value === 'pair') {
+    return 'Agregar pareja'
+  }
+
+  return 'Agregar participante'
+})
 
 const groupPlayers = ref([])
 const isLoadingGroupPlayers = ref(false)
 const groupPlayersError = ref('')
+const registrations = ref([])
+const showAssignEntryModal = ref(false)
+const assignEntrySuccessMessage = ref('')
 
 const standings = ref([])
 const standingsMeta = ref({})
@@ -243,11 +271,16 @@ const participantsSummaryLabel = computed(() => {
   return label.charAt(0).toUpperCase() + label.slice(1)
 })
 
-const assignedParticipantsEmptyLabel = computed(() => {
-  const label = participantPlural(competition.value)
+const emptyGroupMembersMessage = computed(
+  () => `Todavía no hay ${participantPlural(competition.value)} en este grupo.`,
+)
 
-  return `${label} asignados`
-})
+const availableEntries = computed(() =>
+  listUnassignedEntries(
+    registrations.value,
+    collectAssignedEntryIds(competitionGroups.value, groupPlayers.value),
+  ),
+)
 
 const groupPlayersCountLabel = computed(() => {
   const count = groupPlayersCount.value
@@ -322,6 +355,18 @@ const hasGroupTeamTies = computed(() => teamTies.value.length > 0)
 const hasGroupSchedule = computed(() =>
   isTeam.value ? hasGroupTeamTies.value : hasGroupGames.value,
 )
+
+const canShowGenerateRoundRobin = computed(() => {
+  if (!canManageGroups.value || hasGroupSchedule.value || !canGenerateRoundRobin.value) {
+    return false
+  }
+
+  if (isTeam.value) {
+    return true
+  }
+
+  return groupPlayers.value.length >= 2
+})
 
 const printGroupHref = computed(() => {
   const params = new URLSearchParams()
@@ -407,6 +452,19 @@ const loadCompetitionGroups = async () => {
     )
   } catch {
     competitionGroups.value = []
+  }
+}
+
+const loadRegistrations = async () => {
+  if (!competitionId.value) {
+    registrations.value = []
+    return
+  }
+
+  try {
+    registrations.value = await RegistrationService.listByCompetition(competitionId.value)
+  } catch {
+    registrations.value = []
   }
 }
 
@@ -923,6 +981,25 @@ const handleResultSaved = async (payload) => {
   }
 }
 
+const openAssignEntryModal = async () => {
+  assignEntrySuccessMessage.value = ''
+  await Promise.all([loadRegistrations(), loadCompetitionGroups()])
+  showAssignEntryModal.value = true
+}
+
+const handleAssignEntrySaved = async (payload) => {
+  showAssignEntryModal.value = false
+  assignEntrySuccessMessage.value = payload?.message || 'Participante agregado.'
+  await Promise.all([
+    loadGroupPlayers(),
+    loadStandings(),
+    loadGroupSchedule(),
+    loadCompetitionGroups(),
+    loadRegistrations(),
+    loadCompetition(),
+  ])
+}
+
 const handleGenerateRoundRobin = async () => {
   isGeneratingRoundRobin.value = true
   roundRobinError.value = ''
@@ -970,6 +1047,7 @@ onMounted(async () => {
     loadStandings(),
     loadGroupSchedule(),
     loadCompetitionGroups(),
+    loadRegistrations(),
   ])
 })
 </script>
@@ -1013,10 +1091,10 @@ onMounted(async () => {
     </div>
 
     <p
-      v-if="competitionStructureLockReason"
-      class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+      v-if="compositionLockMessage"
+      class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
     >
-      {{ competitionStructureLockReason }}
+      {{ compositionLockMessage }}
     </p>
 
     <div
@@ -1062,50 +1140,62 @@ onMounted(async () => {
       </dl>
     </div>
 
-    <details
-      class="group/players overflow-hidden rounded-md border border-slate-200 bg-white text-sm dark:border-slate-700 dark:bg-slate-900"
-    >
-      <summary :class="groupPlayersAccordionSummaryClasses">
-        <span :class="groupPlayersAccordionIconContainerClasses">
-          <UserGroupIcon :class="groupPlayersAccordionIconClasses" />
-        </span>
+    <div class="overflow-hidden rounded-md border border-slate-200 bg-white text-sm dark:border-slate-700 dark:bg-slate-900">
+      <div class="flex items-start gap-2 p-2 pr-3 sm:p-0">
+        <details class="group/players min-w-0 flex-1">
+          <summary :class="groupPlayersAccordionSummaryClasses">
+            <span :class="groupPlayersAccordionIconContainerClasses">
+              <UserGroupIcon :class="groupPlayersAccordionIconClasses" />
+            </span>
 
-        <div class="min-w-0 flex-1">
-          <p class="font-medium text-slate-900 dark:text-slate-100">{{ groupPlayersTitle }}</p>
+            <div class="min-w-0 flex-1">
+              <p class="font-medium text-slate-900 dark:text-slate-100">{{ groupPlayersTitle }}</p>
 
-          <p
-            v-if="!isLoadingGroupPlayers && !isLoadingStandings"
-            class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
-          >
-            {{ groupPlayersCountLabel }}
-            <template v-if="standings.length > 0">
-              · clasifican los primeros {{ qualifiedPerGroup }}
-            </template>
-          </p>
-        </div>
+              <p
+                v-if="!isLoadingGroupPlayers && !isLoadingStandings"
+                class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
+              >
+                {{ groupPlayersCountLabel }}
+                <template v-if="standings.length > 0">
+                  · clasifican los primeros {{ qualifiedPerGroup }}
+                </template>
+              </p>
+            </div>
 
-        <ChevronDownIcon
-          class="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200 group-open/players:rotate-180"
-          aria-hidden="true"
-        />
-      </summary>
+            <ChevronDownIcon
+              class="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200 group-open/players:rotate-180"
+              aria-hidden="true"
+            />
+          </summary>
 
-      <div class="space-y-3 border-t border-slate-200 px-4 pb-4 pt-3 dark:border-slate-700">
-        <p v-if="playerStatusSuccessMessage" class="text-emerald-700 dark:text-emerald-300">
-          {{ playerStatusSuccessMessage }}
-        </p>
+          <div class="space-y-3 border-t border-slate-200 px-4 pb-4 pt-3 dark:border-slate-700">
+            <p v-if="assignEntrySuccessMessage" class="text-emerald-700 dark:text-emerald-300">
+              {{ assignEntrySuccessMessage }}
+            </p>
+            <p v-if="playerStatusSuccessMessage" class="text-emerald-700 dark:text-emerald-300">
+              {{ playerStatusSuccessMessage }}
+            </p>
 
-        <p v-if="isLoadingGroupPlayers || isLoadingStandings" class="text-slate-600 dark:text-slate-300">
-          Cargando {{ isTeam ? 'equipos' : participantPlural(competition) }} del grupo...
-        </p>
-        <p v-else-if="groupPlayersError" class="text-red-600 dark:text-red-400">{{ groupPlayersError }}</p>
+            <p v-if="isLoadingGroupPlayers || isLoadingStandings" class="text-slate-600 dark:text-slate-300">
+              Cargando {{ isTeam ? 'equipos' : participantPlural(competition) }} del grupo...
+            </p>
+            <p v-else-if="groupPlayersError" class="text-red-600 dark:text-red-400">{{ groupPlayersError }}</p>
 
-        <div
-          v-else-if="groupPlayers.length === 0"
-          class="rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
-        >
-          Este grupo todavía no tiene {{ assignedParticipantsEmptyLabel }}.
-        </div>
+            <div
+              v-else-if="groupPlayers.length === 0"
+              class="rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
+            >
+              <p>{{ emptyGroupMembersMessage }}</p>
+              <button
+                v-if="canAddGroupEntry"
+                type="button"
+                class="mt-3 inline-flex items-center gap-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                @click.stop="openAssignEntryModal"
+              >
+                <PlusIcon class="h-4 w-4" aria-hidden="true" />
+                {{ addGroupEntryLabel }}
+              </button>
+            </div>
 
         <div v-else class="space-y-1.5">
           <article
@@ -1183,6 +1273,18 @@ onMounted(async () => {
       </div>
     </details>
 
+        <button
+          v-if="canAddGroupEntry"
+          type="button"
+          class="mt-3 inline-flex shrink-0 items-center gap-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+          @click.stop="openAssignEntryModal"
+        >
+          <PlusIcon class="h-4 w-4" aria-hidden="true" />
+          {{ addGroupEntryLabel }}
+        </button>
+      </div>
+    </div>
+
     <div
       class="space-y-3 rounded-md border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900"
     >
@@ -1190,7 +1292,7 @@ onMounted(async () => {
         <p class="font-medium text-slate-700 dark:text-slate-200">{{ scheduleSectionTitle }}</p>
 
         <button
-          v-if="!hasGroupSchedule && canManageGroups && canGenerateRoundRobin"
+          v-if="canShowGenerateRoundRobin"
           type="button"
           class="shrink-0 rounded-md bg-emerald-700 px-3 py-2 font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-emerald-600 dark:hover:bg-emerald-500"
           :disabled="isGeneratingRoundRobin"
@@ -1520,6 +1622,17 @@ onMounted(async () => {
       @change-group="handleModalGroupChange"
       @go-to-group="handleGoToSuggestedGroup"
       @dirty-change="handleModalDirtyChange"
+    />
+
+    <AssignGroupEntryModal
+      :show="showAssignEntryModal"
+      :group-id="groupId"
+      :group-name="groupName"
+      :competition="competition"
+      :available-entries="availableEntries"
+      :current-member-count="groupPlayers.length"
+      @close="showAssignEntryModal = false"
+      @saved="handleAssignEntrySaved"
     />
 
     <GroupPlayerStatusModal

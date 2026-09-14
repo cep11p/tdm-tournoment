@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test:print": "node --test src/groups/utils/groupPrint.test.js",
     "test:group-nav": "node --test src/groups/utils/groupResultNavigation.test.js",
-    "test:pair-selection": "node --test src/registrations/utils/pairSelection.test.js"
+    "test:pair-selection": "node --test src/registrations/utils/pairSelection.test.js",
+    "test:late-group-mutation": "node --test src/groups/utils/lateGroupMutation.test.js"
   },
   "dependencies": {
     "@heroicons/vue": "^2.2.0",

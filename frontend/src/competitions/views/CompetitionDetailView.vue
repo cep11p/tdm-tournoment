@@ -2,13 +2,14 @@
 import {
   ChevronDownIcon,
   Cog6ToothIcon,
+  PlusIcon,
   PrinterIcon,
   Squares2X2Icon,
   TrophyIcon,
   UserGroupIcon,
 } from '@heroicons/vue/24/outline'
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
@@ -19,9 +20,14 @@ import GameService from '../../games/services/GameService'
 import GroupService from '../../groups/services/GroupService'
 import RegistrationService from '../../registrations/services/RegistrationService'
 import GenerateRandomGroupsModal from '../../groups/components/GenerateRandomGroupsModal.vue'
+import CreateGroupModal from '../../groups/components/CreateGroupModal.vue'
 import RegenerateRandomGroupsModal from '../../groups/components/RegenerateRandomGroupsModal.vue'
 import { buildRandomGroupsSuccessMessage } from '../../groups/utils/buildRandomGroupsSuccessMessage'
 import { buildRegenerateRandomGroupsSuccessMessage } from '../../groups/utils/buildRegenerateRandomGroupsSuccessMessage'
+import {
+  canMutateGroupComposition,
+  groupCompositionLockMessage,
+} from '../../groups/utils/canMutateGroupComposition'
 import StandingService from '../../standings/services/StandingService'
 import { buildBracketGenerationPreview } from '../utils/buildBracketGenerationPreview'
 import { buildGroupPhaseAlert, summarizeGroupPhaseBracketGate } from '../utils/buildGroupPhaseAlert'
@@ -53,6 +59,7 @@ import {
 } from '../utils/competitionListDisplay'
 
 const route = useRoute()
+const router = useRouter()
 const { can } = usePermissions()
 const canManageCompetitions = computed(() => can('competitions.manage'))
 const canManageGroups = computed(() => can('groups.manage'))
@@ -72,6 +79,7 @@ const errorMessage = ref('')
 const randomGroupsSuccessMessage = ref('')
 const showGenerateRandomGroupsModal = ref(false)
 const showRegenerateRandomGroupsModal = ref(false)
+const showCreateGroupModal = ref(false)
 const showEditCompetitionModal = ref(false)
 const showParticipantsModal = ref(false)
 const checkInMeta = ref({
@@ -228,6 +236,16 @@ const bracketGames = computed(() => {
 })
 
 const hasBracket = computed(() => Boolean(bracket.value?.id))
+
+const canCreateGroup = computed(
+  () =>
+    canManageGroups.value &&
+    canMutateGroupComposition(competition.value, { hasBracket: hasBracket.value }),
+)
+
+const groupCompositionLockedMessage = computed(() =>
+  groupCompositionLockMessage({ hasBracket: hasBracket.value }),
+)
 
 const qualifiedPerGroup = computed(() => competition.value?.qualified_per_group ?? 2)
 
@@ -837,6 +855,27 @@ const openRegenerateRandomGroupsModal = () => {
   showRegenerateRandomGroupsModal.value = true
 }
 
+const openCreateGroupModal = () => {
+  showCreateGroupModal.value = true
+}
+
+const handleCreateGroupSaved = async (group) => {
+  showCreateGroupModal.value = false
+
+  if (!group?.id) {
+    await loadCompetitionSummary()
+    return
+  }
+
+  await router.push({
+    path: `/groups/${group.id}`,
+    query: {
+      competitionId: String(competitionId.value),
+      groupName: group.name ?? '',
+    },
+  })
+}
+
 const openParticipantsModal = () => {
   showParticipantsModal.value = true
 }
@@ -980,29 +1019,41 @@ const handleEditCompetitionSaved = async () => {
         v-if="hasGroupStage"
         :class="sectionCardClasses"
       >
-        <button
-          type="button"
-          :class="[groupPhaseAccordionSummaryClasses, 'w-full']"
-          :aria-expanded="openSections.groups"
-          @click="toggleSection('groups')"
-        >
-          <span :class="groupPhaseAccordionIconContainerClasses">
-            <Squares2X2Icon :class="groupPhaseAccordionIconClasses" />
-          </span>
-
-          <span class="min-w-0 flex-1 text-left">
-            <span class="block font-medium text-slate-900 dark:text-slate-100">Fase de grupos</span>
-            <span class="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
-              {{ groupsCollapsedSummary }}
+        <div class="flex items-start gap-2 p-2 pr-3 sm:p-0">
+          <button
+            type="button"
+            :class="[groupPhaseAccordionSummaryClasses, 'min-w-0 flex-1']"
+            :aria-expanded="openSections.groups"
+            @click="toggleSection('groups')"
+          >
+            <span :class="groupPhaseAccordionIconContainerClasses">
+              <Squares2X2Icon :class="groupPhaseAccordionIconClasses" />
             </span>
-          </span>
 
-          <ChevronDownIcon
-            class="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200"
-            :class="openSections.groups ? 'rotate-180' : ''"
-            aria-hidden="true"
-          />
-        </button>
+            <span class="min-w-0 flex-1 text-left">
+              <span class="block font-medium text-slate-900 dark:text-slate-100">Fase de grupos</span>
+              <span class="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
+                {{ groupsCollapsedSummary }}
+              </span>
+            </span>
+
+            <ChevronDownIcon
+              class="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200"
+              :class="openSections.groups ? 'rotate-180' : ''"
+              aria-hidden="true"
+            />
+          </button>
+
+          <button
+            v-if="canCreateGroup"
+            type="button"
+            class="mt-3 inline-flex shrink-0 items-center gap-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+            @click="openCreateGroupModal"
+          >
+            <PlusIcon class="h-4 w-4" aria-hidden="true" />
+            Crear grupo
+          </button>
+        </div>
 
         <div
           v-show="openSections.groups"
@@ -1013,6 +1064,13 @@ const handleEditCompetitionSaved = async () => {
             class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
           >
             {{ randomGroupsSuccessMessage }}
+          </p>
+
+          <p
+            v-if="groupCompositionLockedMessage"
+            class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300"
+          >
+            {{ groupCompositionLockedMessage }}
           </p>
 
           <div v-if="groupStructureAction" class="space-y-2">
@@ -1355,6 +1413,15 @@ const handleEditCompetitionSaved = async () => {
         :registrations-lock-message="registrationsEditable ? null : registrationsLockMessage"
         :registrations-route="registrationsRoute"
         @close="showParticipantsModal = false"
+      />
+
+      <CreateGroupModal
+        v-if="hasGroupStage"
+        :show="showCreateGroupModal"
+        :competition-id="competitionId"
+        :existing-groups="groups ?? []"
+        @close="showCreateGroupModal = false"
+        @saved="handleCreateGroupSaved"
       />
 
       <GenerateRandomGroupsModal

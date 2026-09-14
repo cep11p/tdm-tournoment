@@ -19,6 +19,18 @@ const GroupService = {
     return unwrap(response) ?? []
   },
 
+  /**
+   * Asigna una participación al grupo. El backend completa el fixture
+   * en la misma transacción: no llamar después a generateRoundRobin.
+   */
+  async assignEntry(groupId, { competition_entry_id }) {
+    const response = await httpClient.post(`/groups/${groupId}/players`, {
+      competition_entry_id,
+    })
+
+    return unwrap(response) ?? null
+  },
+
   async printSheet(groupId) {
     const response = await httpClient.get(`/groups/${groupId}/print`)
     return unwrap(response) ?? null
