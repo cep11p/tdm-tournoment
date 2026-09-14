@@ -94,6 +94,36 @@ class GroupAuthorizationTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_move_group_entry_requires_authentication(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+        $players = $context->createPlayers(2);
+        $entry = $context->registerPlayer($competition, $players[0]);
+        $context->registerPlayer($competition, $players[1]);
+        $source = $context->createGroupWithPlayers($competition, [$players[0]], 'Grupo A');
+        $target = $context->createGroup($competition, 'Grupo B');
+
+        $this->postJson($context->apiUrl("groups/{$source->id}/move-player"), [
+            'competition_entry_id' => $entry->id,
+            'target_group_id' => $target->id,
+        ])->assertUnauthorized();
+    }
+
+    public function test_scorekeeper_cannot_move_group_entry(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+        $players = $context->createPlayers(2);
+        $entry = $context->registerPlayer($competition, $players[0]);
+        $context->registerPlayer($competition, $players[1]);
+        $source = $context->createGroupWithPlayers($competition, [$players[0]], 'Grupo A');
+        $target = $context->createGroup($competition, 'Grupo B');
+
+        $context->moveEntryBetweenGroupsViaApi($source, $entry, $target, ['scorekeeper'])
+            ->assertForbidden();
+    }
+
     public function test_organizer_can_generate_random_groups(): void
     {
         $context = $this->tournamentContext();

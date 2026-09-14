@@ -779,6 +779,24 @@ final class TournamentTestContext
         );
     }
 
+    public function moveEntryBetweenGroupsViaApi(
+        Group $source,
+        CompetitionEntry|int $entry,
+        Group $target,
+        array $roles = ['organizer'],
+    ): TestResponse {
+        $entryId = $entry instanceof CompetitionEntry ? $entry->id : $entry;
+
+        return $this->test->postJson(
+            $this->apiUrl("groups/{$source->id}/move-player"),
+            [
+                'competition_entry_id' => $entryId,
+                'target_group_id' => $target->id,
+            ],
+            $this->authHeaders($roles),
+        );
+    }
+
     /**
      * @param  array<int, array{Player, Player}>  $pairs
      * @return array<int, CompetitionEntry>

@@ -194,6 +194,9 @@ Route::prefix(config('api.version_prefix', 'v1'))
         Route::middleware(['auth.keycloak', 'permission:groups.manage'])
             ->delete('groups/{group}/players/{competitionEntry}', [GroupPlayerController::class, 'destroy'])
             ->name('groups.players.destroy');
+        Route::middleware(['auth.keycloak', 'permission:groups.manage'])
+            ->post('groups/{group}/move-player', [GroupPlayerController::class, 'move'])
+            ->name('groups.players.move');
 
         Route::middleware(['auth.keycloak', 'permission:groups.manage'])
             ->post('groups/{group}/round-robin-games', [GroupRoundRobinGameController::class, 'store'])

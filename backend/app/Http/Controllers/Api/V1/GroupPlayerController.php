@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\GroupPlayer\AssignPlayerToGroupAction;
+use App\Actions\GroupPlayer\MoveCompetitionEntryBetweenGroupsAction;
 use App\Actions\GroupPlayer\RemoveEntryFromGroupAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\GroupPlayer\MoveGroupPlayerRequest;
 use App\Http\Requests\GroupPlayer\StoreGroupPlayerRequest;
 use App\Http\Resources\GroupPlayer\GroupPlayerResource;
 use App\Models\CompetitionEntry;
@@ -51,5 +53,19 @@ class GroupPlayerController extends Controller
         $removeEntry($group, (int) $competitionEntry->id);
 
         return response()->noContent();
+    }
+
+    public function move(
+        MoveGroupPlayerRequest $request,
+        Group $group,
+        MoveCompetitionEntryBetweenGroupsAction $moveEntry,
+    ): JsonResponse {
+        $groupEntry = $moveEntry(
+            $group,
+            (int) $request->validated('competition_entry_id'),
+            (int) $request->validated('target_group_id'),
+        );
+
+        return (new GroupPlayerResource($groupEntry))->response();
     }
 }
