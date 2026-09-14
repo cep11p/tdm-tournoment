@@ -18,6 +18,7 @@ enum AuditAction: string
     case GROUPS_GENERATED = 'groups.generated';
     case GROUP_CREATED = 'group.created';
     case GROUP_PLAYER_ASSIGNED = 'group.player_assigned';
+    case GROUP_PLAYER_REMOVED = 'group.player_removed';
     case GROUPS_ROUND_ROBIN_GENERATED = 'groups.round_robin_generated';
     case GROUPS_REGENERATED = 'groups.regenerated';
     case BRACKET_CREATED = 'bracket.created';
@@ -59,6 +60,7 @@ enum AuditAction: string
             self::GROUPS_GENERATED => 'Generación de grupos',
             self::GROUP_CREATED => 'Creación de grupo',
             self::GROUP_PLAYER_ASSIGNED => 'Asignación de jugador a grupo',
+            self::GROUP_PLAYER_REMOVED => 'Quitar jugador de grupo',
             self::GROUPS_ROUND_ROBIN_GENERATED => 'Generación de todos contra todos',
             self::GROUPS_REGENERATED => 'Regeneración de grupos',
             self::BRACKET_CREATED => 'Generación de llave',
@@ -102,6 +104,7 @@ enum AuditAction: string
             self::GROUPS_GENERATED,
             self::GROUP_CREATED,
             self::GROUP_PLAYER_ASSIGNED,
+            self::GROUP_PLAYER_REMOVED,
             self::GROUPS_ROUND_ROBIN_GENERATED,
             self::GROUPS_REGENERATED,
             self::GROUP_PLAYER_STATUS_CHANGED,

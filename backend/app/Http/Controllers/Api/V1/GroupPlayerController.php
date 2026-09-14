@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\GroupPlayer\AssignPlayerToGroupAction;
+use App\Actions\GroupPlayer\RemoveEntryFromGroupAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\GroupPlayer\StoreGroupPlayerRequest;
 use App\Http\Resources\GroupPlayer\GroupPlayerResource;
+use App\Models\CompetitionEntry;
 use App\Models\Group;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -39,5 +41,15 @@ class GroupPlayerController extends Controller
         return (new GroupPlayerResource($groupEntry))
             ->response()
             ->setStatusCode(Response::HTTP_CREATED);
+    }
+
+    public function destroy(
+        Group $group,
+        CompetitionEntry $competitionEntry,
+        RemoveEntryFromGroupAction $removeEntry,
+    ): Response {
+        $removeEntry($group, (int) $competitionEntry->id);
+
+        return response()->noContent();
     }
 }

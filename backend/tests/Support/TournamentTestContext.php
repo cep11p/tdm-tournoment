@@ -765,6 +765,20 @@ final class TournamentTestContext
         );
     }
 
+    public function removeEntryFromGroupViaApi(
+        Group $group,
+        CompetitionEntry|int $entry,
+        array $roles = ['organizer'],
+    ): TestResponse {
+        $entryId = $entry instanceof CompetitionEntry ? $entry->id : $entry;
+
+        return $this->test->deleteJson(
+            $this->apiUrl("groups/{$group->id}/players/{$entryId}"),
+            [],
+            $this->authHeaders($roles),
+        );
+    }
+
     /**
      * @param  array<int, array{Player, Player}>  $pairs
      * @return array<int, CompetitionEntry>

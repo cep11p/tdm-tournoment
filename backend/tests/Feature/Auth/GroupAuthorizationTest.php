@@ -55,15 +55,43 @@ class GroupAuthorizationTest extends TestCase
         $context = $this->tournamentContext();
         $competition = $context->createCompetition();
         [$player] = $context->createPlayers(1);
-        $context->registerPlayer($competition, $player);
+        $entry = $context->registerPlayer($competition, $player);
 
         $groupResponse = $context->createGroupViaApi($competition, 'Grupo A');
         $groupResponse->assertCreated();
 
         $groupId = $groupResponse->json('data.id');
+        $group = Group::query()->findOrFail($groupId);
 
-        $context->assignPlayerToGroupViaApi(Group::query()->findOrFail($groupId), $player)
+        $context->assignPlayerToGroupViaApi($group, $player)
             ->assertCreated();
+
+        $context->removeEntryFromGroupViaApi($group, $entry)
+            ->assertNoContent();
+    }
+
+    public function test_remove_group_entry_requires_authentication(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+        [$player] = $context->createPlayers(1);
+        $entry = $context->registerPlayer($competition, $player);
+        $group = $context->createGroupWithPlayers($competition, [$player]);
+
+        $this->deleteJson($context->apiUrl("groups/{$group->id}/players/{$entry->id}"))
+            ->assertUnauthorized();
+    }
+
+    public function test_scorekeeper_cannot_remove_group_entry(): void
+    {
+        $context = $this->tournamentContext();
+        $competition = $context->createCompetition();
+        [$player] = $context->createPlayers(1);
+        $entry = $context->registerPlayer($competition, $player);
+        $group = $context->createGroupWithPlayers($competition, [$player]);
+
+        $context->removeEntryFromGroupViaApi($group, $entry, ['scorekeeper'])
+            ->assertForbidden();
     }
 
     public function test_organizer_can_generate_random_groups(): void

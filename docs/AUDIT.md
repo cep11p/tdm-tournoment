@@ -93,6 +93,7 @@ El campo `description` de Spatie almacena el **código estable** (`AuditAction`)
 | `groups.generated` | Generación de grupos |
 | `group.created` | Creación de grupo |
 | `group.player_assigned` | Asignación de jugador a grupo |
+| `group.player_removed` | Quitar jugador de grupo |
 | `groups.round_robin_generated` | Generación de todos contra todos |
 | `groups.regenerated` | Regeneración de grupos |
 | `bracket.created` | Generación de llave |
@@ -143,6 +144,7 @@ El campo `description` de Spatie almacena el **código estable** (`AuditAction`)
 | `RegenerateRandomGroupsForCompetitionAction` | `groups` | `Competition` |
 | `CreateGroupAction` | `groups` | `Group` |
 | `AssignPlayerToGroupAction` | `groups` | `Group` |
+| `RemoveEntryFromGroupAction` | `groups` | `Group` |
 | `GenerateGroupRoundRobinGamesAction` | `groups` | `Group` |
 | `CreateManualGameAction` | `games` | `Game` |
 | `DeleteManualGameAction` | `games` | `Game` |
@@ -162,6 +164,7 @@ El campo `description` de Spatie almacena el **código estable** (`AuditAction`)
 | Generación inicial aleatoria de grupos | `groups.generated` (1) | `group.created`, `group.player_assigned`, `groups.round_robin_generated`, `game.created` |
 | Regeneración de grupos | `groups.regenerated` (1) | logs hijos por grupo/jugador/partido |
 | Round robin por grupo | `groups.round_robin_generated` (1) | `game.created` por partido |
+| Quitar integrante de grupo | `group.player_removed` (1) | `game.deleted`, `groups.round_robin_generated` |
 | Llave y avance de ronda | `bracket.created`, `bracket.round_advanced` | `game.created` |
 | Creación manual de partido (HTTP) | `game.created` (1) | — |
 | Eliminación manual de partido (HTTP) | `game.deleted` (1) | — |
