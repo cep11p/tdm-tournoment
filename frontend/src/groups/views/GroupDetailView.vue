@@ -1,6 +1,6 @@
 <script setup>
 import { ChevronDownIcon, PlusIcon, UserGroupIcon } from '@heroicons/vue/24/outline'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import AppBackButton from '../../components/AppBackButton.vue'
@@ -51,6 +51,11 @@ import {
   listUnassignedEntries,
 } from '../utils/unassignedCompetitionEntries'
 import RegistrationService from '../../registrations/services/RegistrationService'
+import {
+  buildGroupRoundSections,
+  mergeRoundOpenState,
+  roundSectionKey,
+} from '../utils/buildGroupRoundSections'
 import {
   areAllCompetitionGroupsComplete,
   buildGroupResultNavigation,
@@ -556,31 +561,9 @@ const teamTieLineupSummary = (teamTie) => {
   return `${configured}/${total} partidos con plantel definido`
 }
 
-const teamTiesByRound = computed(() => {
-  const rounds = new Map()
-
-  for (const teamTie of [...teamTies.value].sort(compareByGroupSchedule)) {
-    const roundNumber = teamTie.group_round
-
-    if (roundNumber == null) {
-      continue
-    }
-
-    if (!rounds.has(roundNumber)) {
-      rounds.set(roundNumber, [])
-    }
-
-    rounds.get(roundNumber).push(teamTie)
-  }
-
-  return [...rounds.entries()]
-    .sort(([leftRound], [rightRound]) => leftRound - rightRound)
-    .map(([roundNumber, roundTeamTies]) => ({
-      roundNumber,
-      label: `Ronda ${roundNumber}`,
-      teamTies: roundTeamTies,
-    }))
-})
+const teamTieRoundSections = computed(() =>
+  buildGroupRoundSections(teamTies.value, { kind: 'team_ties' }),
+)
 
 const isByeGame = isGameBye
 
@@ -657,43 +640,9 @@ const pendingLoadGames = computed(() =>
   games.value.filter(canLoadResult).sort(compareByGroupSchedule),
 )
 
-const pendingGamesByRound = computed(() => {
-  const rounds = new Map()
-  const legacy = []
-
-  for (const game of pendingLoadGames.value) {
-    if (game.group_round == null) {
-      legacy.push(game)
-      continue
-    }
-
-    const roundNumber = game.group_round
-
-    if (!rounds.has(roundNumber)) {
-      rounds.set(roundNumber, [])
-    }
-
-    rounds.get(roundNumber).push(game)
-  }
-
-  const grouped = [...rounds.entries()]
-    .sort(([leftRound], [rightRound]) => leftRound - rightRound)
-    .map(([roundNumber, roundGames]) => ({
-      roundNumber,
-      label: `Ronda ${roundNumber}`,
-      games: roundGames,
-    }))
-
-  if (legacy.length > 0) {
-    grouped.push({
-      roundNumber: null,
-      label: 'Sin ronda asignada',
-      games: legacy,
-    })
-  }
-
-  return grouped
-})
+const gameRoundSections = computed(() =>
+  buildGroupRoundSections(games.value, { kind: 'games' }),
+)
 
 const finishedGames = computed(() =>
   games.value
@@ -708,6 +657,49 @@ const finishedGames = computed(() =>
 const byeGames = computed(() =>
   games.value.filter(isByeGame).sort((left, right) => left.id - right.id),
 )
+
+const activeRoundSections = computed(() =>
+  isTeam.value ? teamTieRoundSections.value : gameRoundSections.value,
+)
+
+const roundOpenByKey = ref({})
+
+watch(
+  () => [String(groupId.value ?? ''), activeRoundSections.value],
+  ([currentGroupId, sections], previous) => {
+    if (!previous || previous[0] !== currentGroupId) {
+      roundOpenByKey.value = {}
+    }
+
+    const merged = mergeRoundOpenState(roundOpenByKey.value, sections)
+
+    if (merged !== roundOpenByKey.value) {
+      roundOpenByKey.value = merged
+    }
+  },
+  { immediate: true },
+)
+
+const isRoundSectionOpen = (section) => roundOpenByKey.value[roundSectionKey(section)] === true
+
+const onRoundToggle = (section, event) => {
+  const key = roundSectionKey(section)
+  const isOpen = Boolean(event.currentTarget?.open)
+
+  if (roundOpenByKey.value[key] === isOpen) {
+    return
+  }
+
+  roundOpenByKey.value = {
+    ...roundOpenByKey.value,
+    [key]: isOpen,
+  }
+}
+
+const roundStatusChipClasses = (section) =>
+  section.isFinished
+    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200'
+    : 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200'
 
 const statusLabel = (game) => {
   if (isByeGame(game)) {
@@ -820,7 +812,7 @@ const byeGameCardClasses =
   'space-y-1 rounded-md border border-violet-200 bg-violet-50/30 p-2.5 dark:border-violet-900/60 dark:bg-violet-950/20'
 
 const gamesAccordionSummaryClasses =
-  'flex cursor-pointer list-none items-center gap-2 rounded-md py-1 text-sm font-medium text-slate-700 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100 [&::-webkit-details-marker]:hidden'
+  'flex cursor-pointer list-none items-center gap-2 rounded-md px-2 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800/50 dark:hover:text-slate-100 [&::-webkit-details-marker]:hidden'
 
 const modalGroupOptions = computed(() => {
   if (competitionGroups.value.length > 0) {
@@ -1467,24 +1459,35 @@ onMounted(async () => {
 
         <div v-else class="space-y-4">
           <details
-            v-for="(roundGroup, roundIndex) in teamTiesByRound"
-            :key="roundGroup.roundNumber"
-            :open="roundIndex === 0"
-            class="group/team-round overflow-hidden rounded-md border border-slate-200 dark:border-slate-700"
+            v-for="section in teamTieRoundSections"
+            :key="roundSectionKey(section)"
+            :open="isRoundSectionOpen(section)"
+            class="group/round overflow-hidden rounded-md border border-slate-200 dark:border-slate-700"
+            @toggle="onRoundToggle(section, $event)"
           >
             <summary :class="gamesAccordionSummaryClasses">
-              <span class="flex-1">
-                {{ roundGroup.label }} ({{ roundGroup.teamTies.length }})
+              <span class="min-w-0 flex-1">
+                <span class="block text-slate-800 dark:text-slate-100">{{ section.label }}</span>
+                <span class="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs font-normal text-slate-500 dark:text-slate-400">
+                  <span>{{ section.countLabel }}</span>
+                  <span aria-hidden="true">·</span>
+                  <span
+                    class="inline-flex rounded-full px-2 py-0.5 font-medium"
+                    :class="roundStatusChipClasses(section)"
+                  >
+                    {{ section.statusLabel }}
+                  </span>
+                </span>
               </span>
               <ChevronDownIcon
-                class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open/team-round:rotate-180"
+                class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open/round:rotate-180"
                 aria-hidden="true"
               />
             </summary>
 
             <ul class="space-y-2 border-t border-slate-200 px-1 pb-1 pt-2 dark:border-slate-700">
               <li
-                v-for="teamTie in roundGroup.teamTies"
+                v-for="teamTie in section.items"
                 :key="`team-tie-${teamTie.id}`"
                 :class="pendingGameCardClasses"
               >
@@ -1543,33 +1546,74 @@ onMounted(async () => {
       </div>
 
       <div v-else class="space-y-4">
-        <section v-if="pendingLoadGames.length > 0" class="space-y-3">
-          <h2 class="font-medium text-slate-800 dark:text-slate-200">
-            Pendientes de carga ({{ pendingLoadGames.length }})
-          </h2>
-
-          <details
-            v-for="(roundGroup, roundIndex) in pendingGamesByRound"
-            :key="roundGroup.roundNumber ?? 'legacy'"
-            :open="roundIndex === 0"
-            class="group/pending-round overflow-hidden rounded-md border border-slate-200 dark:border-slate-700"
-          >
-            <summary :class="gamesAccordionSummaryClasses">
-              <span class="flex-1">
-                {{ roundGroup.label }} ({{ roundGroup.games.length }})
+        <details
+          v-for="section in gameRoundSections"
+          :key="roundSectionKey(section)"
+          :open="isRoundSectionOpen(section)"
+          class="group/round overflow-hidden rounded-md border border-slate-200 dark:border-slate-700"
+          @toggle="onRoundToggle(section, $event)"
+        >
+          <summary :class="gamesAccordionSummaryClasses">
+            <span class="min-w-0 flex-1">
+              <span class="block text-slate-800 dark:text-slate-100">{{ section.label }}</span>
+              <span class="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs font-normal text-slate-500 dark:text-slate-400">
+                <span>{{ section.countLabel }}</span>
+                <span aria-hidden="true">·</span>
+                <span
+                  class="inline-flex rounded-full px-2 py-0.5 font-medium"
+                  :class="roundStatusChipClasses(section)"
+                >
+                  {{ section.statusLabel }}
+                </span>
               </span>
-              <ChevronDownIcon
-                class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open/pending-round:rotate-180"
-                aria-hidden="true"
-              />
-            </summary>
+            </span>
+            <ChevronDownIcon
+              class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open/round:rotate-180"
+              aria-hidden="true"
+            />
+          </summary>
 
-            <ul class="space-y-2 border-t border-slate-200 px-1 pb-1 pt-2 dark:border-slate-700">
-              <li
-                v-for="game in roundGroup.games"
-                :key="`pending-${game.id}`"
-                :class="pendingGameCardClasses"
-              >
+          <ul class="space-y-2 border-t border-slate-200 px-1 pb-1 pt-2 dark:border-slate-700">
+            <li
+              v-for="game in section.items"
+              :key="`round-game-${game.id}`"
+              :class="isFinishedGame(game) ? finishedGameCardClasses : pendingGameCardClasses"
+            >
+              <template v-if="isFinishedGame(game)">
+                <p class="font-medium text-slate-900 dark:text-slate-100">
+                  {{ matchupLabel(game) }}
+                </p>
+
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                  <span
+                    class="inline-flex rounded-full px-2 py-0.5 font-medium"
+                    :class="statusBadgeClasses(game)"
+                  >
+                    {{ statusLabel(game) }}
+                  </span>
+
+                  <span v-if="setsResult(game)" class="text-slate-600 dark:text-slate-300">
+                    Resultado: {{ setsResult(game) }}
+                  </span>
+                </div>
+
+                <p v-if="setScoresDetail(game).length > 0" class="text-xs text-slate-600 dark:text-slate-300">
+                  Detalle: {{ setScoresDetail(game).join(', ') }}
+                </p>
+
+                <p class="text-xs text-slate-600 dark:text-slate-300">
+                  Ganador: {{ winnerName(game) }}
+                </p>
+
+                <RouterLink
+                  :to="gameDetailTo(game)"
+                  class="inline-flex text-xs font-medium text-slate-700 hover:underline dark:text-slate-300"
+                >
+                  Ver detalle
+                </RouterLink>
+              </template>
+
+              <template v-else>
                 <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                   <p class="min-w-0 flex-1 font-medium text-slate-900 dark:text-slate-100">
                     {{ matchupLabel(game) }}
@@ -1584,7 +1628,7 @@ onMounted(async () => {
                     </span>
 
                     <button
-                      v-if="canRecordResults"
+                      v-if="canRecordResults && canLoadResult(game)"
                       type="button"
                       class="rounded-md bg-emerald-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-600"
                       @click="openResultModal(game)"
@@ -1628,60 +1672,7 @@ onMounted(async () => {
                 >
                   Parcial: {{ setScoresDetail(game).join(', ') }}
                 </p>
-              </li>
-            </ul>
-          </details>
-        </section>
-
-        <details
-          v-if="finishedGames.length > 0"
-          class="group/finished overflow-hidden rounded-md border border-slate-200 dark:border-slate-700"
-        >
-          <summary :class="gamesAccordionSummaryClasses">
-            <span class="flex-1">Finalizados ({{ finishedGames.length }})</span>
-            <ChevronDownIcon
-              class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open/finished:rotate-180"
-              aria-hidden="true"
-            />
-          </summary>
-
-          <ul class="space-y-2 border-t border-slate-200 px-1 pb-1 pt-2 dark:border-slate-700">
-            <li
-              v-for="game in finishedGames"
-              :key="`finished-${game.id}`"
-              :class="finishedGameCardClasses"
-            >
-              <p class="font-medium text-slate-900 dark:text-slate-100">
-                {{ matchupLabel(game) }}
-              </p>
-
-              <div class="flex flex-wrap items-center gap-2 text-xs">
-                <span
-                  class="inline-flex rounded-full px-2 py-0.5 font-medium"
-                  :class="statusBadgeClasses(game)"
-                >
-                  {{ statusLabel(game) }}
-                </span>
-
-                <span v-if="setsResult(game)" class="text-slate-600 dark:text-slate-300">
-                  Resultado: {{ setsResult(game) }}
-                </span>
-              </div>
-
-              <p v-if="setScoresDetail(game).length > 0" class="text-xs text-slate-600 dark:text-slate-300">
-                Detalle: {{ setScoresDetail(game).join(', ') }}
-              </p>
-
-              <p class="text-xs text-slate-600 dark:text-slate-300">
-                Ganador: {{ winnerName(game) }}
-              </p>
-
-              <RouterLink
-                :to="gameDetailTo(game)"
-                class="inline-flex text-xs font-medium text-slate-700 hover:underline dark:text-slate-300"
-              >
-                Ver detalle
-              </RouterLink>
+              </template>
             </li>
           </ul>
         </details>
