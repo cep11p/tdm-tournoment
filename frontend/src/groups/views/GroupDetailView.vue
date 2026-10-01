@@ -28,13 +28,8 @@ import {
   getGameStatusLabel,
 } from '../../shared/constants/gameStatus'
 import StandingService from '../../standings/services/StandingService'
-import {
-  getQualificationBadgeClasses,
-  getQualificationCardClasses,
-  getQualificationIcon,
-  getQualificationLabel,
-  resolveGroupQualification,
-} from '../../standings/utils/resolveGroupQualification'
+import GroupStandingsTable from '../../standings/components/GroupStandingsTable.vue'
+import { buildGroupStandingRows } from '../../standings/utils/buildGroupStandingRows'
 import GroupPlayerStatusModal from '../components/GroupPlayerStatusModal.vue'
 import AssignGroupEntryModal from '../components/AssignGroupEntryModal.vue'
 import GroupEntryActionsMenu from '../components/GroupEntryActionsMenu.vue'
@@ -156,24 +151,46 @@ const roundRobinSuccessMessage = ref('')
 const selectedGroupEntryForStatus = ref(null)
 const playerStatusSuccessMessage = ref('')
 
-const standingsAreProvisional = computed(() => Boolean(standingsMeta.value.standings_are_provisional))
-
-const pendingManualTiebreakGroups = computed(() => standingsMeta.value.manual_tiebreak_groups ?? [])
-
-const requiresManualTiebreak = computed(
-  () => !standingsAreProvisional.value && Boolean(standingsMeta.value.requires_manual_tiebreak),
+const standingRows = computed(() =>
+  buildGroupStandingRows({
+    standings: standings.value,
+    meta: standingsMeta.value,
+    qualifiedPerGroup: qualifiedPerGroup.value,
+  }),
 )
 
-const buildQualification = (standing, position) =>
-  resolveGroupQualification({
-    standing,
-    position,
-    qualifiedPerGroup: qualifiedPerGroup.value,
-    standingsAreProvisional: standingsAreProvisional.value,
-    requiresManualTiebreak: requiresManualTiebreak.value,
-    manualTiebreakGroups: pendingManualTiebreakGroups.value,
-    allStandings: standings.value,
-  })
+const groupPlayerByEntryId = computed(() => {
+  const playersByEntryId = new Map()
+
+  for (const groupPlayer of groupPlayers.value) {
+    const entryId = Number(groupPlayer?.competition_entry_id)
+
+    if (Number.isFinite(entryId)) {
+      playersByEntryId.set(entryId, groupPlayer)
+    }
+  }
+
+  return playersByEntryId
+})
+
+const groupPlayerForRow = (row) =>
+  groupPlayerByEntryId.value.get(Number(row?.competitionEntryId)) ?? null
+
+const managementGroupPlayers = computed(() => {
+  if (standingRows.value.length === 0) {
+    return groupPlayers.value
+  }
+
+  const listedIds = new Set(
+    standingRows.value
+      .map((row) => Number(row.competitionEntryId))
+      .filter((entryId) => Number.isFinite(entryId)),
+  )
+
+  return groupPlayers.value.filter(
+    (groupPlayer) => !listedIds.has(Number(groupPlayer?.competition_entry_id)),
+  )
+})
 
 const isPlayerActive = (groupPlayer) => (groupPlayer?.status ?? 'active') === 'active'
 
@@ -215,79 +232,13 @@ const loadCompetition = async () => {
   }
 }
 
-const displayedGroupPlayers = computed(() => {
-  if (standings.value.length === 0) {
-    return groupPlayers.value.map((groupPlayer) => ({
-      groupPlayer,
-      position: null,
-      qualification: null,
-    }))
+const groupPlayerNickname = (groupPlayer) => {
+  if (isMultiMember.value || !groupPlayer?.player?.nickname) {
+    return ''
   }
 
-  const displayed = standings.value
-    .map((standing, index) => {
-      const groupPlayer = groupPlayers.value.find(
-        (currentGroupPlayer) =>
-          currentGroupPlayer.competition_entry_id === standing.competition_entry_id,
-      )
-
-      if (!groupPlayer) {
-        return null
-      }
-
-      const position = index + 1
-
-      return {
-        groupPlayer,
-        position,
-        qualification: buildQualification(standing, position),
-      }
-    })
-    .filter(Boolean)
-
-  const displayedEntryIds = new Set(
-    displayed.map((entry) => entry.groupPlayer.competition_entry_id).filter(Boolean),
-  )
-
-  for (const groupPlayer of groupPlayers.value) {
-    if (!displayedEntryIds.has(groupPlayer.competition_entry_id)) {
-      displayed.push({
-        groupPlayer,
-        position: null,
-        qualification: null,
-      })
-    }
-  }
-
-  return displayed
-})
-
-const positionBadgeClasses = (position) => {
-  if (position === 1) {
-    return 'bg-amber-100 text-amber-900 ring-1 ring-amber-200 dark:bg-amber-900/50 dark:text-amber-200 dark:ring-amber-800'
-  }
-
-  if (position === 2) {
-    return 'bg-slate-200 text-slate-800 ring-1 ring-slate-300 dark:bg-slate-600 dark:text-slate-100 dark:ring-slate-500'
-  }
-
-  if (position === 3) {
-    return 'bg-orange-100 text-orange-900 ring-1 ring-orange-200 dark:bg-orange-900/50 dark:text-orange-200 dark:ring-orange-800'
-  }
-
-  return 'bg-slate-100 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700'
+  return groupPlayer.player.nickname
 }
-
-const playerCardClasses = (entry) =>
-  getQualificationCardClasses(entry.qualification?.kind, {
-    isInactive: !isPlayerActive(entry.groupPlayer),
-  })
-
-const qualificationBadgeClasses = (qualification) => getQualificationBadgeClasses(qualification?.kind)
-
-const qualificationLabel = (qualification) => getQualificationLabel(qualification?.kind)
-
-const qualificationIcon = (qualification) => getQualificationIcon(qualification?.kind)
 
 const groupPlayersAccordionSummaryClasses =
   'flex cursor-pointer list-none items-center gap-3 rounded-md p-4 text-sm transition hover:bg-slate-50 dark:hover:bg-slate-800/50 [&::-webkit-details-marker]:hidden'
@@ -298,7 +249,7 @@ const groupPlayersAccordionIconContainerClasses =
 const groupPlayersAccordionIconClasses =
   'h-5 w-5 text-slate-600 dark:text-slate-300'
 
-const groupPlayersCount = computed(() => displayedGroupPlayers.value.length)
+const groupPlayersCount = computed(() => groupPlayers.value.length)
 
 const participantsSummaryLabel = computed(() => {
   const label = participantPlural(competition.value)
@@ -1321,100 +1272,137 @@ onMounted(async () => {
               </button>
             </div>
 
-        <div v-else class="space-y-1.5">
-          <article
-            v-for="entry in displayedGroupPlayers"
-            :key="entry.groupPlayer.id"
-            class="rounded border px-3 py-2"
-            :class="playerCardClasses(entry)"
+        <div v-else class="space-y-3">
+          <GroupStandingsTable
+            v-if="standingRows.length > 0"
+            :rows="standingRows"
+            :is-team="isTeam"
           >
-            <div class="flex items-start gap-x-2 gap-y-1">
-            <div class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-              <span
-                v-if="entry.position"
-                class="inline-flex min-w-[2.5rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold"
-                :class="positionBadgeClasses(entry.position)"
+            <template #after-name="{ row }">
+              <p
+                v-if="groupPlayerNickname(groupPlayerForRow(row))"
+                class="mt-0.5 text-xs font-normal text-slate-500 dark:text-slate-400"
               >
-                {{ entry.position }}°
-              </span>
-
-              <p class="font-medium text-slate-900 dark:text-slate-100">
-                {{ groupEntryDisplayName(entry.groupPlayer) }}
+                {{ groupPlayerNickname(groupPlayerForRow(row)) }}
               </p>
-
-              <span
-                v-if="playerStatusLabel(entry.groupPlayer)"
-                class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
-                :class="playerStatusBadgeClasses(entry.groupPlayer.status)"
+              <p
+                v-if="groupPlayerForRow(row)?.status_notes"
+                class="mt-0.5 text-xs font-normal text-slate-500 dark:text-slate-400"
               >
-                {{ playerStatusLabel(entry.groupPlayer) }}
-              </span>
+                Notas: {{ groupPlayerForRow(row).status_notes }}
+              </p>
+            </template>
 
-              <span
-                v-if="entry.qualification"
-                class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-                :class="qualificationBadgeClasses(entry.qualification)"
-              >
-                <span v-if="qualificationIcon(entry.qualification)" aria-hidden="true">
-                  {{ qualificationIcon(entry.qualification) }}
-                </span>
-                {{ qualificationLabel(entry.qualification) }}
-              </span>
-            </div>
-
-            <div
-              v-if="(canChangePlayerStatus(entry.groupPlayer) && canManageGroups) || canEditGroupComposition"
-              class="ml-auto flex shrink-0 items-center gap-1"
-            >
+            <template v-if="canManageGroups || canEditGroupComposition" #actions="{ row }">
               <button
-                v-if="canChangePlayerStatus(entry.groupPlayer) && canManageGroups"
+                v-if="groupPlayerForRow(row) && canChangePlayerStatus(groupPlayerForRow(row)) && canManageGroups"
                 type="button"
                 class="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-                @click="openPlayerStatusModal(entry.groupPlayer)"
+                @click="openPlayerStatusModal(groupPlayerForRow(row))"
               >
                 Retirar / descalificar
               </button>
 
               <GroupEntryActionsMenu
-                v-if="canEditGroupComposition"
-                :open="Number(openEntryActionsId) === Number(entry.groupPlayer.competition_entry_id)"
-                :can-edit="isGroupEntryEditable(entry.groupPlayer)"
+                v-if="groupPlayerForRow(row) && canEditGroupComposition"
+                :open="Number(openEntryActionsId) === Number(groupPlayerForRow(row).competition_entry_id)"
+                :can-edit="isGroupEntryEditable(groupPlayerForRow(row))"
                 :has-move-targets="hasMoveTargets"
-                :lock-message="entryActionsDisabledMessage(entry.groupPlayer)"
+                :lock-message="entryActionsDisabledMessage(groupPlayerForRow(row))"
                 :move-label="moveGroupEntryLabel"
                 :remove-label="removeGroupEntryLabel"
-                :menu-label="entryActionsMenuLabel(entry.groupPlayer)"
-                @toggle="toggleEntryActionsMenu(entry.groupPlayer)"
+                :menu-label="entryActionsMenuLabel(groupPlayerForRow(row))"
+                @toggle="toggleEntryActionsMenu(groupPlayerForRow(row))"
                 @close="closeEntryActionsMenu"
-                @move="openMoveEntryModal(entry.groupPlayer)"
-                @remove="openRemoveEntryModal(entry.groupPlayer)"
+                @move="openMoveEntryModal(groupPlayerForRow(row))"
+                @remove="openRemoveEntryModal(groupPlayerForRow(row))"
               />
-            </div>
-            </div>
+            </template>
+          </GroupStandingsTable>
 
+          <div v-if="managementGroupPlayers.length > 0" class="space-y-1.5">
             <p
-              v-if="isMultiMember && entry.groupPlayer.members?.length"
-              class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
+              v-if="standingRows.length > 0"
+              class="text-xs text-slate-500 dark:text-slate-400"
             >
-              {{
-                entry.groupPlayer.members
-                  .map((member) => `${member.first_name} ${member.last_name}`.trim())
-                  .join(' · ')
-              }}
+              Participaciones que todavía no figuran en la tabla.
             </p>
-            <p
-              v-else-if="entry.groupPlayer.player?.nickname"
-              class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
+
+            <article
+              v-for="groupPlayer in managementGroupPlayers"
+              :key="groupPlayer.id"
+              class="rounded border border-slate-200 px-3 py-2 dark:border-slate-700"
+              :class="!isPlayerActive(groupPlayer) ? 'bg-slate-50/60 opacity-80 dark:bg-slate-800/40' : ''"
             >
-              {{ entry.groupPlayer.player.nickname }}
-            </p>
-            <p
-              v-if="entry.groupPlayer.status_notes"
-              class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
-            >
-              Notas: {{ entry.groupPlayer.status_notes }}
-            </p>
-          </article>
+              <div class="flex items-start gap-x-2 gap-y-1">
+                <div class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+                  <p class="font-medium text-slate-900 dark:text-slate-100">
+                    {{ groupEntryDisplayName(groupPlayer) }}
+                  </p>
+
+                  <span
+                    v-if="playerStatusLabel(groupPlayer)"
+                    class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
+                    :class="playerStatusBadgeClasses(groupPlayer.status)"
+                  >
+                    {{ playerStatusLabel(groupPlayer) }}
+                  </span>
+                </div>
+
+                <div
+                  v-if="(canChangePlayerStatus(groupPlayer) && canManageGroups) || canEditGroupComposition"
+                  class="ml-auto flex shrink-0 items-center gap-1"
+                >
+                  <button
+                    v-if="canChangePlayerStatus(groupPlayer) && canManageGroups"
+                    type="button"
+                    class="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                    @click="openPlayerStatusModal(groupPlayer)"
+                  >
+                    Retirar / descalificar
+                  </button>
+
+                  <GroupEntryActionsMenu
+                    v-if="canEditGroupComposition"
+                    :open="Number(openEntryActionsId) === Number(groupPlayer.competition_entry_id)"
+                    :can-edit="isGroupEntryEditable(groupPlayer)"
+                    :has-move-targets="hasMoveTargets"
+                    :lock-message="entryActionsDisabledMessage(groupPlayer)"
+                    :move-label="moveGroupEntryLabel"
+                    :remove-label="removeGroupEntryLabel"
+                    :menu-label="entryActionsMenuLabel(groupPlayer)"
+                    @toggle="toggleEntryActionsMenu(groupPlayer)"
+                    @close="closeEntryActionsMenu"
+                    @move="openMoveEntryModal(groupPlayer)"
+                    @remove="openRemoveEntryModal(groupPlayer)"
+                  />
+                </div>
+              </div>
+
+              <p
+                v-if="isMultiMember && groupPlayer.members?.length"
+                class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
+              >
+                {{
+                  groupPlayer.members
+                    .map((member) => `${member.first_name} ${member.last_name}`.trim())
+                    .join(' · ')
+                }}
+              </p>
+              <p
+                v-else-if="groupPlayerNickname(groupPlayer)"
+                class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
+              >
+                {{ groupPlayerNickname(groupPlayer) }}
+              </p>
+              <p
+                v-if="groupPlayer.status_notes"
+                class="mt-0.5 text-xs text-slate-500 dark:text-slate-400"
+              >
+                Notas: {{ groupPlayer.status_notes }}
+              </p>
+            </article>
+          </div>
         </div>
       </div>
     </details>

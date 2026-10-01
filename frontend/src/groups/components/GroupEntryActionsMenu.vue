@@ -36,6 +36,7 @@ const props = defineProps({
 const emit = defineEmits(['toggle', 'close', 'move', 'remove'])
 
 const rootEl = ref(null)
+const menuStyle = ref({})
 
 const canMove = computed(() => props.canEdit && props.hasMoveTargets)
 
@@ -63,21 +64,59 @@ const handleDocumentClick = (event) => {
   emit('close')
 }
 
+const placeMenu = () => {
+  const button = rootEl.value?.querySelector('button')
+
+  if (!button) {
+    return
+  }
+
+  const rect = button.getBoundingClientRect()
+  const menuWidth = 256
+  const menuHeight = 148
+  const padding = 8
+  const left = Math.max(
+    padding,
+    Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - padding),
+  )
+  const openUp = window.innerHeight - rect.bottom < menuHeight && rect.top > menuHeight
+  const top = openUp ? rect.top - menuHeight - 4 : rect.bottom + 4
+
+  menuStyle.value = {
+    position: 'fixed',
+    top: `${top}px`,
+    left: `${left}px`,
+    width: `${menuWidth}px`,
+    zIndex: '30',
+  }
+}
+
+const startMenuListeners = () => {
+  document.addEventListener('click', handleDocumentClick)
+  window.addEventListener('scroll', placeMenu, true)
+  window.addEventListener('resize', placeMenu)
+  placeMenu()
+}
+
+const stopMenuListeners = () => {
+  document.removeEventListener('click', handleDocumentClick)
+  window.removeEventListener('scroll', placeMenu, true)
+  window.removeEventListener('resize', placeMenu)
+}
+
 watch(
   () => props.open,
   (isOpen) => {
     if (isOpen) {
-      document.addEventListener('click', handleDocumentClick)
+      startMenuListeners()
       return
     }
 
-    document.removeEventListener('click', handleDocumentClick)
+    stopMenuListeners()
   },
 )
 
-onBeforeUnmount(() => {
-  document.removeEventListener('click', handleDocumentClick)
-})
+onBeforeUnmount(stopMenuListeners)
 
 const handleMove = () => {
   if (!canMove.value) {
@@ -111,7 +150,8 @@ const handleRemove = () => {
 
     <div
       v-if="open"
-      class="absolute right-0 z-20 mt-1 w-64 rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+      class="rounded-md border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+      :style="menuStyle"
       role="menu"
     >
       <button
