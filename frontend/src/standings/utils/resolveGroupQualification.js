@@ -2,10 +2,13 @@ export const QUALIFICATION_LABELS = {
   qualified: 'Clasifica',
   eliminated: 'Eliminado',
   not_eligible: 'No clasifica',
-  provisional_qualified: 'Clasifica provisoriamente',
-  provisional_eliminated: 'Fuera provisoriamente',
-  tiebreak_pending: 'Desempate pendiente',
+  provisional_qualified: 'Clasifica',
+  provisional_eliminated: 'Fuera',
+  tiebreak_pending: 'Desempate',
 }
+
+export const qualificationBadgeLayoutClasses =
+  'inline-flex items-center gap-1 whitespace-nowrap rounded px-1.5 py-px text-[11px] font-semibold uppercase tracking-wide'
 
 export function manualTieCrossesQualifierCutoff(standings, manualTiebreakGroups, qualifierCutoff) {
   if (qualifierCutoff <= 0) {
@@ -80,17 +83,17 @@ export function getQualificationLabel(kind) {
 export function getQualificationBadgeClasses(kind) {
   switch (kind) {
     case 'qualified':
-      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200'
+      return 'bg-emerald-600 text-white dark:bg-emerald-500 dark:text-emerald-950'
     case 'eliminated':
-      return 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200'
+      return 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-200'
     case 'not_eligible':
-      return 'bg-slate-100 text-slate-600 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-600'
+      return 'text-slate-500 ring-1 ring-slate-300 dark:text-slate-400 dark:ring-slate-600'
     case 'provisional_qualified':
-      return 'bg-slate-100 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-600'
+      return 'text-emerald-800 ring-1 ring-emerald-300 dark:text-emerald-200 dark:ring-emerald-700'
     case 'provisional_eliminated':
-      return 'bg-slate-50 text-slate-500 ring-1 ring-slate-200 dark:bg-slate-900/60 dark:text-slate-400 dark:ring-slate-700'
+      return 'text-slate-500 ring-1 ring-slate-300 dark:text-slate-400 dark:ring-slate-600'
     case 'tiebreak_pending':
-      return 'bg-amber-100 text-amber-900 ring-1 ring-amber-200 dark:bg-amber-900/50 dark:text-amber-200 dark:ring-amber-800'
+      return 'bg-amber-400 text-amber-950 dark:bg-amber-500 dark:text-amber-950'
     default:
       return ''
   }

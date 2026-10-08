@@ -4,6 +4,7 @@ import { describe, it } from 'node:test'
 import {
   countGroupParticipants,
   formatGroupScheduleProgress,
+  groupPhasePrimaryAction,
 } from './groupPhaseListColumns.js'
 
 describe('countGroupParticipants', () => {
@@ -48,5 +49,46 @@ describe('formatGroupScheduleProgress', () => {
   it('no inventa un marcador si el meta no llegó', () => {
     assert.equal(formatGroupScheduleProgress(undefined), null)
     assert.equal(formatGroupScheduleProgress({}), null)
+  })
+})
+
+describe('groupPhasePrimaryAction', () => {
+  it('prioriza el desempate', () => {
+    assert.deepEqual(
+      groupPhasePrimaryAction({ hasPendingManualTiebreak: true, pendingGamesCount: 2 }),
+      { label: 'Resolver empate', intent: 'standings' },
+    )
+    assert.deepEqual(
+      groupPhasePrimaryAction({ hasStaleManualTiebreaks: true }),
+      { label: 'Resolver empate', intent: 'standings' },
+    )
+  })
+
+  it('manda a los partidos si todavía hay pendientes', () => {
+    assert.deepEqual(
+      groupPhasePrimaryAction({ pendingGamesCount: 3, primaryLabel: 'Partidos pendientes' }),
+      { label: 'Ver partidos', intent: 'group' },
+    )
+    assert.deepEqual(
+      groupPhasePrimaryAction({
+        pendingGamesCount: 1,
+        primaryLabel: 'Enfrentamientos pendientes',
+      }),
+      { label: 'Ver enfrentamientos', intent: 'group' },
+    )
+  })
+
+  it('abre posiciones cuando el grupo ya está listo', () => {
+    assert.deepEqual(groupPhasePrimaryAction({ isReady: true, pendingGamesCount: 0 }), {
+      label: 'Ver posiciones',
+      intent: 'positions',
+    })
+  })
+
+  it('abre el grupo si no hay una acción más concreta', () => {
+    assert.deepEqual(groupPhasePrimaryAction({ primaryLabel: 'Sin posiciones' }), {
+      label: 'Abrir grupo',
+      intent: 'group',
+    })
   })
 })

@@ -17,6 +17,7 @@ import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import AppTooltip from '../../components/AppTooltip.vue'
 import { usePermissions } from '../../composables/usePermissions'
+import { useTransientMessage } from '../../composables/useTransientMessage'
 import BracketService from '../../brackets/services/BracketService'
 import { getBracketMatches } from '../../brackets/utils/bracketMatchAdapter'
 import GameService from '../../games/services/GameService'
@@ -38,6 +39,7 @@ import { buildGroupPhaseAlert, summarizeGroupPhaseBracketGate } from '../utils/b
 import {
   countGroupParticipants,
   formatGroupScheduleProgress,
+  groupPhasePrimaryAction,
 } from '../utils/groupPhaseListColumns'
 import { sortCompetitionGroupsByName } from '../../groups/utils/groupResultNavigation'
 import {
@@ -85,7 +87,7 @@ const groupStandingsMetaByGroupId = ref({})
 
 const isLoading = ref(false)
 const errorMessage = ref('')
-const randomGroupsSuccessMessage = ref('')
+const randomGroupsNotice = useTransientMessage()
 const showGenerateRandomGroupsModal = ref(false)
 const showRegenerateRandomGroupsModal = ref(false)
 const showCreateGroupModal = ref(false)
@@ -366,8 +368,23 @@ const closeGroupStandingsModal = () => {
 const groupScheduleProgress = (group) =>
   formatGroupScheduleProgress(groupStandingsMetaByGroupId.value[group?.id]) ?? '—'
 
+const groupStandingsRoute = (group) => ({
+  name: 'groups-standings',
+  params: { id: String(group.id) },
+  query: {
+    competitionId: String(competitionId.value),
+    groupName: group.name,
+  },
+})
+
 const groupRowActionClasses =
   'inline-flex rounded-md border border-slate-300 p-1.5 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800'
+
+const groupRowPrimaryActionClasses =
+  'inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-800 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-100 dark:hover:bg-slate-800'
+
+const groupPhaseToolbarButtonClasses =
+  'inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800'
 
 const groupPhaseBracketGate = computed(() =>
   summarizeGroupPhaseBracketGate(groupPhaseSummaries.value),
@@ -430,6 +447,10 @@ const pendingGroupGamesCount = computed(() =>
 )
 
 const compactGroupStatus = (summary) => {
+  if (summary.isReady) {
+    return 'Posiciones definidas'
+  }
+
   if (summary.pendingGamesCount > 0) {
     const count = summary.pendingGamesCount
     const unit = String(summary.primaryLabel ?? '').includes('Enfrentamiento')
@@ -765,7 +786,11 @@ const groupsCollapsedSummary = computed(() => {
   const parts = [`${total} grupo${total === 1 ? '' : 's'}`]
 
   if (typeof gameCount.value === 'number' && typeof finishedGameCount.value === 'number' && gameCount.value > 0) {
-    parts.push(`${finishedGameCount.value} de ${gameCount.value} finalizados`)
+    const unit = isTeam.value ? 'enfrentamiento' : 'partido'
+    const units = gameCount.value === 1 ? unit : `${unit}s`
+    const finishedLabel = finishedGameCount.value === 1 ? 'finalizado' : 'finalizados'
+
+    parts.push(`${finishedGameCount.value} de ${gameCount.value} ${units} ${finishedLabel}`)
   }
 
   return parts.join(' · ')
@@ -896,23 +921,23 @@ onMounted(loadCompetitionSummary)
 
 const handleRandomGroupsSaved = async (result) => {
   showGenerateRandomGroupsModal.value = false
-  randomGroupsSuccessMessage.value = buildRandomGroupsSuccessMessage(result)
   await loadCompetitionSummary()
+  randomGroupsNotice.show(buildRandomGroupsSuccessMessage(result))
 }
 
 const openGenerateRandomGroupsModal = () => {
-  randomGroupsSuccessMessage.value = ''
+  randomGroupsNotice.clear()
   showGenerateRandomGroupsModal.value = true
 }
 
 const handleRegenerateRandomGroupsSaved = async (result) => {
   showRegenerateRandomGroupsModal.value = false
-  randomGroupsSuccessMessage.value = buildRegenerateRandomGroupsSuccessMessage(result)
   await loadCompetitionSummary()
+  randomGroupsNotice.show(buildRegenerateRandomGroupsSuccessMessage(result))
 }
 
 const openRegenerateRandomGroupsModal = () => {
-  randomGroupsSuccessMessage.value = ''
+  randomGroupsNotice.clear()
   showRegenerateRandomGroupsModal.value = true
 }
 
@@ -1080,51 +1105,39 @@ const handleEditCompetitionSaved = async () => {
         v-if="hasGroupStage"
         :class="sectionCardClasses"
       >
-        <div class="flex items-start gap-2 p-2 pr-3 sm:p-0">
-          <button
-            type="button"
-            :class="[groupPhaseAccordionSummaryClasses, 'min-w-0 flex-1']"
-            :aria-expanded="openSections.groups"
-            @click="toggleSection('groups')"
-          >
-            <span :class="groupPhaseAccordionIconContainerClasses">
-              <Squares2X2Icon :class="groupPhaseAccordionIconClasses" />
+        <button
+          type="button"
+          :class="[groupPhaseAccordionSummaryClasses, 'w-full']"
+          :aria-expanded="openSections.groups"
+          @click="toggleSection('groups')"
+        >
+          <span :class="groupPhaseAccordionIconContainerClasses">
+            <Squares2X2Icon :class="groupPhaseAccordionIconClasses" />
+          </span>
+
+          <span class="min-w-0 flex-1 text-left">
+            <span class="block font-medium text-slate-900 dark:text-slate-100">Fase de grupos</span>
+            <span class="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
+              {{ groupsCollapsedSummary }}
             </span>
+          </span>
 
-            <span class="min-w-0 flex-1 text-left">
-              <span class="block font-medium text-slate-900 dark:text-slate-100">Fase de grupos</span>
-              <span class="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
-                {{ groupsCollapsedSummary }}
-              </span>
-            </span>
-
-            <ChevronDownIcon
-              class="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200"
-              :class="openSections.groups ? 'rotate-180' : ''"
-              aria-hidden="true"
-            />
-          </button>
-
-          <button
-            v-if="canCreateGroup"
-            type="button"
-            class="mt-3 inline-flex shrink-0 items-center gap-1 rounded-md border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-            @click="openCreateGroupModal"
-          >
-            <PlusIcon class="h-4 w-4" aria-hidden="true" />
-            Crear grupo
-          </button>
-        </div>
+          <ChevronDownIcon
+            class="h-5 w-5 shrink-0 text-slate-400 transition-transform duration-200"
+            :class="openSections.groups ? 'rotate-180' : ''"
+            aria-hidden="true"
+          />
+        </button>
 
         <div
           v-show="openSections.groups"
           class="space-y-3 border-t border-slate-200 px-4 pb-4 pt-3 dark:border-slate-700"
         >
           <p
-            v-if="randomGroupsSuccessMessage"
+            v-if="randomGroupsNotice.message"
             class="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"
           >
-            {{ randomGroupsSuccessMessage }}
+            {{ randomGroupsNotice.message }}
           </p>
 
           <p
@@ -1134,41 +1147,62 @@ const handleEditCompetitionSaved = async () => {
             {{ groupCompositionLockedMessage }}
           </p>
 
-          <div v-if="groupStructureAction" class="space-y-2">
+          <div
+            v-if="groupStructureAction?.type === 'modal' || canCreateGroup || canPrintAllGroups || canRegenerateRandomGroups"
+            class="flex flex-wrap items-center gap-2"
+          >
             <button
-              v-if="groupStructureAction.type === 'modal'"
+              v-if="groupStructureAction?.type === 'modal'"
               type="button"
-              class="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+              class="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
               @click="openGenerateRandomGroupsModal"
             >
-              <Squares2X2Icon class="h-4 w-4" />
+              <Squares2X2Icon class="h-4 w-4" aria-hidden="true" />
               {{ groupStructureAction.label }}
             </button>
 
-            <p
-              v-else
-              class="rounded-md border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-600 dark:border-slate-600 dark:text-slate-400"
-            >
-              {{ groupStructureAction.description }}
-            </p>
-
-            <p
-              v-if="groupStructureAction.type === 'modal'"
-              class="text-xs text-slate-500 dark:text-slate-400"
-            >
-              {{ groupStructureAction.description }}
-            </p>
-          </div>
-
-          <div v-if="canRegenerateRandomGroups">
             <button
+              v-if="canCreateGroup"
               type="button"
-              class="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-950/50"
+              :class="groupPhaseToolbarButtonClasses"
+              @click="openCreateGroupModal"
+            >
+              <PlusIcon class="h-4 w-4" aria-hidden="true" />
+              Crear grupo
+            </button>
+
+            <RouterLink
+              v-if="canPrintAllGroups"
+              :to="printAllGroupsRoute"
+              :class="groupPhaseToolbarButtonClasses"
+            >
+              <PrinterIcon class="h-4 w-4" aria-hidden="true" />
+              Imprimir grupos
+            </RouterLink>
+
+            <button
+              v-if="canRegenerateRandomGroups"
+              type="button"
+              class="inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100 dark:hover:bg-amber-950/50"
               @click="openRegenerateRandomGroupsModal"
             >
               Regenerar grupos y partidos
             </button>
           </div>
+
+          <p
+            v-if="groupStructureAction?.type === 'modal'"
+            class="text-xs text-slate-500 dark:text-slate-400"
+          >
+            {{ groupStructureAction.description }}
+          </p>
+
+          <p
+            v-else-if="groupStructureAction"
+            class="rounded-md border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-600 dark:border-slate-600 dark:text-slate-400"
+          >
+            {{ groupStructureAction.description }}
+          </p>
 
           <p
             v-if="!hasExistingGroups && groups !== null"
@@ -1177,91 +1211,126 @@ const handleEditCompetitionSaved = async () => {
             Todavía no hay grupos generados para esta competencia.
           </p>
 
-          <template v-if="hasExistingGroups">
-            <RouterLink
-              v-if="canPrintAllGroups"
-              :to="printAllGroupsRoute"
-              class="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-            >
-              <PrinterIcon class="h-4 w-4" />
-              Imprimir todos los grupos
-            </RouterLink>
-
-            <div class="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700">
-              <table class="min-w-full text-sm">
-                <thead class="bg-slate-50 text-slate-700 dark:bg-slate-800/80 dark:text-slate-200">
-                  <tr>
-                    <th class="px-3 py-2 text-left font-medium">Grupo</th>
-                    <th class="px-3 py-2 text-left font-medium">Participantes</th>
-                    <th class="px-3 py-2 text-left font-medium">
-                      {{ isTeam ? 'Enfrentamientos' : 'Partidos' }}
-                    </th>
-                    <th class="px-3 py-2 text-left font-medium">Estado</th>
-                    <th class="px-3 py-2 text-right font-medium">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr
-                    v-for="summary in groupPhaseSummaries"
-                    :key="summary.group.id"
-                    class="border-t border-slate-200 dark:border-slate-700"
-                  >
-                    <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
+          <div
+            v-if="hasExistingGroups"
+            class="overflow-x-auto rounded-md border border-slate-200 dark:border-slate-700"
+          >
+            <table class="min-w-full text-sm">
+              <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800/80 dark:text-slate-400">
+                <tr>
+                  <th class="px-3 py-2 text-left font-medium">Grupo</th>
+                  <th class="hidden px-3 py-2 text-left font-medium sm:table-cell">Participantes</th>
+                  <th class="hidden px-3 py-2 text-left font-medium sm:table-cell">
+                    {{ isTeam ? 'Enfrentamientos' : 'Partidos' }}
+                  </th>
+                  <th class="px-3 py-2 text-left font-medium">Estado</th>
+                  <th class="px-3 py-2 text-right font-medium">
+                    <span class="sr-only">Acciones</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="summary in groupPhaseSummaries"
+                  :key="summary.group.id"
+                  class="border-t border-slate-200 dark:border-slate-700"
+                >
+                  <td class="px-3 py-2">
+                    <p class="font-semibold text-slate-900 dark:text-slate-100">
                       {{ summary.group.name }}
-                    </td>
-                    <td class="whitespace-nowrap px-3 py-2 text-slate-700 dark:text-slate-300">
+                    </p>
+                    <p class="mt-0.5 text-xs tabular-nums text-slate-500 sm:hidden dark:text-slate-400">
                       {{ countGroupParticipants(summary.group) }}
-                    </td>
-                    <td class="whitespace-nowrap px-3 py-2 text-slate-700 dark:text-slate-300">
+                      ·
                       {{ groupScheduleProgress(summary.group) }}
-                    </td>
-                    <td class="px-3 py-2">
-                      <div class="flex flex-wrap items-center gap-1">
-                        <span
-                          class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
-                          :class="groupPhasePrimaryBadgeClasses(summary.primaryType)"
+                    </p>
+                  </td>
+                  <td class="hidden whitespace-nowrap px-3 py-2 tabular-nums text-slate-700 sm:table-cell dark:text-slate-300">
+                    {{ countGroupParticipants(summary.group) }}
+                  </td>
+                  <td class="hidden whitespace-nowrap px-3 py-2 tabular-nums text-slate-700 sm:table-cell dark:text-slate-300">
+                    {{ groupScheduleProgress(summary.group) }}
+                  </td>
+                  <td class="px-3 py-2">
+                    <div class="flex flex-wrap items-center gap-1">
+                      <span
+                        class="inline-flex rounded px-1.5 py-px text-[11px] font-semibold uppercase tracking-wide"
+                        :class="groupPhasePrimaryBadgeClasses(summary.primaryType)"
+                      >
+                        {{ compactGroupStatus(summary) }}
+                      </span>
+                      <span
+                        v-for="(alert, alertIndex) in extraGroupAlerts(summary)"
+                        :key="`${summary.group.id}-alert-${alertIndex}`"
+                        class="inline-flex rounded px-1.5 py-px text-[11px] font-medium"
+                        :class="groupPhaseAlertChipClasses(alert.type)"
+                      >
+                        {{ alert.label }}
+                      </span>
+                    </div>
+                  </td>
+                  <td class="px-2 py-2">
+                    <div class="flex items-center justify-end gap-1.5">
+                      <AppTooltip :label="groupPhasePrimaryAction(summary).label">
+                        <button
+                          v-if="groupPhasePrimaryAction(summary).intent === 'positions'"
+                          type="button"
+                          :class="groupRowPrimaryActionClasses"
+                          :aria-label="groupPhasePrimaryAction(summary).label"
+                          @click="openGroupStandingsModal(summary.group)"
                         >
-                          {{ compactGroupStatus(summary) }}
-                        </span>
-                        <span
-                          v-for="(alert, alertIndex) in extraGroupAlerts(summary)"
-                          :key="`${summary.group.id}-alert-${alertIndex}`"
-                          class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
-                          :class="groupPhaseAlertChipClasses(alert.type)"
+                          <ChartBarIcon class="h-4 w-4" aria-hidden="true" />
+                          <span class="hidden md:inline">{{ groupPhasePrimaryAction(summary).label }}</span>
+                        </button>
+                        <RouterLink
+                          v-else
+                          :to="
+                            groupPhasePrimaryAction(summary).intent === 'standings'
+                              ? groupStandingsRoute(summary.group)
+                              : groupDetailRoute(summary.group)
+                          "
+                          :class="groupRowPrimaryActionClasses"
+                          :aria-label="groupPhasePrimaryAction(summary).label"
                         >
-                          {{ alert.label }}
-                        </span>
-                      </div>
-                    </td>
-                    <td class="px-3 py-2">
-                      <div class="flex items-center justify-end gap-1.5">
-                        <AppTooltip label="Abrir grupo">
-                          <RouterLink
-                            :to="groupDetailRoute(summary.group)"
-                            :class="groupRowActionClasses"
-                            aria-label="Abrir grupo"
-                          >
-                            <EyeIcon class="h-4 w-4" aria-hidden="true" />
-                          </RouterLink>
-                        </AppTooltip>
+                          <ChartBarIcon
+                            v-if="groupPhasePrimaryAction(summary).intent === 'standings'"
+                            class="h-4 w-4"
+                            aria-hidden="true"
+                          />
+                          <EyeIcon v-else class="h-4 w-4" aria-hidden="true" />
+                          <span class="hidden md:inline">{{ groupPhasePrimaryAction(summary).label }}</span>
+                        </RouterLink>
+                      </AppTooltip>
 
-                        <AppTooltip label="Ver posiciones">
-                          <button
-                            type="button"
-                            :class="groupRowActionClasses"
-                            aria-label="Ver posiciones"
-                            @click="openGroupStandingsModal(summary.group)"
-                          >
-                            <ChartBarIcon class="h-4 w-4" aria-hidden="true" />
-                          </button>
-                        </AppTooltip>
-                      </div>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </template>
+                      <AppTooltip
+                        v-if="groupPhasePrimaryAction(summary).intent === 'group'"
+                        label="Ver posiciones"
+                      >
+                        <button
+                          type="button"
+                          :class="groupRowActionClasses"
+                          aria-label="Ver posiciones"
+                          @click="openGroupStandingsModal(summary.group)"
+                        >
+                          <ChartBarIcon class="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      </AppTooltip>
+
+                      <AppTooltip v-else label="Abrir grupo">
+                        <RouterLink
+                          :to="groupDetailRoute(summary.group)"
+                          :class="groupRowActionClasses"
+                          aria-label="Abrir grupo"
+                        >
+                          <EyeIcon class="h-4 w-4" aria-hidden="true" />
+                        </RouterLink>
+                      </AppTooltip>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -1294,8 +1363,9 @@ const handleEditCompetitionSaved = async () => {
           <RouterLink
             v-if="bracketHeaderAction"
             :to="bracketHeaderAction.to"
-            class="mt-3 inline-flex shrink-0 rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+            class="mt-3 inline-flex shrink-0 items-center gap-1.5 rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
           >
+            <TrophyIcon class="h-4 w-4" aria-hidden="true" />
             {{ bracketHeaderAction.label }}
           </RouterLink>
         </div>

@@ -1,5 +1,8 @@
 <script setup>
+import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
+
+import AppTooltip from '../../components/AppTooltip.vue'
 
 import { getManualTiebreakReasons } from '../constants/manualTiebreakReasons'
 import StandingService from '../services/StandingService'
@@ -126,22 +129,28 @@ const handleSubmit = async () => {
         </span>
 
         <div class="flex items-center gap-1">
-          <button
-            type="button"
-            class="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-            :disabled="disabled || isSaving || index === 0"
-            @click="moveEntry(index, -1)"
-          >
-            ↑
-          </button>
-          <button
-            type="button"
-            class="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
-            :disabled="disabled || isSaving || index === entryIds.length - 1"
-            @click="moveEntry(index, 1)"
-          >
-            ↓
-          </button>
+          <AppTooltip label="Subir">
+            <button
+              type="button"
+              class="inline-flex rounded-md border border-slate-300 p-1.5 text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+              aria-label="Subir"
+              :disabled="disabled || isSaving || index === 0"
+              @click="moveEntry(index, -1)"
+            >
+              <ChevronUpIcon class="h-4 w-4" aria-hidden="true" />
+            </button>
+          </AppTooltip>
+          <AppTooltip label="Bajar">
+            <button
+              type="button"
+              class="inline-flex rounded-md border border-slate-300 p-1.5 text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+              aria-label="Bajar"
+              :disabled="disabled || isSaving || index === entryIds.length - 1"
+              @click="moveEntry(index, 1)"
+            >
+              <ChevronDownIcon class="h-4 w-4" aria-hidden="true" />
+            </button>
+          </AppTooltip>
         </div>
       </li>
     </ul>

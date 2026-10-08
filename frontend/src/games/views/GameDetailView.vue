@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import { usePermissions } from '../../composables/usePermissions'
+import { useTransientMessage } from '../../composables/useTransientMessage'
 import GameService from '../services/GameService'
 import { getGameStatusLabel } from '../../shared/constants/gameStatus'
 import { extractApiErrorMessage } from '../../shared/utils/extractApiErrorMessage'
@@ -34,11 +35,11 @@ const game = ref(null)
 const isLoading = ref(false)
 const errorMessage = ref('')
 const showCorrectionModal = ref(false)
-const correctionSuccessMessage = ref('')
+const correctionNotice = useTransientMessage()
 
 const isSavingSet = ref(false)
 const setError = ref('')
-const setSuccessMessage = ref('')
+const setNotice = useTransientMessage()
 const form = reactive({
   player1_score: '',
   player2_score: '',
@@ -148,7 +149,7 @@ const handleRecordSet = async () => {
 
   isSavingSet.value = true
   setError.value = ''
-  setSuccessMessage.value = ''
+  setNotice.clear()
 
   try {
     await GameService.recordSet(gameId.value, {
@@ -157,10 +158,10 @@ const handleRecordSet = async () => {
       player2_score: Number(form.player2_score),
     })
 
-    setSuccessMessage.value = 'Set registrado correctamente.'
     form.player1_score = ''
     form.player2_score = ''
     await loadGame()
+    setNotice.show('Set registrado correctamente.')
   } catch (error) {
     setError.value = extractApiErrorMessage(error, FORBIDDEN_MESSAGE)
   } finally {
@@ -169,14 +170,14 @@ const handleRecordSet = async () => {
 }
 
 const openCorrectionModal = () => {
-  correctionSuccessMessage.value = ''
+  correctionNotice.clear()
   showCorrectionModal.value = true
 }
 
 const handleCorrectionSaved = async () => {
   showCorrectionModal.value = false
-  correctionSuccessMessage.value = 'Resultado corregido correctamente.'
   await loadGame()
+  correctionNotice.show('Resultado corregido correctamente.')
 }
 
 onMounted(loadGame)
@@ -201,7 +202,7 @@ onMounted(loadGame)
       </h1>
       <AppBackButton
         :fallback-to="game?.competition_id ? `/competitions/${game.competition_id}/games` : '/'"
-        :label="game?.competition_id ? '← Volver a partidos' : '← Volver'"
+        :label="game?.competition_id ? 'Volver a partidos' : 'Volver'"
       />
     </div>
 
@@ -254,10 +255,10 @@ onMounted(loadGame)
       </div>
 
       <p
-        v-if="correctionSuccessMessage"
+        v-if="correctionNotice.message"
         class="text-sm text-emerald-700 dark:text-emerald-300"
       >
-        {{ correctionSuccessMessage }}
+        {{ correctionNotice.message }}
       </p>
 
       <div
@@ -369,7 +370,7 @@ onMounted(loadGame)
         </div>
 
         <p v-if="setError" class="text-red-600 dark:text-red-400">{{ setError }}</p>
-        <p v-if="setSuccessMessage" class="text-emerald-700 dark:text-emerald-300">{{ setSuccessMessage }}</p>
+        <p v-if="setNotice.message" class="text-emerald-700 dark:text-emerald-300">{{ setNotice.message }}</p>
 
         <button
           type="submit"

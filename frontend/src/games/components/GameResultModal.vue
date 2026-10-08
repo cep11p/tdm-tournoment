@@ -1,5 +1,5 @@
 <script setup>
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/vue/24/outline'
+import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/vue/24/outline'
 import { computed, nextTick, ref, watch } from 'vue'
 
 import GameService from '../services/GameService'
@@ -573,9 +573,10 @@ const handleSave = async () => {
               <button
                 v-if="activeGame"
                 type="submit"
-                class="rounded-md bg-emerald-700 px-3 py-2 font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
+                class="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-700 px-3 py-2 font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70"
                 :disabled="!canSaveResult"
               >
+                <CheckIcon class="h-4 w-4" aria-hidden="true" />
                 {{ isSavingResult ? 'Guardando...' : 'Guardar resultado' }}
               </button>
             </div>

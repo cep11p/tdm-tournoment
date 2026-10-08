@@ -1,5 +1,8 @@
 <script setup>
+import { CheckIcon, MinusIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import { computed, ref, watch } from 'vue'
+
+import AppTooltip from '../../components/AppTooltip.vue'
 
 import GameService from '../services/GameService'
 import { gameMatchupLabel, getGameSideDisplayName } from '../utils/gameDisplay'
@@ -294,11 +297,12 @@ const handleSubmit = async () => {
                 <p class="font-medium text-slate-700 dark:text-slate-200">Nuevo resultado (sets)</p>
                 <button
                   type="button"
-                  class="text-xs font-medium text-emerald-700 hover:text-emerald-600 disabled:opacity-50 dark:text-emerald-300"
+                  class="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:text-emerald-600 disabled:opacity-50 dark:text-emerald-300"
                   :disabled="isSaving || setRows.length >= (activeGame.best_of || 7)"
                   @click="addSetRow"
                 >
-                  + Agregar set
+                  <PlusIcon class="h-4 w-4" aria-hidden="true" />
+                  Agregar set
                 </button>
               </div>
 
@@ -326,14 +330,17 @@ const handleSubmit = async () => {
                   :placeholder="sideDisplayName(activeGame, 2)"
                   class="min-w-0 w-full rounded-md border border-slate-300 px-2 py-1.5 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 disabled:opacity-60"
                 />
-                <button
-                  type="button"
-                  class="text-xs text-red-600 disabled:opacity-40 dark:text-red-400"
-                  :disabled="isSaving || setRows.length <= 1"
-                  @click="removeSetRow(index)"
-                >
-                  Quitar
-                </button>
+                <AppTooltip label="Quitar set">
+                  <button
+                    type="button"
+                    class="inline-flex rounded-md border border-slate-300 p-1.5 text-red-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600 dark:text-red-400 dark:hover:bg-slate-800"
+                    aria-label="Quitar set"
+                    :disabled="isSaving || setRows.length <= 1"
+                    @click="removeSetRow(index)"
+                  >
+                    <MinusIcon class="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </AppTooltip>
                 <p
                   v-if="fieldErrors[`sets.${index}`]"
                   class="col-span-4 text-xs text-red-600 dark:text-red-400"
@@ -392,9 +399,10 @@ const handleSubmit = async () => {
               </button>
               <button
                 type="submit"
-                class="rounded-md bg-amber-700 px-3 py-2 font-medium text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-70"
+                class="inline-flex items-center gap-2 rounded-md bg-amber-700 px-3 py-2 font-medium text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-70"
                 :disabled="isSaving"
               >
+                <CheckIcon class="h-4 w-4" aria-hidden="true" />
                 {{ isSaving ? 'Guardando...' : 'Confirmar corrección' }}
               </button>
             </div>

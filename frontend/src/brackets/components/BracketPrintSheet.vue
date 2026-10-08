@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 
 import { BYE_BADGE_LABEL } from '../constants/bracketLabels'
+import { buildBracketPodium, matchPair } from '../utils/bracketPodium'
 import { formatGroupOriginLabel } from '../utils/formatGroupOriginLabel'
 import {
   formatPrintDisplayName,
@@ -61,6 +62,43 @@ const isPlaceholderSide = (match, sideNumber) =>
   !sidePayload(match, sideNumber)?.display_name && Boolean(sidePlaceholder(match, sideNumber))
 
 const isFinalRound = (round) => round?.label === 'Final'
+
+const printPlace = (match, sideNumber) => ({
+  name: sideText(match, sideNumber) || '—',
+  origin: sideOriginLabel(match, sideNumber),
+})
+
+const printWinnerSide = (match) => {
+  if (isWinnerSide(match, 1)) {
+    return 1
+  }
+
+  if (isWinnerSide(match, 2)) {
+    return 2
+  }
+
+  return null
+}
+
+const podium = computed(() => {
+  const finalMatch = rounds.value.at(-1)?.matches?.[0] ?? null
+  const finalPair = matchPair(
+    printPlace(finalMatch, 1),
+    printPlace(finalMatch, 2),
+    printWinnerSide(finalMatch),
+  ) ?? (champion.value
+    ? {
+        winner: { name: formatPrintDisplayName(champion.value.display_name), origin: null },
+        loser: { name: '—', origin: null },
+      }
+    : null)
+
+  const thirdPair = showPlayoffThirdPlace.value
+    ? matchPair(printPlace(thirdPlace.value, 1), printPlace(thirdPlace.value, 2), printWinnerSide(thirdPlace.value))
+    : null
+
+  return buildBracketPodium(finalPair, thirdPair)
+})
 </script>
 
 <template>
@@ -87,21 +125,13 @@ const isFinalRound = (round) => round?.label === 'Final'
       </dl>
     </header>
 
-    <div class="bracket-tree">
+    <div class="bracket-tree" :class="{ 'bracket-tree--has-champion': champion }">
       <section
         v-for="(round, roundIndex) in rounds"
         :key="`${round.number}-${round.label}`"
         class="bracket-round"
       >
         <h2 class="round-label">{{ round.label }}</h2>
-
-        <div
-          v-if="isFinalRound(round) && champion"
-          class="champion-badge"
-        >
-          <span class="champion-kicker">Campeón</span>
-          <span class="champion-name">{{ formatPrintDisplayName(champion.display_name) }}</span>
-        </div>
 
         <ul class="round-matches">
           <li
@@ -117,6 +147,13 @@ const isFinalRound = (round) => round?.label === 'Final'
                 'match-card--bye': match.is_bye,
               }"
             >
+              <div
+                v-if="isFinalRound(round) && champion"
+                class="champion-badge"
+              >
+                <span class="champion-kicker">Campeón</span>
+                <span class="champion-name">{{ formatPrintDisplayName(champion.display_name) }}</span>
+              </div>
               <template v-if="match.is_bye">
                 <p class="side-row side-row--winner">
                   <span class="side-identity">
@@ -175,6 +212,34 @@ const isFinalRound = (round) => round?.label === 'Final'
         </ul>
       </section>
     </div>
+
+    <section v-if="podium" class="podium">
+      <h2 class="podium-title">Resultado final</h2>
+      <div class="podium-top">
+        <article class="podium-card podium-card--champion">
+          <p class="podium-kicker">Campeón</p>
+          <p class="podium-name podium-name--champion">{{ podium.champion.name }}</p>
+          <p v-if="podium.champion.origin" class="podium-origin">{{ podium.champion.origin }}</p>
+        </article>
+        <article class="podium-card">
+          <p class="podium-kicker">Subcampeón</p>
+          <p class="podium-name">{{ podium.runnerUp.name }}</p>
+          <p v-if="podium.runnerUp.origin" class="podium-origin">{{ podium.runnerUp.origin }}</p>
+        </article>
+      </div>
+      <div v-if="podium.third && podium.fourth" class="podium-bottom">
+        <article class="podium-card">
+          <p class="podium-kicker">3.º puesto</p>
+          <p class="podium-name">{{ podium.third.name }}</p>
+          <p v-if="podium.third.origin" class="podium-origin">{{ podium.third.origin }}</p>
+        </article>
+        <article class="podium-card podium-card--fourth">
+          <p class="podium-kicker">4.º puesto</p>
+          <p class="podium-name podium-name--fourth">{{ podium.fourth.name }}</p>
+          <p v-if="podium.fourth.origin" class="podium-origin">{{ podium.fourth.origin }}</p>
+        </article>
+      </div>
+    </section>
 
     <aside v-if="showPlayoffThirdPlace" class="third-place">
       <h2 class="third-place-title">{{ thirdPlace.label || 'Tercer puesto' }}</h2>
@@ -256,6 +321,13 @@ const isFinalRound = (round) => round?.label === 'Final'
   overflow: visible;
 }
 
+.bracket-tree--has-champion .round-matches {
+  /* Mismo alto en cada columna: el badge de la final queda en este hueco
+     y no empuja el slot. Llave de 2: el slot es bajo y sin esto el badge
+     pisa el título. Nombres de más de dos líneas pueden rozarlo. */
+  padding-top: 3.5rem;
+}
+
 .bracket-round {
   width: 10.75rem;
   flex: 0 0 10.75rem;
@@ -271,11 +343,14 @@ const isFinalRound = (round) => round?.label === 'Final'
 }
 
 .champion-badge {
-  margin: 0 auto 0.45rem;
-  max-width: 100%;
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.2rem);
+  left: 0;
   border: 1px solid #111;
-  padding: 0.2rem 0.4rem;
+  padding: 0.15rem 0.35rem;
   text-align: center;
+  background: #fff;
 }
 
 .champion-kicker {
@@ -437,9 +512,96 @@ const isFinalRound = (round) => round?.label === 'Final'
   font-style: italic;
 }
 
+.podium {
+  margin-top: 0.9rem;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.podium-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.podium-top,
+.podium-bottom {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.podium-top {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+
+.podium-bottom {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  margin-top: 0.4rem;
+}
+
+.podium-card {
+  border: 1px solid #222;
+  padding: 0.28rem 0.4rem;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.podium-card--champion {
+  border-width: 1.5px;
+}
+
+.podium-card--fourth {
+  border-color: #666;
+}
+
+.podium-kicker {
+  margin: 0;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.podium-card--champion .podium-kicker {
+  font-size: 0.64rem;
+}
+
+.podium-name {
+  margin: 0.12rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.podium-name--champion {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.podium-name--fourth {
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.podium-origin {
+  margin: 0.08rem 0 0;
+  font-size: 0.62rem;
+  color: #444;
+}
+
 @media (min-width: 720px) {
   .print-meta {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media screen and (max-width: 640px) {
+  .podium-top,
+  .podium-bottom {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

@@ -1,4 +1,5 @@
 <script setup>
+import { ArrowLeftIcon } from '@heroicons/vue/24/outline'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -14,6 +15,8 @@ const props = defineProps({
 })
 
 const router = useRouter()
+
+const buttonLabel = computed(() => props.label.replace(/^\s*←\s*/, ''))
 
 const canGoBack = computed(() => {
   if (typeof window === 'undefined') {
@@ -36,9 +39,10 @@ const handleBack = async () => {
 <template>
   <button
     type="button"
-    class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+    class="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
     @click="handleBack"
   >
-    {{ label }}
+    <ArrowLeftIcon class="h-4 w-4" aria-hidden="true" />
+    {{ buttonLabel }}
   </button>
 </template>

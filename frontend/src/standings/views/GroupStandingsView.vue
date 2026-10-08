@@ -6,8 +6,9 @@ import BracketService from '../../brackets/services/BracketService'
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import { usePermissions } from '../../composables/usePermissions'
+import { useTransientMessage } from '../../composables/useTransientMessage'
 import CompetitionService from '../../competitions/services/CompetitionService'
-import { isDoublesCompetition, isTeamCompetition, participantPlural } from '../../shared/constants/competitionType'
+import { isTeamCompetition, participantPlural } from '../../shared/constants/competitionType'
 import GroupManualTiebreakPanel from '../components/GroupManualTiebreakPanel.vue'
 import GroupStandingsTable from '../components/GroupStandingsTable.vue'
 import StandingService from '../services/StandingService'
@@ -17,6 +18,7 @@ import {
   getQualificationIcon,
   getQualificationLabel,
   getQualificationRowClasses,
+  qualificationBadgeLayoutClasses,
 } from '../utils/resolveGroupQualification'
 
 const route = useRoute()
@@ -31,7 +33,6 @@ const hasBracket = ref(false)
 
 const qualifiedPerGroup = computed(() => competition.value?.qualified_per_group ?? 2)
 
-const isDoubles = computed(() => isDoublesCompetition(competition.value))
 const isTeam = computed(() => isTeamCompetition(competition.value))
 
 const participantsCountLabel = computed(() => {
@@ -51,15 +52,11 @@ const completedScheduleCount = computed(() => {
   return completedMatches.value
 })
 
-const completedScheduleLabel = computed(() =>
-  isTeam.value ? 'Enfrentamientos completados' : 'Partidos completados',
-)
-
 const standings = ref([])
 const standingsMeta = ref({})
 const isLoading = ref(false)
 const errorMessage = ref('')
-const manualTiebreakSuccessMessage = ref('')
+const manualTiebreakNotice = useTransientMessage()
 
 const pendingManualTiebreakGroups = computed(() => standingsMeta.value.manual_tiebreak_groups ?? [])
 
@@ -195,8 +192,8 @@ const loadCompetition = async () => {
 }
 
 const handleManualTiebreakSaved = async () => {
-  manualTiebreakSuccessMessage.value = 'Desempate manual guardado correctamente.'
   await loadStandings()
+  manualTiebreakNotice.show('Desempate manual guardado correctamente.')
 }
 
 onMounted(async () => {
@@ -241,8 +238,8 @@ onMounted(async () => {
     </div>
 
     <div v-else class="space-y-4">
-      <p v-if="manualTiebreakSuccessMessage" class="text-sm text-emerald-700 dark:text-emerald-300">
-        {{ manualTiebreakSuccessMessage }}
+      <p v-if="manualTiebreakNotice.message" class="text-sm text-emerald-700 dark:text-emerald-300">
+        {{ manualTiebreakNotice.message }}
       </p>
 
       <div
@@ -279,35 +276,25 @@ onMounted(async () => {
         Hay desempates manuales guardados que ya no aplican por cambios en los resultados.
       </div>
 
-      <div
-        class="rounded-md border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-700 dark:bg-slate-900/60"
-      >
-        <p class="text-lg font-semibold text-slate-900 dark:text-slate-100">{{ groupName }}</p>
+      <div class="overflow-hidden rounded-md border border-slate-200 bg-white text-sm dark:border-slate-700 dark:bg-slate-900">
+        <div class="px-4 py-3">
+          <p class="font-semibold text-slate-900 dark:text-slate-100">{{ groupName }}</p>
+          <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+            {{ participantsCountLabel }} · clasifican {{ qualifiedPerGroup }}<template v-if="completedScheduleCount !== '-'"> · {{ completedScheduleCount }} finalizados</template>
+          </p>
+        </div>
 
-        <dl class="mt-3 grid gap-3 sm:grid-cols-3">
-          <div>
-            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ isTeam ? 'Equipos' : (isDoubles ? 'Parejas' : 'Jugadores') }}</dt>
-            <dd class="mt-1 font-medium text-slate-900 dark:text-slate-100">{{ participantsCountLabel }}</dd>
-          </div>
-
-          <div>
-            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Clasifican</dt>
-            <dd class="mt-1 font-medium text-slate-900 dark:text-slate-100">{{ qualifiedPerGroup }}</dd>
-          </div>
-
-          <div>
-            <dt class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ completedScheduleLabel }}</dt>
-            <dd class="mt-1 font-medium text-slate-900 dark:text-slate-100">{{ completedScheduleCount }}</dd>
-          </div>
-        </dl>
-      </div>
-
-      <div v-if="isTeam" class="space-y-3 md:hidden">
+      <div v-if="isTeam" class="space-y-3 border-t border-slate-200 px-4 py-3 md:hidden dark:border-slate-700">
         <article
           v-for="row in standingRows"
           :key="`team-card-${row.competitionEntryId}`"
           class="rounded-md border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900"
-          :class="rowClasses(row)"
+          :class="[
+            rowClasses(row),
+            row.position === Number(qualifiedPerGroup) + 1
+              ? '!mt-4 !border-t-2 !border-t-slate-400 dark:!border-t-slate-500'
+              : '',
+          ]"
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
@@ -332,8 +319,8 @@ onMounted(async () => {
                 {{ standingRecordLabel(row) }}
               </p>
               <span
-                class="mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-                :class="qualificationBadgeClasses(row)"
+                class="mt-1"
+                :class="[qualificationBadgeLayoutClasses, qualificationBadgeClasses(row)]"
               >
                 <span v-if="qualificationIcon(row)" aria-hidden="true">
                   {{ qualificationIcon(row) }}
@@ -378,29 +365,32 @@ onMounted(async () => {
       <GroupStandingsTable
         :rows="standingRows"
         :is-team="isTeam"
-        :class="isTeam ? 'hidden md:block' : ''"
+        embedded
+        :qualifier-cutoff="qualifiedPerGroup"
+        :class="['border-t border-slate-200 dark:border-slate-700', isTeam ? 'hidden md:block' : '']"
       >
         <template #extra-headers>
           <template v-if="isTeam">
-            <th class="px-3 py-2 text-left font-medium">Dif. partidos</th>
-            <th class="px-3 py-2 text-left font-medium">Dif. sets</th>
-            <th class="px-3 py-2 text-left font-medium">Dif. puntos</th>
+            <th class="hidden px-2 py-2 text-center text-xs font-medium md:table-cell">Dif. partidos</th>
+            <th class="hidden px-2 py-2 text-center text-xs font-medium lg:table-cell">Dif. sets</th>
+            <th class="hidden px-2 py-2 text-center text-xs font-medium lg:table-cell">Dif. puntos</th>
           </template>
         </template>
         <template #extra-cells="{ row }">
           <template v-if="isTeam">
-            <td class="whitespace-nowrap px-3 py-2 text-slate-700 dark:text-slate-300">
+            <td class="hidden whitespace-nowrap px-2 py-2 text-center text-xs tabular-nums text-slate-600 md:table-cell dark:text-slate-300">
               {{ formatSignedDifference(row.rubberDifference) }}
             </td>
-            <td class="whitespace-nowrap px-3 py-2 text-slate-700 dark:text-slate-300">
+            <td class="hidden whitespace-nowrap px-2 py-2 text-center text-xs tabular-nums text-slate-600 lg:table-cell dark:text-slate-300">
               {{ formatSignedDifference(row.setDifference) }}
             </td>
-            <td class="whitespace-nowrap px-3 py-2 text-slate-700 dark:text-slate-300">
+            <td class="hidden whitespace-nowrap px-2 py-2 text-center text-xs tabular-nums text-slate-600 lg:table-cell dark:text-slate-300">
               {{ formatSignedDifference(row.pointDifference) }}
             </td>
           </template>
         </template>
       </GroupStandingsTable>
+      </div>
     </div>
   </section>
 </template>

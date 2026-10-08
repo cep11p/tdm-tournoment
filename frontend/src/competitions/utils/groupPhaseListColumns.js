@@ -15,3 +15,24 @@ export function formatGroupScheduleProgress(meta) {
 
   return `${completed}/${total}`
 }
+
+export function groupPhasePrimaryAction(summary) {
+  if (summary?.hasPendingManualTiebreak || summary?.hasStaleManualTiebreaks) {
+    return { label: 'Resolver empate', intent: 'standings' }
+  }
+
+  if ((summary?.pendingGamesCount ?? 0) > 0) {
+    const isTeam = String(summary?.primaryLabel ?? '').includes('Enfrentamiento')
+
+    return {
+      label: isTeam ? 'Ver enfrentamientos' : 'Ver partidos',
+      intent: 'group',
+    }
+  }
+
+  if (summary?.isReady) {
+    return { label: 'Ver posiciones', intent: 'positions' }
+  }
+
+  return { label: 'Abrir grupo', intent: 'group' }
+}

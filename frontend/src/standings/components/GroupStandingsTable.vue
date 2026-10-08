@@ -5,9 +5,10 @@ import {
   getQualificationIcon,
   getQualificationLabel,
   getQualificationRowClasses,
+  qualificationBadgeLayoutClasses,
 } from '../utils/resolveGroupQualification'
 
-defineProps({
+const props = defineProps({
   rows: {
     type: Array,
     default: () => [],
@@ -15,6 +16,14 @@ defineProps({
   isTeam: {
     type: Boolean,
     default: false,
+  },
+  embedded: {
+    type: Boolean,
+    default: false,
+  },
+  qualifierCutoff: {
+    type: Number,
+    default: 0,
   },
 })
 
@@ -52,43 +61,65 @@ const rowClasses = (row) =>
   })
 
 const playerStatusLabel = (row) => getGroupPlayerStatusLabel(row?.groupPlayerStatus ?? 'active')
+
+const cutoffRowClasses = (row) => {
+  if (Number(props.qualifierCutoff) <= 0 || row.position !== Number(props.qualifierCutoff) + 1) {
+    return ''
+  }
+
+  return '!border-t-2 !border-t-slate-400 dark:!border-t-slate-500'
+}
+
+const statHeaderClasses = 'hidden px-2 py-2 text-center text-xs font-medium sm:table-cell'
+const statCellClasses =
+  'hidden whitespace-nowrap px-2 py-2 text-center text-xs tabular-nums text-slate-600 dark:text-slate-300 sm:table-cell'
 </script>
 
 <template>
   <div
-    class="overflow-x-auto rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+    class="overflow-x-auto"
+    :class="
+      embedded
+        ? ''
+        : 'rounded-md border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900'
+    "
   >
     <table class="min-w-full text-sm">
-      <thead class="bg-slate-50 text-slate-700 dark:bg-slate-800/80 dark:text-slate-200">
+      <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-800/80 dark:text-slate-400">
         <tr>
-          <th class="px-3 py-2 text-left font-medium">Pos</th>
-          <th class="px-3 py-2 text-left font-medium">{{ isTeam ? 'Equipo' : 'Participante' }}</th>
-          <th class="px-3 py-2 text-left font-medium">{{ isTeam ? 'EJ' : 'PJ' }}</th>
-          <th class="px-3 py-2 text-left font-medium">{{ isTeam ? 'EG' : 'PG' }}</th>
-          <th class="px-3 py-2 text-left font-medium">{{ isTeam ? 'EP' : 'PP' }}</th>
+          <th class="w-12 px-2 py-2 text-left font-medium">Pos</th>
+          <th class="px-2 py-2 text-left font-medium">{{ isTeam ? 'Equipo' : 'Participante' }}</th>
+          <th :class="statHeaderClasses">{{ isTeam ? 'EJ' : 'PJ' }}</th>
+          <th :class="statHeaderClasses">{{ isTeam ? 'EG' : 'PG' }}</th>
+          <th :class="statHeaderClasses">{{ isTeam ? 'EP' : 'PP' }}</th>
           <slot name="extra-headers" />
-          <th class="px-3 py-2 text-left font-medium">Estado</th>
-          <th v-if="$slots.actions" class="px-3 py-2 text-right font-medium">Acciones</th>
+          <th class="px-2 py-2 text-left font-medium">Estado</th>
+          <th v-if="$slots.actions" class="w-px px-2 py-2 text-right font-medium">
+            <span class="sr-only">Acciones</span>
+          </th>
         </tr>
       </thead>
       <tbody>
         <tr
           v-for="row in rows"
           :key="row.competitionEntryId ?? `position-${row.position}`"
-          :class="rowClasses(row)"
+          :class="[rowClasses(row), cutoffRowClasses(row)]"
         >
-          <td class="px-3 py-2">
+          <td class="px-2 py-2">
             <span
-              class="inline-flex min-w-[2.5rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold"
+              class="inline-flex min-w-8 items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums"
               :class="positionBadgeClasses(row.position)"
             >
               {{ row.position }}°
             </span>
           </td>
-          <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
+          <td class="px-2 py-2 font-medium text-slate-900 dark:text-slate-100">
             <div class="flex flex-wrap items-center gap-2">
               <div class="min-w-0">
                 <span>{{ row.displayName }}</span>
+                <p class="mt-0.5 text-xs font-normal tabular-nums text-slate-500 sm:hidden dark:text-slate-400">
+                  {{ row.played }} {{ isTeam ? 'EJ' : 'PJ' }} · {{ row.won }}-{{ row.lost }}
+                </p>
                 <p
                   v-if="row.membersLabel"
                   class="mt-0.5 text-xs font-normal text-slate-500 dark:text-slate-400"
@@ -112,20 +143,19 @@ const playerStatusLabel = (row) => getGroupPlayerStatusLabel(row?.groupPlayerSta
               </span>
             </div>
           </td>
-          <td class="whitespace-nowrap px-3 py-2 text-slate-700 dark:text-slate-300">
+          <td :class="statCellClasses">
             {{ row.played }}
           </td>
-          <td class="whitespace-nowrap px-3 py-2 text-slate-700 dark:text-slate-300">
+          <td :class="statCellClasses">
             {{ row.won }}
           </td>
-          <td class="whitespace-nowrap px-3 py-2 text-slate-700 dark:text-slate-300">
+          <td :class="statCellClasses">
             {{ row.lost }}
           </td>
           <slot name="extra-cells" :row="row" />
-          <td class="px-3 py-2">
+          <td class="px-2 py-2">
             <span
-              class="inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium"
-              :class="getQualificationBadgeClasses(row.qualification?.kind)"
+              :class="[qualificationBadgeLayoutClasses, getQualificationBadgeClasses(row.qualification?.kind)]"
             >
               <span v-if="getQualificationIcon(row.qualification?.kind)" aria-hidden="true">
                 {{ getQualificationIcon(row.qualification?.kind) }}
@@ -133,7 +163,7 @@ const playerStatusLabel = (row) => getGroupPlayerStatusLabel(row?.groupPlayerSta
               {{ getQualificationLabel(row.qualification?.kind) }}
             </span>
           </td>
-          <td v-if="$slots.actions" class="px-3 py-2">
+          <td v-if="$slots.actions" class="w-px px-2 py-2">
             <div class="flex items-center justify-end gap-1">
               <slot name="actions" :row="row" />
             </div>

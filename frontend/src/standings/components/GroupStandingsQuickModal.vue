@@ -103,7 +103,12 @@ const standingsRoute = computed(() => {
       Este grupo todavía no tiene posiciones para mostrar.
     </p>
 
-    <GroupStandingsTable v-else :rows="rows" :is-team="isTeam" />
+    <GroupStandingsTable
+      v-else
+      :rows="rows"
+      :is-team="isTeam"
+      :qualifier-cutoff="qualifiedPerGroup"
+    />
 
     <template #footer>
       <RouterLink

@@ -1,11 +1,12 @@
 <script setup>
+import { ArrowLeftIcon, PrinterIcon, TrophyIcon } from '@heroicons/vue/24/outline'
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { PrinterIcon } from '@heroicons/vue/24/outline'
 
 import AppBackButton from '../../components/AppBackButton.vue'
 import AppBreadcrumbs from '../../components/AppBreadcrumbs.vue'
 import { usePermissions } from '../../composables/usePermissions'
+import { useTransientMessage } from '../../composables/useTransientMessage'
 import CompetitionService from '../../competitions/services/CompetitionService'
 import { competitionHasGroupStage } from '../../competitions/constants/competitionFormats'
 import {
@@ -47,6 +48,7 @@ import {
   bracketMatchScoreLabel,
   getBracketMatches,
 } from '../utils/bracketMatchAdapter'
+import { buildBracketPodium, matchPair } from '../utils/bracketPodium'
 import { formatGroupOriginLabel } from '../utils/formatGroupOriginLabel'
 import { isTeamCompetition, participantPlural } from '../../shared/constants/competitionType'
 import {
@@ -75,14 +77,12 @@ const loadError = ref('')
 
 const isCreatingBracket = ref(false)
 const createError = ref('')
-const createSuccessMessage = ref('')
 
 const isGeneratingNextRound = ref(false)
 const nextRoundError = ref('')
-const nextRoundSuccessMessage = ref('')
 
 const selectedGame = ref(null)
-const resultSuccessMessage = ref('')
+const actionNotice = useTransientMessage()
 
 const hasBracket = computed(() => Boolean(bracket.value?.id))
 
@@ -362,7 +362,7 @@ const canShowMatchDetailLink = (game) =>
 
 const openResultModal = (game) => {
   selectedGame.value = game
-  resultSuccessMessage.value = ''
+  actionNotice.clear()
 }
 
 const closeResultModal = () => {
@@ -372,7 +372,7 @@ const closeResultModal = () => {
 const handleResultSaved = async () => {
   closeResultModal()
   await refreshBracket()
-  resultSuccessMessage.value = 'Resultado registrado correctamente.'
+  actionNotice.show('Resultado registrado correctamente.')
 }
 
 const statusLabel = (game) => {
@@ -494,6 +494,9 @@ const hasQualifyingRound = computed(() =>
 const MATCH_CARD_HEIGHT = 176
 const MATCH_GAP = 28
 const MATCH_SLOT_HEIGHT = MATCH_CARD_HEIGHT + MATCH_GAP
+// Pendiente: el botón "Cargar resultado" está dentro del bloque centrado
+// (top-1/2 -translate-y-1/2) y puede desfasar la tarjeta respecto del conector.
+// No corregir en esta etapa.
 
 const roundSlotHeight = (roundIndex) => MATCH_SLOT_HEIGHT * Math.pow(2, roundIndex)
 const pairConnectorHeight = (roundIndex) => roundSlotHeight(roundIndex)
@@ -618,35 +621,35 @@ const finalGame = computed(() => {
   return games.find((game) => game.round === 'Final') ?? null
 })
 
-const finalResult = computed(() => {
-  const game = finalGame.value
+const placeFromSide = (game, sideNumber) => ({
+  name: getGameSideDisplayName(game, sideNumber),
+  origin: sideGroupOriginLabel(game, sideNumber),
+})
 
+const finishedPair = (game) => {
   if (!game || game.status !== 'finished' || (!game.winner_entry_id && !game.winner_id)) {
     return null
   }
 
-  const champion = winnerName(game)
-  let runnerUp = '-'
+  const winnerSide = isGameSideWinner(game, 1) ? 1 : isGameSideWinner(game, 2) ? 2 : null
+  const pair = matchPair(placeFromSide(game, 1), placeFromSide(game, 2), winnerSide)
 
-  if (game.winner_entry_id) {
-    const winnerEntryId = Number(game.winner_entry_id)
-    const side1Id = getGameSide(game, 1)?.competition_entry_id
-
-    runnerUp =
-      side1Id && Number(side1Id) === winnerEntryId
-        ? getGameSideDisplayName(game, 2)
-        : getGameSideDisplayName(game, 1)
-  } else if (game.winner_id === game.player1?.id) {
-    runnerUp = getGameSideDisplayName(game, 2)
-  } else if (game.winner_id === game.player2?.id) {
-    runnerUp = getGameSideDisplayName(game, 1)
+  if (pair) {
+    return pair
   }
 
-  return { champion, runnerUp }
-})
+  return {
+    winner: { name: winnerName(game), origin: null },
+    loser: { name: '-', origin: null },
+  }
+}
+
+const podium = computed(() =>
+  buildBracketPodium(finishedPair(finalGame.value), finishedPair(thirdPlaceGame.value)),
+)
 
 const canGenerateNextRound = computed(() => {
-  if (!canAdvanceBracketRound.value || !hasBracket.value || finalResult.value) {
+  if (!canAdvanceBracketRound.value || !hasBracket.value || podium.value) {
     return false
   }
 
@@ -685,14 +688,13 @@ const canGenerateNextRound = computed(() => {
 const handleCreateBracket = async () => {
   isCreatingBracket.value = true
   createError.value = ''
-  createSuccessMessage.value = ''
   nextRoundError.value = ''
-  nextRoundSuccessMessage.value = ''
+  actionNotice.clear()
 
   try {
     bracket.value = await BracketService.create(competitionId.value, {})
 
-    createSuccessMessage.value = 'Llave eliminatoria generada correctamente.'
+    actionNotice.show('Llave eliminatoria generada correctamente.')
   } catch (error) {
     createError.value = extractApiErrorMessage(
       error,
@@ -711,12 +713,12 @@ const handleGenerateNextRound = async () => {
 
   isGeneratingNextRound.value = true
   nextRoundError.value = ''
-  nextRoundSuccessMessage.value = ''
   createError.value = ''
+  actionNotice.clear()
 
   try {
     bracket.value = await BracketService.generateNextRound(bracket.value.id)
-    nextRoundSuccessMessage.value = 'Siguiente ronda generada correctamente.'
+    actionNotice.show('Siguiente ronda generada correctamente.')
   } catch (error) {
     nextRoundError.value = extractApiErrorMessage(
       error,
@@ -772,13 +774,13 @@ onMounted(loadData)
         </p>
 
         <p v-if="createError" class="text-red-600 dark:text-red-400">{{ createError }}</p>
-        <p v-if="createSuccessMessage" class="text-emerald-700 dark:text-emerald-300">{{ createSuccessMessage }}</p>
 
         <button
           type="submit"
-          class="rounded-md bg-slate-900 px-3 py-2 font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+          class="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-2 font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
           :disabled="isCreatingBracket"
         >
+          <TrophyIcon class="h-4 w-4" aria-hidden="true" />
           {{ isCreatingBracket ? 'Generando...' : 'Generar llave eliminatoria' }}
         </button>
       </form>
@@ -872,11 +874,8 @@ onMounted(loadData)
         </div>
 
         <p v-if="nextRoundError" class="text-red-600 dark:text-red-400">{{ nextRoundError }}</p>
-        <p v-if="nextRoundSuccessMessage" class="text-emerald-700 dark:text-emerald-300">
-          {{ nextRoundSuccessMessage }}
-        </p>
-        <p v-if="resultSuccessMessage" class="text-emerald-700 dark:text-emerald-300">
-          {{ resultSuccessMessage }}
+        <p v-if="actionNotice.message" class="text-emerald-700 dark:text-emerald-300">
+          {{ actionNotice.message }}
         </p>
 
         <div
@@ -894,23 +893,62 @@ onMounted(loadData)
         </div>
 
         <div v-else>
-          <div
-            v-if="finalResult"
-            class="mb-4 rounded-md border border-amber-300/80 bg-amber-50/50 p-4 dark:border-amber-600/50 dark:bg-amber-950/30"
-          >
-            <p class="text-sm font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-200">
+          <div v-if="podium" class="mb-4 space-y-3">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               Resultado final
             </p>
-            <dl class="mt-2 space-y-1 text-sm">
-              <div class="flex flex-wrap gap-x-2">
-                <dt class="font-medium text-slate-700 dark:text-slate-300">Campeón:</dt>
-                <dd class="font-semibold text-slate-900 dark:text-slate-100">{{ finalResult.champion }}</dd>
-              </div>
-              <div class="flex flex-wrap gap-x-2">
-                <dt class="font-medium text-slate-700 dark:text-slate-300">Subcampeón:</dt>
-                <dd class="text-slate-900 dark:text-slate-100">{{ finalResult.runnerUp }}</dd>
-              </div>
-            </dl>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-5">
+              <article class="rounded-md border border-amber-400/80 bg-amber-50/80 p-4 dark:border-amber-500/45 dark:bg-amber-950/25 sm:col-span-3">
+                <p class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300">
+                  <TrophyIcon class="h-4 w-4" aria-hidden="true" />
+                  Campeón
+                </p>
+                <p class="mt-1 text-xl font-bold break-words text-slate-900 dark:text-slate-100">
+                  {{ podium.champion.name }}
+                </p>
+                <p v-if="podium.champion.origin" class="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                  {{ podium.champion.origin }}
+                </p>
+              </article>
+              <article class="rounded-md border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/40 sm:col-span-2">
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Subcampeón
+                </p>
+                <p class="mt-1 text-lg font-semibold break-words text-slate-900 dark:text-slate-100">
+                  {{ podium.runnerUp.name }}
+                </p>
+                <p v-if="podium.runnerUp.origin" class="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                  {{ podium.runnerUp.origin }}
+                </p>
+              </article>
+            </div>
+            <div
+              v-if="podium.third && podium.fourth"
+              class="grid grid-cols-1 gap-3 sm:grid-cols-2"
+            >
+              <article class="rounded-md border border-orange-300/80 bg-orange-50/60 p-3 dark:border-orange-700/45 dark:bg-orange-950/20">
+                <p class="text-xs font-semibold uppercase tracking-wide text-orange-800 dark:text-orange-300">
+                  3.º puesto
+                </p>
+                <p class="mt-1 font-semibold break-words text-slate-900 dark:text-slate-100">
+                  {{ podium.third.name }}
+                </p>
+                <p v-if="podium.third.origin" class="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                  {{ podium.third.origin }}
+                </p>
+              </article>
+              <article class="rounded-md border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950/20">
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  4.º puesto
+                </p>
+                <p class="mt-1 text-sm font-medium break-words text-slate-800 dark:text-slate-200">
+                  {{ podium.fourth.name }}
+                </p>
+                <p v-if="podium.fourth.origin" class="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                  {{ podium.fourth.origin }}
+                </p>
+              </article>
+            </div>
           </div>
 
           <div
@@ -1262,9 +1300,10 @@ onMounted(loadData)
 
       <RouterLink
         :to="`/competitions/${competitionId}`"
-        class="inline-flex text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
+        class="inline-flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
       >
-        ← Volver al detalle de la competencia
+        <ArrowLeftIcon class="h-4 w-4" aria-hidden="true" />
+        Volver al detalle de la competencia
       </RouterLink>
     </template>
 
