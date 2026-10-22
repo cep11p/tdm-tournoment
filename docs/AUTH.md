@@ -92,6 +92,7 @@ standings.view
 matches.view | matches.create | matches.delete | matches.record_result | matches.correct_result
 brackets.view | brackets.manage | brackets.advance_round
 catalog.view | catalog.manage
+ratings.manage
 audit.view
 users.manage
 ```
@@ -100,8 +101,8 @@ users.manage
 
 | Rol Keycloak | Permisos |
 |--------------|----------|
-| `admin` | Todos (incluye `matches.correct_result` y `audit.view`) |
-| `organizer` | Gestión deportiva completa excepto `audit.view`, `users.manage`, `catalog.manage`, `matches.correct_result` |
+| `admin` | Todos (incluye `matches.correct_result`, `ratings.manage` y `audit.view`) |
+| `organizer` | Gestión deportiva completa excepto `audit.view`, `users.manage`, `catalog.manage`, `matches.correct_result` y `ratings.manage` |
 | `scorekeeper` | Todos los `*.view` + `matches.record_result` |
 | `player` | Solo permisos `*.view` |
 
@@ -219,8 +220,11 @@ Excepciones deliberadas fuera de `/api/v1`: ninguna mutación deportiva. El endp
 | **Partidos** | `GET /competitions/{c}/games`, `GET /games/{game}` | `POST /competitions/{c}/games` | `matches.create` |
 | **Partidos (eliminación)** | — | `DELETE /games/{game}` | `matches.delete` |
 | **Partidos (resultados)** | — | `POST /games/{game}/sets` | `matches.record_result` |
+| **Sistemas de rating** | — | `GET/POST /rating-systems`, `GET /rating-systems/{id}`, `PUT/PATCH /rating-systems/{id}` | `ratings.manage` |
 | **Auditoría** | — | `GET /audit-logs`, `GET /audit-logs/{activity}` | `audit.view` |
 | **Catálogo** | `GET /categories`, `GET /clubs` | — (sin CRUD en este slice) | — |
+
+Los sistemas de rating no tienen lecturas públicas. Listar y consultar exigen `ratings.manage`, el mismo permiso que crear y editar, hasta que exista un contrato público de consulta.
 
 Grupos compuestos en `bootstrap/app.php` (Slice 2.2, conservados): `auth.tournaments.manage`, `auth.competitions.manage`, `auth.matches.record_result`. El resto de mutaciones usan `auth.keycloak` + `permission:*` inline en rutas explícitas.
 

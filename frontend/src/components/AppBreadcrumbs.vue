@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import {
   BREADCRUMB_BRACKET,
   BREADCRUMB_RANKINGS,
+  BREADCRUMB_RATING_SYSTEMS,
   BREADCRUMB_TOURNAMENTS,
 } from '../shared/constants/navigation'
 
@@ -31,6 +32,10 @@ const breadcrumbItems = computed(() => {
 
   if (route.name === 'rankings.index') {
     return [{ label: BREADCRUMB_RANKINGS }]
+  }
+
+  if (route.name === 'rating-systems.index') {
+    return [{ label: BREADCRUMB_RATING_SYSTEMS }]
   }
 
   if (route.name === 'rankings.show') {

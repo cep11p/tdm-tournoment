@@ -64,6 +64,10 @@ const contextLines = computed(() => {
     { label: 'Temporada', value: context.season ?? null },
     { label: 'Modalidad', value: context.competition_type ?? null },
     { label: 'Regla', value: context.rule_name ?? (context.ranking_rule_id ? `#${context.ranking_rule_id}` : null) },
+    {
+      label: 'Sistema de rating',
+      value: context.rating_system_name ?? (context.rating_system_id ? `#${context.rating_system_id}` : null),
+    },
   ].filter((line) => line.value)
 })
 

@@ -10,6 +10,7 @@ use App\Models\Group;
 use App\Models\Player;
 use App\Models\Ranking;
 use App\Models\RankingRule;
+use App\Models\RatingSystem;
 use App\Models\Tournament;
 use Illuminate\Database\Eloquent\Model;
 use Spatie\Activitylog\Models\Activity;
@@ -100,6 +101,10 @@ final class AuditLogSubjectPresenter
             return $subject->name !== '' ? (string) $subject->name : "Regla de ranking #{$subject->id}";
         }
 
+        if ($subject instanceof RatingSystem) {
+            return $subject->name !== '' ? (string) $subject->name : "Sistema de rating #{$subject->id}";
+        }
+
         $historical = self::historicalLabel($type, $context, $summary);
 
         if ($historical !== null) {
@@ -165,6 +170,10 @@ final class AuditLogSubjectPresenter
                 ?? (data_get($context, 'ranking_rule_id') !== null
                     ? 'Regla de ranking #'.data_get($context, 'ranking_rule_id')
                     : null),
+            AuditSubjectType::RatingSystem => data_get($context, 'rating_system_name')
+                ?? (data_get($context, 'rating_system_id') !== null
+                    ? 'Sistema de rating #'.data_get($context, 'rating_system_id')
+                    : null),
             default => null,
         };
     }
@@ -196,6 +205,10 @@ final class AuditLogSubjectPresenter
 
         if (data_get($context, 'ranking_rule_id') !== null) {
             return AuditSubjectType::RankingRule;
+        }
+
+        if (data_get($context, 'rating_system_id') !== null) {
+            return AuditSubjectType::RatingSystem;
         }
 
         if (data_get($context, 'ranking_id') !== null) {
@@ -239,6 +252,7 @@ final class AuditLogSubjectPresenter
             AuditSubjectType::Game => 'game_id',
             AuditSubjectType::Ranking => 'ranking_id',
             AuditSubjectType::RankingRule => 'ranking_rule_id',
+            AuditSubjectType::RatingSystem => 'rating_system_id',
             default => null,
         };
 

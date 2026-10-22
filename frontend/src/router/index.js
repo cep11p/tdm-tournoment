@@ -26,6 +26,7 @@ import RankingListView from '../rankings/views/RankingListView.vue'
 import RankingDetailView from '../rankings/views/RankingDetailView.vue'
 import RankingPlayerHistoryView from '../rankings/views/RankingPlayerHistoryView.vue'
 import RankingRulesView from '../rankings/views/RankingRulesView.vue'
+import RatingSystemListView from '../ratings/views/RatingSystemListView.vue'
 
 const routes = [
   {
@@ -143,6 +144,12 @@ const routes = [
     path: '/rankings',
     name: 'rankings.index',
     component: RankingListView,
+  },
+  {
+    path: '/rating-systems',
+    name: 'rating-systems.index',
+    component: RatingSystemListView,
+    meta: { permission: 'ratings.manage' },
   },
   {
     path: '/rankings/:id',

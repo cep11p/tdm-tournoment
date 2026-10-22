@@ -30,6 +30,9 @@ const FIELD_LABELS = {
   club_id: 'club',
   club_name: 'nombre de club',
   active: 'activo',
+  description: 'descripción',
+  initial_rating: 'rating inicial',
+  method: 'método',
 }
 
 function formatCount(value, singular, plural) {
@@ -76,6 +79,15 @@ function formatChangedFields(fields) {
   }
 
   return `Se modificaron ${labels.slice(0, -1).join(', ')} y ${labels[labels.length - 1]}`
+}
+
+function ratingSystemName(auditLog) {
+  return (
+    auditLog?.summary?.rating_system_name
+    ?? auditLog?.context?.rating_system_name
+    ?? auditLog?.subject?.label
+    ?? 'Sistema de rating'
+  )
 }
 
 function displayName(auditLog, fallback = 'Entidad') {
@@ -407,6 +419,18 @@ export function buildAuditSummary(auditLog) {
       const name = auditLog?.context?.rule_name ?? summary.result_key ?? 'Regla'
       return `${name} eliminada`
     }
+
+    case 'rating_system.created':
+      return `Sistema de rating "${ratingSystemName(auditLog)}" creado`
+
+    case 'rating_system.updated':
+      return formatChangedFields(summary.changed_fields) ?? 'Sistema de rating actualizado'
+
+    case 'rating_system.activated':
+      return `Sistema de rating "${ratingSystemName(auditLog)}" activado`
+
+    case 'rating_system.deactivated':
+      return `Sistema de rating "${ratingSystemName(auditLog)}" desactivado`
 
     default:
       return ''

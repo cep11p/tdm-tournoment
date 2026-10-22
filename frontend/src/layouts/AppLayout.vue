@@ -6,6 +6,7 @@ import {
   ChartBarIcon,
   ClipboardDocumentListIcon,
   HomeIcon,
+  ScaleIcon,
   TrophyIcon,
   UsersIcon,
   XMarkIcon,
@@ -30,6 +31,7 @@ const NAV_ICON_BY_TO = {
   '/': HomeIcon,
   '/tournaments': TrophyIcon,
   '/rankings': ChartBarIcon,
+  '/rating-systems': ScaleIcon,
   '/players': UsersIcon,
   '/audit-logs': ClipboardDocumentListIcon,
 }
@@ -54,6 +56,10 @@ const isNavItemActive = (item) => {
 
   if (item.to === '/rankings') {
     return route.path.startsWith('/rankings')
+  }
+
+  if (item.to === '/rating-systems') {
+    return route.path.startsWith('/rating-systems')
   }
 
   if (item.to === '/players') {

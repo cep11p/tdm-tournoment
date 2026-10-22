@@ -45,6 +45,10 @@ const AUDIT_ACTIONS = [
   { value: 'ranking_rule.updated', label: 'Actualización de regla de ranking' },
   { value: 'ranking_rule.deactivated', label: 'Desactivación de regla de ranking' },
   { value: 'ranking_rule.deleted', label: 'Eliminación de regla de ranking' },
+  { value: 'rating_system.created', label: 'Creación de sistema de rating' },
+  { value: 'rating_system.updated', label: 'Actualización de sistema de rating' },
+  { value: 'rating_system.activated', label: 'Activación de sistema de rating' },
+  { value: 'rating_system.deactivated', label: 'Desactivación de sistema de rating' },
 ]
 
 const LOG_NAMES = [
@@ -57,6 +61,7 @@ const LOG_NAMES = [
   { value: 'bracket', label: 'Llave' },
   { value: 'games', label: 'Partidos' },
   { value: 'rankings', label: 'Rankings' },
+  { value: 'rating_systems', label: 'Sistemas de rating' },
 ]
 
 const auditLogs = ref([])

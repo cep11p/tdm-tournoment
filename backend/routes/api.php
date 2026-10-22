@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\V1\PlayerController;
 use App\Http\Controllers\Api\V1\PlayingTableController;
 use App\Http\Controllers\Api\V1\RankingController;
 use App\Http\Controllers\Api\V1\RankingRuleController;
+use App\Http\Controllers\Api\V1\RatingSystemController;
 use App\Http\Controllers\Api\V1\RegistrationController;
 use App\Http\Controllers\Api\V1\TeamTieController;
 use App\Http\Controllers\Api\V1\TeamTieFormatController;
@@ -134,6 +135,18 @@ Route::prefix(config('api.version_prefix', 'v1'))
                     ->name('rankings.rules.update');
                 Route::delete('rankings/{ranking}/rules/{rule}', [RankingRuleController::class, 'destroy'])
                     ->name('rankings.rules.destroy');
+            });
+
+        Route::middleware(['auth.keycloak', 'permission:ratings.manage'])
+            ->group(function (): void {
+                Route::get('rating-systems', [RatingSystemController::class, 'index'])
+                    ->name('rating-systems.index');
+                Route::post('rating-systems', [RatingSystemController::class, 'store'])
+                    ->name('rating-systems.store');
+                Route::get('rating-systems/{ratingSystem}', [RatingSystemController::class, 'show'])
+                    ->name('rating-systems.show');
+                Route::match(['put', 'patch'], 'rating-systems/{ratingSystem}', [RatingSystemController::class, 'update'])
+                    ->name('rating-systems.update');
             });
 
         Route::get('team-tie-formats', [TeamTieFormatController::class, 'index'])

@@ -43,6 +43,10 @@ enum AuditAction: string
     case RANKING_RULE_UPDATED = 'ranking_rule.updated';
     case RANKING_RULE_DEACTIVATED = 'ranking_rule.deactivated';
     case RANKING_RULE_DELETED = 'ranking_rule.deleted';
+    case RATING_SYSTEM_CREATED = 'rating_system.created';
+    case RATING_SYSTEM_UPDATED = 'rating_system.updated';
+    case RATING_SYSTEM_ACTIVATED = 'rating_system.activated';
+    case RATING_SYSTEM_DEACTIVATED = 'rating_system.deactivated';
 
     public function label(): string
     {
@@ -86,6 +90,10 @@ enum AuditAction: string
             self::RANKING_RULE_UPDATED => 'Actualización de regla de ranking',
             self::RANKING_RULE_DEACTIVATED => 'Desactivación de regla de ranking',
             self::RANKING_RULE_DELETED => 'Eliminación de regla de ranking',
+            self::RATING_SYSTEM_CREATED => 'Creación de sistema de rating',
+            self::RATING_SYSTEM_UPDATED => 'Actualización de sistema de rating',
+            self::RATING_SYSTEM_ACTIVATED => 'Activación de sistema de rating',
+            self::RATING_SYSTEM_DEACTIVATED => 'Desactivación de sistema de rating',
         };
     }
 
@@ -131,6 +139,10 @@ enum AuditAction: string
             self::RANKING_RULE_UPDATED,
             self::RANKING_RULE_DEACTIVATED,
             self::RANKING_RULE_DELETED => 'Rankings',
+            self::RATING_SYSTEM_CREATED,
+            self::RATING_SYSTEM_UPDATED,
+            self::RATING_SYSTEM_ACTIVATED,
+            self::RATING_SYSTEM_DEACTIVATED => 'Sistemas de rating',
         };
     }
 
@@ -161,6 +173,7 @@ enum AuditAction: string
             'games' => 'Partidos',
             'team_ties' => 'Enfrentamientos',
             'rankings' => 'Rankings',
+            'rating_systems' => 'Sistemas de rating',
             default => 'Auditoría',
         };
     }

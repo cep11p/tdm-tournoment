@@ -3,6 +3,7 @@
 namespace App\Support\Audit;
 
 use App\Enums\CompetitionType;
+use App\Enums\RatingMethod;
 use App\Models\Bracket;
 use App\Models\Competition;
 use App\Models\CompetitionEntry;
@@ -12,6 +13,7 @@ use App\Models\GroupEntry;
 use App\Models\Player;
 use App\Models\Ranking;
 use App\Models\RankingRule;
+use App\Models\RatingSystem;
 use App\Models\TeamTie;
 use App\Models\Tournament;
 use App\Support\Competition\CompetitionEntryDisplayName;
@@ -391,6 +393,35 @@ final class AuditContextBuilder
             'ranking_name' => $ranking?->name,
             'ranking_rule_id' => $rule->id,
             'rule_name' => $rule->name,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function fromRatingSystem(RatingSystem $ratingSystem): array
+    {
+        return array_merge(self::ratingSystemSnapshot($ratingSystem), [
+            'rating_system_id' => $ratingSystem->id,
+            'rating_system_name' => $ratingSystem->name,
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function ratingSystemSnapshot(RatingSystem $ratingSystem): array
+    {
+        $method = $ratingSystem->method instanceof RatingMethod
+            ? $ratingSystem->method->value
+            : (string) $ratingSystem->method;
+
+        return [
+            'name' => $ratingSystem->name,
+            'description' => $ratingSystem->description,
+            'initial_rating' => (int) $ratingSystem->initial_rating,
+            'method' => $method,
+            'active' => (bool) $ratingSystem->active,
         ];
     }
 

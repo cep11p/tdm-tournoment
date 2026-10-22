@@ -38,6 +38,7 @@ class PermissionServiceTest extends TestCase
         $this->assertNotContains(Permission::CatalogManage, $permissions);
         $this->assertNotContains(Permission::MatchesCorrectResult, $permissions);
         $this->assertNotContains(Permission::RankingsManage, $permissions);
+        $this->assertNotContains(Permission::RatingsManage, $permissions);
     }
 
     public function test_scorekeeper_can_record_results_but_not_manage_tournaments(): void

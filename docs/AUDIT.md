@@ -105,6 +105,10 @@ El campo `description` de Spatie almacena el **código estable** (`AuditAction`)
 | `game.result_corrected` | Corrección de resultado |
 | `groups.player_status_changed` | Cambio de estado de jugador |
 | `groups.manual_tiebreak_applied` | Desempate manual |
+| `rating_system.created` | Creación de sistema de rating |
+| `rating_system.updated` | Actualización de sistema de rating |
+| `rating_system.activated` | Activación de sistema de rating |
+| `rating_system.deactivated` | Desactivación de sistema de rating |
 
 ## Log names (módulos)
 
@@ -117,6 +121,7 @@ El campo `description` de Spatie almacena el **código estable** (`AuditAction`)
 | `groups` | Grupos y operaciones de fase de grupos |
 | `bracket` | Llave eliminatoria |
 | `games` | Partidos y resultados |
+| `rating_systems` | Alta, edición y activación de sistemas de rating |
 
 ## Operaciones incluidas
 
@@ -172,6 +177,15 @@ El campo `description` de Spatie almacena el **código estable** (`AuditAction`)
 | Creación manual de partido (HTTP) | `game.created` (1) | — |
 | Eliminación manual de partido (HTTP) | `game.deleted` (1) | — |
 
+### Sistemas de rating (R1)
+
+| Action | log_name | Subject |
+|--------|----------|---------|
+| `CreateRatingSystemAction` | `rating_systems` | `RatingSystem` |
+| `UpdateRatingSystemAction` | `rating_systems` | `RatingSystem` |
+
+`UpdateRatingSystemAction` registra `rating_system.activated` o `rating_system.deactivated` cuando cambia `active`. Si el mismo cambio también modifica otros campos, el evento sigue siendo el de activación o desactivación y `summary.changed_fields` lista todos los campos dirty. Un alta inactiva solo registra `rating_system.created`. Un update sin cambios no audita.
+
 ## Consulta de auditoría (Slice 2.5B)
 
 ### Permiso requerido
@@ -200,7 +214,7 @@ permission:audit.view
 | `page` | integer ≥ 1 | Página (default: 1) |
 | `per_page` | integer 1–100 | Tamaño (default: 25) |
 | `action` | `AuditAction` | Filtra por `description` |
-| `log_name` | `tournaments`, `competitions`, `players`, `registrations`, `groups`, `bracket`, `games` | Módulo |
+| `log_name` | `tournaments`, `competitions`, `players`, `registrations`, `groups`, `bracket`, `games`, `rating_systems` | Módulo |
 | `actor_id` | integer | Usuario local (`causer`) |
 | `tournament_id` | integer | `properties.context.tournament_id` |
 | `competition_id` | integer | `properties.context.competition_id` |
@@ -224,6 +238,7 @@ Orden estable: `created_at desc`, `id desc`.
 | `group` | `App\Models\Group` |
 | `bracket` | `App\Models\Bracket` |
 | `game` | `App\Models\Game` |
+| `rating_system` | `App\Models\RatingSystem` |
 | `unknown` | Tipo no reconocido |
 
 Las inscripciones usan **`Competition`** como subject (no existe alias `registration`).

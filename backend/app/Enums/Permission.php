@@ -37,6 +37,8 @@ enum Permission: string
 
     case RankingsManage = 'rankings.manage';
 
+    case RatingsManage = 'ratings.manage';
+
     case AuditView = 'audit.view';
 
     case UsersManage = 'users.manage';
