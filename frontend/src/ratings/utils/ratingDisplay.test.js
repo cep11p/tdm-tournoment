@@ -5,6 +5,7 @@ import {
   RATING_METHOD_DIFFERENCE_TABLE,
   ratingMethodLabel,
   ratingStatusLabel,
+  ratingVersionStatusLabel,
 } from './ratingDisplay.js'
 
 describe('ratingDisplay', () => {
@@ -20,5 +21,11 @@ describe('ratingDisplay', () => {
   it('traduce el estado', () => {
     assert.equal(ratingStatusLabel(true), 'Activo')
     assert.equal(ratingStatusLabel(false), 'Inactivo')
+  })
+
+  it('traduce el estado de una versión', () => {
+    assert.equal(ratingVersionStatusLabel('draft'), 'Borrador')
+    assert.equal(ratingVersionStatusLabel('published'), 'Publicada')
+    assert.equal(ratingVersionStatusLabel('published').includes('published'), false)
   })
 })

@@ -38,6 +38,30 @@ const breadcrumbItems = computed(() => {
     return [{ label: BREADCRUMB_RATING_SYSTEMS }]
   }
 
+  if (route.name === 'rating-systems.versions') {
+    const systemName = context.ratingSystemName || `Sistema #${route.params.id}`
+
+    return [
+      { label: BREADCRUMB_RATING_SYSTEMS, to: '/rating-systems' },
+      { label: `Versiones de ${systemName}` },
+    ]
+  }
+
+  if (route.name === 'rating-systems.versions.edit') {
+    return [
+      { label: BREADCRUMB_RATING_SYSTEMS, to: '/rating-systems' },
+      {
+        label: context.ratingSystemName || `Sistema #${route.params.id}`,
+        to: `/rating-systems/${route.params.id}/versions`,
+      },
+      {
+        label: context.ratingVersionNumber
+          ? `Versión ${context.ratingVersionNumber}`
+          : 'Versión',
+      },
+    ]
+  }
+
   if (route.name === 'rankings.show') {
     return [
       { label: BREADCRUMB_RANKINGS, to: '/rankings' },

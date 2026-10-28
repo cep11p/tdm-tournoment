@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\RatingMethod;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class RatingSystem extends Model
 {
@@ -16,5 +17,10 @@ class RatingSystem extends Model
             'method' => RatingMethod::class,
             'active' => 'boolean',
         ];
+    }
+
+    public function ratingRuleVersions(): HasMany
+    {
+        return $this->hasMany(RatingRuleVersion::class)->orderByDesc('version');
     }
 }

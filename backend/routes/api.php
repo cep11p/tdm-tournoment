@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\V1\PlayerController;
 use App\Http\Controllers\Api\V1\PlayingTableController;
 use App\Http\Controllers\Api\V1\RankingController;
 use App\Http\Controllers\Api\V1\RankingRuleController;
+use App\Http\Controllers\Api\V1\RatingRuleVersionController;
 use App\Http\Controllers\Api\V1\RatingSystemController;
 use App\Http\Controllers\Api\V1\RegistrationController;
 use App\Http\Controllers\Api\V1\TeamTieController;
@@ -138,6 +139,7 @@ Route::prefix(config('api.version_prefix', 'v1'))
             });
 
         Route::middleware(['auth.keycloak', 'permission:ratings.manage'])
+            ->scopeBindings()
             ->group(function (): void {
                 Route::get('rating-systems', [RatingSystemController::class, 'index'])
                     ->name('rating-systems.index');
@@ -147,6 +149,16 @@ Route::prefix(config('api.version_prefix', 'v1'))
                     ->name('rating-systems.show');
                 Route::match(['put', 'patch'], 'rating-systems/{ratingSystem}', [RatingSystemController::class, 'update'])
                     ->name('rating-systems.update');
+                Route::get('rating-systems/{ratingSystem}/versions', [RatingRuleVersionController::class, 'index'])
+                    ->name('rating-systems.versions.index');
+                Route::post('rating-systems/{ratingSystem}/versions', [RatingRuleVersionController::class, 'store'])
+                    ->name('rating-systems.versions.store');
+                Route::get('rating-systems/{ratingSystem}/versions/{ratingRuleVersion}', [RatingRuleVersionController::class, 'show'])
+                    ->name('rating-systems.versions.show');
+                Route::match(['put', 'patch'], 'rating-systems/{ratingSystem}/versions/{ratingRuleVersion}', [RatingRuleVersionController::class, 'update'])
+                    ->name('rating-systems.versions.update');
+                Route::post('rating-systems/{ratingSystem}/versions/{ratingRuleVersion}/publish', [RatingRuleVersionController::class, 'publish'])
+                    ->name('rating-systems.versions.publish');
             });
 
         Route::get('team-tie-formats', [TeamTieFormatController::class, 'index'])

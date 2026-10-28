@@ -10,6 +10,7 @@ use App\Models\Group;
 use App\Models\Player;
 use App\Models\Ranking;
 use App\Models\RankingRule;
+use App\Models\RatingRuleVersion;
 use App\Models\RatingSystem;
 use App\Models\Tournament;
 use Illuminate\Database\Eloquent\Model;
@@ -105,6 +106,10 @@ final class AuditLogSubjectPresenter
             return $subject->name !== '' ? (string) $subject->name : "Sistema de rating #{$subject->id}";
         }
 
+        if ($subject instanceof RatingRuleVersion) {
+            return self::versionLabel($context, $subject->version, $subject->id);
+        }
+
         $historical = self::historicalLabel($type, $context, $summary);
 
         if ($historical !== null) {
@@ -174,6 +179,11 @@ final class AuditLogSubjectPresenter
                 ?? (data_get($context, 'rating_system_id') !== null
                     ? 'Sistema de rating #'.data_get($context, 'rating_system_id')
                     : null),
+            AuditSubjectType::RatingVersion => self::versionLabel(
+                $context,
+                data_get($context, 'version'),
+                data_get($context, 'rating_version_id'),
+            ),
             default => null,
         };
     }
@@ -205,6 +215,10 @@ final class AuditLogSubjectPresenter
 
         if (data_get($context, 'ranking_rule_id') !== null) {
             return AuditSubjectType::RankingRule;
+        }
+
+        if (data_get($context, 'rating_version_id') !== null) {
+            return AuditSubjectType::RatingVersion;
         }
 
         if (data_get($context, 'rating_system_id') !== null) {
@@ -253,6 +267,7 @@ final class AuditLogSubjectPresenter
             AuditSubjectType::Ranking => 'ranking_id',
             AuditSubjectType::RankingRule => 'ranking_rule_id',
             AuditSubjectType::RatingSystem => 'rating_system_id',
+            AuditSubjectType::RatingVersion => 'rating_version_id',
             default => null,
         };
 
@@ -263,6 +278,22 @@ final class AuditLogSubjectPresenter
         $value = data_get($context, $key);
 
         return $value !== null ? (int) $value : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    private static function versionLabel(array $context, mixed $version, mixed $id): string
+    {
+        $number = is_numeric($version) ? (string) $version : null;
+        $label = $number !== null ? "Versión {$number}" : ($id !== null ? "Versión de reglas #{$id}" : 'Versión de reglas');
+        $systemName = data_get($context, 'rating_system_name');
+
+        if (is_string($systemName) && $systemName !== '') {
+            return "{$label} · {$systemName}";
+        }
+
+        return $label;
     }
 
     private static function playerDisplayName(Player $player): ?string

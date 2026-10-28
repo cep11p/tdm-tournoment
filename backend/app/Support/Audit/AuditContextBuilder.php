@@ -13,6 +13,7 @@ use App\Models\GroupEntry;
 use App\Models\Player;
 use App\Models\Ranking;
 use App\Models\RankingRule;
+use App\Models\RatingRuleVersion;
 use App\Models\RatingSystem;
 use App\Models\TeamTie;
 use App\Models\Tournament;
@@ -405,6 +406,21 @@ final class AuditContextBuilder
             'rating_system_id' => $ratingSystem->id,
             'rating_system_name' => $ratingSystem->name,
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function fromRatingRuleVersion(RatingRuleVersion $version, ?RatingSystem $ratingSystem = null): array
+    {
+        $ratingSystem ??= $version->ratingSystem;
+
+        return [
+            'rating_system_id' => $ratingSystem?->id ?? $version->rating_system_id,
+            'rating_system_name' => $ratingSystem?->name,
+            'rating_version_id' => $version->id,
+            'version' => (int) $version->version,
+        ];
     }
 
     /**

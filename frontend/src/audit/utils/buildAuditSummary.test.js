@@ -51,6 +51,29 @@ describe('resúmenes de sistemas de rating', () => {
     )
   })
 
+  it('resume la creación, edición y publicación de una versión', () => {
+    assert.equal(
+      buildAuditSummary(auditLog('rating_version.created', { version: 2 })),
+      'Versión 2 de "Rating del club" creada',
+    )
+    assert.equal(
+      buildAuditSummary(auditLog('rating_version.updated', { version: 2 })),
+      'Versión 2 de "Rating del club" actualizada',
+    )
+    assert.equal(
+      buildAuditSummary(auditLog('rating_version.published', { version: 2 })),
+      'Versión 2 de "Rating del club" publicada',
+    )
+    assert.equal(
+      buildAuditSummary({
+        action: 'rating_version.published',
+        summary: {},
+        context: { rating_system_name: 'Copa', version: 1 },
+      }).includes('favorite_win'),
+      false,
+    )
+  })
+
   it('mantiene el resumen de un ranking creado', () => {
     assert.equal(
       buildAuditSummary({

@@ -27,6 +27,8 @@ import RankingDetailView from '../rankings/views/RankingDetailView.vue'
 import RankingPlayerHistoryView from '../rankings/views/RankingPlayerHistoryView.vue'
 import RankingRulesView from '../rankings/views/RankingRulesView.vue'
 import RatingSystemListView from '../ratings/views/RatingSystemListView.vue'
+import RatingRuleVersionListView from '../ratings/views/RatingRuleVersionListView.vue'
+import RatingRuleVersionFormView from '../ratings/views/RatingRuleVersionFormView.vue'
 
 const routes = [
   {
@@ -149,6 +151,18 @@ const routes = [
     path: '/rating-systems',
     name: 'rating-systems.index',
     component: RatingSystemListView,
+    meta: { permission: 'ratings.manage' },
+  },
+  {
+    path: '/rating-systems/:id/versions',
+    name: 'rating-systems.versions',
+    component: RatingRuleVersionListView,
+    meta: { permission: 'ratings.manage' },
+  },
+  {
+    path: '/rating-systems/:id/versions/:versionId',
+    name: 'rating-systems.versions.edit',
+    component: RatingRuleVersionFormView,
     meta: { permission: 'ratings.manage' },
   },
   {

@@ -90,6 +90,16 @@ function ratingSystemName(auditLog) {
   )
 }
 
+function ratingVersionLabel(auditLog) {
+  const version = auditLog?.summary?.version ?? auditLog?.context?.version
+
+  if (version === undefined || version === null || version === '') {
+    return 'Versión'
+  }
+
+  return `Versión ${version}`
+}
+
 function displayName(auditLog, fallback = 'Entidad') {
   return (
     auditLog?.summary?.tournament_name
@@ -431,6 +441,15 @@ export function buildAuditSummary(auditLog) {
 
     case 'rating_system.deactivated':
       return `Sistema de rating "${ratingSystemName(auditLog)}" desactivado`
+
+    case 'rating_version.created':
+      return `${ratingVersionLabel(auditLog)} de "${ratingSystemName(auditLog)}" creada`
+
+    case 'rating_version.updated':
+      return `${ratingVersionLabel(auditLog)} de "${ratingSystemName(auditLog)}" actualizada`
+
+    case 'rating_version.published':
+      return `${ratingVersionLabel(auditLog)} de "${ratingSystemName(auditLog)}" publicada`
 
     default:
       return ''

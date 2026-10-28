@@ -47,6 +47,9 @@ enum AuditAction: string
     case RATING_SYSTEM_UPDATED = 'rating_system.updated';
     case RATING_SYSTEM_ACTIVATED = 'rating_system.activated';
     case RATING_SYSTEM_DEACTIVATED = 'rating_system.deactivated';
+    case RATING_VERSION_CREATED = 'rating_version.created';
+    case RATING_VERSION_UPDATED = 'rating_version.updated';
+    case RATING_VERSION_PUBLISHED = 'rating_version.published';
 
     public function label(): string
     {
@@ -94,6 +97,9 @@ enum AuditAction: string
             self::RATING_SYSTEM_UPDATED => 'Actualización de sistema de rating',
             self::RATING_SYSTEM_ACTIVATED => 'Activación de sistema de rating',
             self::RATING_SYSTEM_DEACTIVATED => 'Desactivación de sistema de rating',
+            self::RATING_VERSION_CREATED => 'Creación de versión de reglas',
+            self::RATING_VERSION_UPDATED => 'Actualización de versión de reglas',
+            self::RATING_VERSION_PUBLISHED => 'Publicación de versión de reglas',
         };
     }
 
@@ -142,7 +148,10 @@ enum AuditAction: string
             self::RATING_SYSTEM_CREATED,
             self::RATING_SYSTEM_UPDATED,
             self::RATING_SYSTEM_ACTIVATED,
-            self::RATING_SYSTEM_DEACTIVATED => 'Sistemas de rating',
+            self::RATING_SYSTEM_DEACTIVATED,
+            self::RATING_VERSION_CREATED,
+            self::RATING_VERSION_UPDATED,
+            self::RATING_VERSION_PUBLISHED => 'Sistemas de rating',
         };
     }
 

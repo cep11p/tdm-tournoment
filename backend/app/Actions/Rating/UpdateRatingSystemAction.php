@@ -33,6 +33,7 @@ final class UpdateRatingSystemAction
     public function __invoke(RatingSystem $ratingSystem, array $payload): RatingSystem
     {
         return DB::transaction(function () use ($ratingSystem, $payload): RatingSystem {
+            $ratingSystem = RatingSystem::query()->lockForUpdate()->findOrFail($ratingSystem->id);
             $wasActive = (bool) $ratingSystem->active;
 
             $ratingSystem->fill($payload);

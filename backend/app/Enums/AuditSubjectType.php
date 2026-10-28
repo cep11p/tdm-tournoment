@@ -9,6 +9,7 @@ use App\Models\Group;
 use App\Models\Player;
 use App\Models\Ranking;
 use App\Models\RankingRule;
+use App\Models\RatingRuleVersion;
 use App\Models\RatingSystem;
 use App\Models\Tournament;
 use Illuminate\Database\Eloquent\Model;
@@ -24,6 +25,7 @@ enum AuditSubjectType: string
     case Ranking = 'ranking';
     case RankingRule = 'ranking_rule';
     case RatingSystem = 'rating_system';
+    case RatingVersion = 'rating_version';
 
     /**
      * @return class-string<Model>
@@ -40,6 +42,7 @@ enum AuditSubjectType: string
             self::Ranking => Ranking::class,
             self::RankingRule => RankingRule::class,
             self::RatingSystem => RatingSystem::class,
+            self::RatingVersion => RatingRuleVersion::class,
         };
     }
 
@@ -55,6 +58,7 @@ enum AuditSubjectType: string
             self::Ranking => 'Ranking',
             self::RankingRule => 'Regla de ranking',
             self::RatingSystem => 'Sistema de rating',
+            self::RatingVersion => 'Versión de reglas',
         };
     }
 
@@ -74,6 +78,7 @@ enum AuditSubjectType: string
             Ranking::class => self::Ranking,
             RankingRule::class => self::RankingRule,
             RatingSystem::class => self::RatingSystem,
+            RatingRuleVersion::class => self::RatingVersion,
             default => null,
         };
     }
@@ -94,6 +99,7 @@ enum AuditSubjectType: string
             Ranking::class => self::Ranking,
             RankingRule::class => self::RankingRule,
             RatingSystem::class => self::RatingSystem,
+            RatingRuleVersion::class => self::RatingVersion,
             default => self::tryFrom($subjectType),
         };
     }

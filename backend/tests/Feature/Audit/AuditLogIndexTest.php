@@ -109,6 +109,29 @@ class AuditLogIndexTest extends TestCase
         $this->assertSame([$match->id], collect($response->json('data'))->pluck('id')->all());
     }
 
+    public function test_filters_by_rating_systems_log_name_without_changing_other_modules(): void
+    {
+        $rating = $this->createAuditActivity(AuditAction::RATING_SYSTEM_CREATED, 'rating_systems');
+        $bracket = $this->createAuditActivity(AuditAction::BRACKET_CREATED, 'bracket');
+
+        $this->getJson('/api/v1/audit-logs?log_name=rating_systems', $this->adminHeaders())
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $rating->id)
+            ->assertJsonCount(1, 'data');
+
+        $this->getJson('/api/v1/audit-logs?log_name=bracket', $this->adminHeaders())
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $bracket->id)
+            ->assertJsonCount(1, 'data');
+
+        $unfilteredIds = collect(
+            $this->getJson('/api/v1/audit-logs', $this->adminHeaders())->assertOk()->json('data'),
+        )->pluck('id');
+
+        $this->assertTrue($unfilteredIds->contains($rating->id));
+        $this->assertTrue($unfilteredIds->contains($bracket->id));
+    }
+
     public function test_filters_by_actor(): void
     {
         $user = User::factory()->create([

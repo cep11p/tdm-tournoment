@@ -1,6 +1,7 @@
 <script setup>
 import {
   CheckCircleIcon,
+  ListBulletIcon,
   NoSymbolIcon,
   PencilSquareIcon,
   PlusIcon,
@@ -30,6 +31,9 @@ const editingRatingSystem = ref(null)
 
 const addButtonClasses =
   'inline-flex rounded-md border border-emerald-300 bg-emerald-50 p-2 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/60'
+
+const versionsButtonClasses =
+  'inline-flex rounded-md border border-sky-300 bg-sky-50 p-1.5 text-sky-800 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300 dark:hover:bg-sky-950/60'
 
 const editButtonClasses =
   'inline-flex rounded-md border border-amber-300 bg-amber-50 p-1.5 text-amber-800 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-70 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/60'
@@ -194,7 +198,7 @@ onMounted(loadRatingSystems)
               Estado
             </th>
             <th
-              class="w-36 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
+              class="w-44 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
             >
               Acciones
             </th>
@@ -226,8 +230,18 @@ onMounted(loadRatingSystems)
                 {{ ratingStatusLabel(ratingSystem.active) }}
               </span>
             </td>
-            <td class="w-36 px-4 py-3 text-sm">
+            <td class="w-44 px-4 py-3 text-sm">
               <div v-if="canManageRatings" class="flex flex-nowrap items-center justify-end gap-1.5">
+                <AppTooltip label="Versiones de reglas">
+                  <RouterLink
+                    :to="`/rating-systems/${ratingSystem.id}/versions`"
+                    :class="versionsButtonClasses"
+                    aria-label="Versiones de reglas"
+                  >
+                    <ListBulletIcon class="h-4 w-4" aria-hidden="true" />
+                  </RouterLink>
+                </AppTooltip>
+
                 <AppTooltip label="Editar">
                   <button
                     type="button"

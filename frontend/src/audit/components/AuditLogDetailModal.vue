@@ -68,6 +68,15 @@ const contextLines = computed(() => {
       label: 'Sistema de rating',
       value: context.rating_system_name ?? (context.rating_system_id ? `#${context.rating_system_id}` : null),
     },
+    {
+      label: 'Versión de reglas',
+      value:
+        context.version != null && context.version !== ''
+          ? `Versión ${context.version}`
+          : context.rating_version_id
+            ? `Versión #${context.rating_version_id}`
+            : null,
+    },
   ].filter((line) => line.value)
 })
 
@@ -102,6 +111,46 @@ watch(
   { immediate: true },
 )
 
+const AUDIT_VALUE_LABELS = {
+  rules: 'Tabla de diferencias',
+  version: 'Versión',
+  status: 'Estado',
+  published_at: 'Fecha de publicación',
+}
+
+const STATUS_LABELS = {
+  draft: 'Borrador',
+  published: 'Publicada',
+}
+
+const formatRulesAudit = (value) => {
+  if (!Array.isArray(value)) {
+    return formatValue(value)
+  }
+
+  if (value.length === 0) {
+    return 'Sin rangos'
+  }
+
+  const lines = value.map((range) => {
+    if (!range || typeof range !== 'object' || Array.isArray(range)) {
+      return null
+    }
+
+    const span = range.max === null || range.max === undefined
+      ? `${range.min ?? '—'} o más`
+      : `${range.min ?? '—'}–${range.max}`
+
+    return `${span}: favorito ${range.favorite_win ?? '—'}, menor rating ${range.underdog_win ?? '—'}`
+  })
+
+  if (lines.some((line) => line === null)) {
+    return formatValue(value)
+  }
+
+  return lines.join('\n')
+}
+
 const formatValue = (value) => {
   if (value === null || value === undefined || value === '') {
     return '-'
@@ -131,12 +180,24 @@ const renderEntries = (payload) => {
     return []
   }
 
-  return Object.entries(payload).map(([key, value]) => ({
-    key,
-    value,
-    display: formatValue(value),
-    isComplex: typeof value === 'object' && value !== null,
-  }))
+  return Object.entries(payload).map(([key, value]) => {
+    let display = key === 'rules' ? formatRulesAudit(value) : formatValue(value)
+
+    if (key === 'status' && STATUS_LABELS[value]) {
+      display = STATUS_LABELS[value]
+    }
+
+    if (key === 'published_at') {
+      display = formatDateTime(value)
+    }
+
+    return {
+      key: AUDIT_VALUE_LABELS[key] ?? key,
+      value,
+      display,
+      isComplex: key === 'rules' || (typeof value === 'object' && value !== null && key !== 'status'),
+    }
+  })
 }
 
 const oldEntries = computed(() => renderEntries(auditLog.value?.old))

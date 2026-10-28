@@ -49,6 +49,9 @@ const AUDIT_ACTIONS = [
   { value: 'rating_system.updated', label: 'Actualización de sistema de rating' },
   { value: 'rating_system.activated', label: 'Activación de sistema de rating' },
   { value: 'rating_system.deactivated', label: 'Desactivación de sistema de rating' },
+  { value: 'rating_version.created', label: 'Creación de versión de reglas' },
+  { value: 'rating_version.updated', label: 'Actualización de versión de reglas' },
+  { value: 'rating_version.published', label: 'Publicación de versión de reglas' },
 ]
 
 const LOG_NAMES = [
