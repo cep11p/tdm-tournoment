@@ -11,6 +11,7 @@ use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Competition\LateGroupMutationGuard;
 use App\Support\Competition\TeamCompetitionSchedulingGuard;
+use App\Support\Group\GroupActiveEntries;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -60,9 +61,9 @@ final class GenerateGroupRoundRobinGamesAction
         $existingBefore = $lockedGroup->games()->lockForUpdate()->count();
         $entryCount = $lockedGroup->groupEntries()->count();
 
-        if ($entryCount < 2) {
+        if (! GroupActiveEntries::requiresSchedule($lockedGroup)) {
             throw ValidationException::withMessages([
-                'group' => ['El grupo necesita al menos 2 jugadores.'],
+                'group' => ['El grupo necesita al menos 2 jugadores activos.'],
             ]);
         }
 

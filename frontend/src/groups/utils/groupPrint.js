@@ -1,3 +1,5 @@
+import { getGroupPlayerStatusLabel } from '../constants/groupPlayerStatus.js'
+
 export const OFFICIAL_GROUP_SHEET_KINDS = ['g3', 'g4', 'g5']
 
 /**
@@ -122,6 +124,29 @@ export function formatPrintDisplayName(displayName) {
   }
 
   return String(displayName).split(' / ').join(' /\n')
+}
+
+/**
+ * Etiquetas "Nombre (Retirado)" de los participantes dados de baja.
+ * Con onlyUnnumbered, solo los que quedaron fuera de la planilla oficial
+ * (baja previa al fixture: sin número ni partidos).
+ *
+ * @param {Array<{sheet_number?: number|null, display_name?: string, status?: string}>|null|undefined} participants
+ * @param {{onlyUnnumbered?: boolean}} [options]
+ * @returns {string[]}
+ */
+export function printInactiveParticipantLabels(participants, { onlyUnnumbered = false } = {}) {
+  if (!Array.isArray(participants)) {
+    return []
+  }
+
+  return participants
+    .filter((participant) => getGroupPlayerStatusLabel(participant?.status))
+    .filter((participant) => !onlyUnnumbered || participant?.sheet_number == null)
+    .map(
+      (participant) =>
+        `${participant.display_name || '—'} (${getGroupPlayerStatusLabel(participant.status)})`,
+    )
 }
 
 /**

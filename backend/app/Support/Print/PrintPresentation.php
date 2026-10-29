@@ -72,6 +72,7 @@ final class PrintPresentation
 
             if ($last !== null && $last['group_round'] === $round && $round !== null) {
                 $groups[$lastIndex]['matches'][] = $match;
+
                 continue;
             }
 
@@ -125,6 +126,40 @@ final class PrintPresentation
             'team' => 'Equipos',
             default => $type ?: '—',
         };
+    }
+
+    public static function groupPlayerStatusLabel(?string $status): ?string
+    {
+        return match ($status) {
+            'withdrawn' => 'Retirado',
+            'disqualified' => 'Descalificado',
+            default => null,
+        };
+    }
+
+    /**
+     * Etiquetas "Nombre (Retirado)" de los participantes dados de baja.
+     * Con $onlyUnnumbered, solo los que quedaron fuera de la planilla oficial
+     * (baja previa al fixture: sin número ni partidos).
+     *
+     * @param  list<array{sheet_number: int|null, display_name: string, status?: string}>  $participants
+     * @return list<string>
+     */
+    public static function inactiveParticipantLabels(array $participants, bool $onlyUnnumbered = false): array
+    {
+        $labels = [];
+
+        foreach ($participants as $participant) {
+            $statusLabel = self::groupPlayerStatusLabel($participant['status'] ?? null);
+
+            if ($statusLabel === null || ($onlyUnnumbered && $participant['sheet_number'] !== null)) {
+                continue;
+            }
+
+            $labels[] = sprintf('%s (%s)', $participant['display_name'], $statusLabel);
+        }
+
+        return $labels;
     }
 
     public static function roundLabel(?int $groupRound): string

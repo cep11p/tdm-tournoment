@@ -100,6 +100,10 @@ final class ReconcileGroupRoundRobinGamesAction
     }
 
     /**
+     * Pares entre todos los integrantes actuales, activos o no: los partidos
+     * históricos contra un participante dado de baja se conservan. El builder
+     * solo crea los pares faltantes entre activos.
+     *
      * @param  list<int>  $entryIds
      * @return array<string, true>
      */

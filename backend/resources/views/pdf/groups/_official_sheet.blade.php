@@ -71,7 +71,10 @@
                 @foreach ($matrixRows as $row)
                     <tr class="official-matrix-row">
                         <td class="official-matrix-num">{{ $row['sheet_number'] }}</td>
-                        <td class="official-matrix-name-cell">{{ \App\Support\Print\PrintPresentation::displayName($row['entry']['display_name'] ?? null) }}</td>
+                        @php
+                            $rowStatusLabel = \App\Support\Print\PrintPresentation::groupPlayerStatusLabel($row['entry']['status'] ?? null);
+                        @endphp
+                        <td class="official-matrix-name-cell">{{ \App\Support\Print\PrintPresentation::displayName($row['entry']['display_name'] ?? null) }}@if ($rowStatusLabel !== null) ({{ $rowStatusLabel }})@endif</td>
                         <td class="official-matrix-assoc"></td>
                         @foreach (($row['cells'] ?? []) as $cell)
                             <td class="official-matrix-cell{{ ($cell['type'] ?? '') === 'self' ? ' matrix-cell--self' : '' }}">
@@ -86,6 +89,13 @@
                 @endforeach
             </tbody>
         </table>
+
+        @php
+            $inactiveLabels = \App\Support\Print\PrintPresentation::inactiveParticipantLabels($sheet->participants, onlyUnnumbered: true);
+        @endphp
+        @if ($inactiveLabels !== [])
+            <p class="official-inactive-note">Bajas sin partidos: {{ implode(', ', $inactiveLabels) }}</p>
+        @endif
 
         @php
             $stackMatches = \App\Support\Print\PrintPresentation::orientation($sheet->bestOf) === 'portrait';

@@ -8,6 +8,7 @@ use App\Models\Group;
 use App\Models\TeamTie;
 use App\Models\TeamTieFormat;
 use App\Support\Competition\TeamCompetitionSchedulingGuard;
+use App\Support\Group\GroupActiveEntries;
 use App\Support\Group\RoundRobinScheduleBuilder;
 use Illuminate\Support\Collection;
 
@@ -30,12 +31,7 @@ final class BuildGroupRoundRobinTeamTiesAction
         /** @var TeamTieFormat $format */
         $format = $group->competition->teamTieFormat;
 
-        $entryIds = $group->groupEntries()
-            ->orderBy('competition_entry_id')
-            ->pluck('competition_entry_id')
-            ->map(fn ($entryId) => (int) $entryId)
-            ->values()
-            ->all();
+        $entryIds = GroupActiveEntries::ids($group);
 
         $competitionId = (int) $group->competition_id;
         $schedule = $this->scheduleBuilder->build($entryIds);

@@ -5,8 +5,10 @@ import {
   groupConsecutiveMatchesByRound,
   printBestOfLabel,
   printCompetitionTypeLabel,
+  printInactiveParticipantLabels,
   printSetColumns,
 } from '../utils/groupPrint'
+import { getGroupPlayerStatusLabel } from '../constants/groupPlayerStatus'
 import GroupPrintMatchBlock from './GroupPrintMatchBlock.vue'
 
 const props = defineProps({
@@ -29,6 +31,9 @@ const matrixNumbers = computed(() => {
 
   return matrixRows.value.map((row) => row.sheet_number)
 })
+const unnumberedInactiveLabels = computed(() =>
+  printInactiveParticipantLabels(props.sheet?.participants, { onlyUnnumbered: true }),
+)
 const notesLineCount = computed(() => {
   const kind = props.sheet?.sheet_kind
 
@@ -119,7 +124,13 @@ const notesLineCount = computed(() => {
             :key="row.sheet_number"
           >
             <td class="matrix-num">{{ row.sheet_number }}</td>
-            <td class="matrix-name">{{ row.entry?.display_name || '—' }}</td>
+            <td class="matrix-name">
+              {{ row.entry?.display_name || '—' }}
+              <span
+                v-if="getGroupPlayerStatusLabel(row.entry?.status)"
+                class="matrix-status"
+              >({{ getGroupPlayerStatusLabel(row.entry?.status) }})</span>
+            </td>
             <td class="matrix-assoc" />
             <td
               v-for="cell in row.cells"
@@ -138,6 +149,12 @@ const notesLineCount = computed(() => {
           </tr>
         </tbody>
       </table>
+      <p
+        v-if="unnumberedInactiveLabels.length > 0"
+        class="matrix-inactive-note"
+      >
+        Bajas sin partidos: {{ unnumberedInactiveLabels.join(', ') }}
+      </p>
     </section>
 
     <section class="official-matches" aria-label="Partidos">
@@ -178,6 +195,15 @@ const notesLineCount = computed(() => {
 </template>
 
 <style scoped>
+.matrix-status {
+  font-style: italic;
+}
+
+.matrix-inactive-note {
+  margin: 0.25rem 0 0;
+  font-style: italic;
+}
+
 .official-layout {
   display: flex;
   flex-direction: column;

@@ -5,11 +5,13 @@ namespace App\Actions\Group;
 use App\Data\Group\GroupSheetResolvedGame;
 use App\Data\Group\PrintGroupSheetData;
 use App\Enums\CompetitionType;
+use App\Enums\GroupPlayerStatus;
 use App\Models\CompetitionEntry;
 use App\Models\Game;
 use App\Models\Group;
 use App\Models\GroupEntry;
 use App\Support\Game\GameFormatResolver;
+use App\Support\Group\GroupActiveEntries;
 use App\Support\Group\GroupFixtureOrder;
 use App\Support\Group\GroupRefereeAssigner;
 use App\Support\Group\GroupSheetFixtureMismatchException;
@@ -53,36 +55,25 @@ final class BuildPrintGroupSheetAction
         }
 
         $entriesById = $this->entriesById($group);
-        $sheetNumberByEntryId = GroupSheetNumbering::forCompetitionEntryIds(
-            $entriesById->keys()->map(fn ($id): int => (int) $id)->all(),
+        $statusByEntryId = $this->statusByEntryId($group);
+        $activeEntriesById = $entriesById->filter(
+            fn (CompetitionEntry $entry): bool => $statusByEntryId[(int) $entry->id] === GroupPlayerStatus::Active,
         );
-        $size = $entriesById->count();
-        $usesSheetOrder = GroupSheetPlayingOrder::supports($size);
+        $games = GroupFixtureOrder::games($group, self::GAME_RELATIONS);
 
-        $games = $usesSheetOrder
-            ? $group->games()->with(self::GAME_RELATIONS)->get()
-            : GroupFixtureOrder::games($group, self::GAME_RELATIONS);
-
-        if ($games->isEmpty()) {
+        if ($games->isEmpty() && ! GroupActiveEntries::skipsScheduleByWithdrawals($group)) {
             throw ValidationException::withMessages([
                 'group' => [self::MISSING_FIXTURE_MESSAGE],
             ]);
         }
 
-        if ($usesSheetOrder) {
-            try {
-                $resolved = GroupSheetGameResolver::resolve(
-                    $size,
-                    $entriesById,
-                    $sheetNumberByEntryId,
-                    $games,
-                );
-            } catch (GroupSheetFixtureMismatchException) {
-                throw ValidationException::withMessages([
-                    'group' => [self::INVALID_FIXTURE_MESSAGE],
-                ]);
-            }
+        [$sheetEntriesById, $resolved] = $this->resolveSheetLayout($entriesById, $activeEntriesById, $games);
+        $sheetNumberByEntryId = GroupSheetNumbering::forCompetitionEntryIds(
+            $sheetEntriesById->keys()->map(fn ($id): int => (int) $id)->all(),
+        );
+        $usesSheetOrder = $resolved !== null;
 
+        if ($usesSheetOrder) {
             $orderedGames = collect($resolved)
                 ->map(fn (GroupSheetResolvedGame $item): Game => $item->game)
                 ->values();
@@ -103,7 +94,11 @@ final class BuildPrintGroupSheetAction
             );
         }
 
-        $participants = $this->participants($entriesById, $sheetNumberByEntryId);
+        $participants = $this->participants($entriesById, $sheetNumberByEntryId, $statusByEntryId);
+        $numberedParticipants = array_values(array_filter(
+            $participants,
+            fn (array $participant): bool => $participant['sheet_number'] !== null,
+        ));
 
         return new PrintGroupSheetData(
             tournament: [
@@ -125,8 +120,8 @@ final class BuildPrintGroupSheetAction
             qualifiedPerGroup: (int) $group->competition->qualified_per_group,
             participants: $participants,
             matches: $matches,
-            sheetKind: $usesSheetOrder ? 'g'.$size : 'generic',
-            matrix: GroupSheetMatrix::build($participants, $matches),
+            sheetKind: $usesSheetOrder ? 'g'.$sheetEntriesById->count() : 'generic',
+            matrix: GroupSheetMatrix::build($numberedParticipants, $matches),
         );
     }
 
@@ -148,19 +143,100 @@ final class BuildPrintGroupSheetAction
     }
 
     /**
+     * @return array<int, GroupPlayerStatus> competition_entry_id => status
+     */
+    private function statusByEntryId(Group $group): array
+    {
+        $statuses = [];
+
+        foreach ($group->groupEntries as $groupEntry) {
+            $statuses[(int) $groupEntry->competition_entry_id] = $groupEntry->status ?? GroupPlayerStatus::Active;
+        }
+
+        return $statuses;
+    }
+
+    /**
+     * Elige qué integrantes numera la planilla y, si corresponde, el orden G3/G4/G5:
+     * 1. fixture oficial sobre todos los integrantes (incluye bajas posteriores al fixture);
+     * 2. con bajas, fixture oficial sobre los activos (bajas previas al fixture,
+     *    que quedan listadas sin número ni partidos);
+     * 3. con bajas, planilla genérica con todos los partidos, para no perder históricos.
+     * Sin bajas, un fixture que no coincide con G3/G4/G5 sigue siendo un error.
+     *
+     * @param  Collection<int, CompetitionEntry>  $entriesById
+     * @param  Collection<int, CompetitionEntry>  $activeEntriesById
+     * @param  Collection<int, Game>  $games
+     * @return array{0: Collection<int, CompetitionEntry>, 1: list<GroupSheetResolvedGame>|null}
+     */
+    private function resolveSheetLayout(Collection $entriesById, Collection $activeEntriesById, Collection $games): array
+    {
+        $hasInactive = $activeEntriesById->count() !== $entriesById->count();
+
+        if (GroupSheetPlayingOrder::supports($entriesById->count())) {
+            $resolved = $this->tryResolveSheet($entriesById, $games);
+
+            if ($resolved !== null) {
+                return [$entriesById, $resolved];
+            }
+
+            if (! $hasInactive) {
+                throw ValidationException::withMessages([
+                    'group' => [self::INVALID_FIXTURE_MESSAGE],
+                ]);
+            }
+        }
+
+        if ($hasInactive && GroupSheetPlayingOrder::supports($activeEntriesById->count())) {
+            $resolved = $this->tryResolveSheet($activeEntriesById, $games);
+
+            if ($resolved !== null) {
+                return [$activeEntriesById, $resolved];
+            }
+        }
+
+        return [$entriesById, null];
+    }
+
+    /**
+     * @param  Collection<int, CompetitionEntry>  $sheetEntriesById
+     * @param  Collection<int, Game>  $games
+     * @return list<GroupSheetResolvedGame>|null
+     */
+    private function tryResolveSheet(Collection $sheetEntriesById, Collection $games): ?array
+    {
+        try {
+            return GroupSheetGameResolver::resolve(
+                $sheetEntriesById->count(),
+                $sheetEntriesById,
+                GroupSheetNumbering::forCompetitionEntryIds(
+                    $sheetEntriesById->keys()->map(fn ($id): int => (int) $id)->all(),
+                ),
+                $games,
+            );
+        } catch (GroupSheetFixtureMismatchException) {
+            return null;
+        }
+    }
+
+    /**
      * @param  Collection<int, CompetitionEntry>  $entriesById
      * @param  array<int, int>  $sheetNumberByEntryId
-     * @return list<array{competition_entry_id: int, sheet_number: int|null, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>}>
+     * @param  array<int, GroupPlayerStatus>  $statusByEntryId
+     * @return list<array{competition_entry_id: int, sheet_number: int|null, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>, status: string}>
      */
-    private function participants(Collection $entriesById, array $sheetNumberByEntryId): array
+    private function participants(Collection $entriesById, array $sheetNumberByEntryId, array $statusByEntryId): array
     {
         return $entriesById
             ->sortBy(fn (CompetitionEntry $entry): int => $sheetNumberByEntryId[(int) $entry->id] ?? PHP_INT_MAX)
             ->values()
-            ->map(fn (CompetitionEntry $entry): array => PrintGroupEntryPayload::for(
-                $entry,
-                $sheetNumberByEntryId[(int) $entry->id] ?? null,
-            ))
+            ->map(fn (CompetitionEntry $entry): array => [
+                ...PrintGroupEntryPayload::for(
+                    $entry,
+                    $sheetNumberByEntryId[(int) $entry->id] ?? null,
+                ),
+                'status' => ($statusByEntryId[(int) $entry->id] ?? GroupPlayerStatus::Active)->value,
+            ])
             ->all();
     }
 

@@ -8,7 +8,7 @@ final class PrintGroupSheetData
      * @param  array{id: int, name: string}  $tournament
      * @param  array{id: int, name: string, type: string}  $competition
      * @param  array{id: int, name: string}  $group
-     * @param  list<array{competition_entry_id: int, sheet_number: int|null, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>}>  $participants
+     * @param  list<array{competition_entry_id: int, sheet_number: int|null, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>, status: string}>  $participants
      * @param  list<array{
      *     game_id: int,
      *     order: int,
@@ -53,7 +53,7 @@ final class PrintGroupSheetData
      *     points_per_set: int,
      *     qualified_per_group: int,
      *     sheet_kind: string,
-     *     participants: list<array{competition_entry_id: int, sheet_number: int|null, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>}>,
+     *     participants: list<array{competition_entry_id: int, sheet_number: int|null, display_name: string, members: list<array{id: int|null, first_name: string|null, last_name: string|null, nickname: string|null}>, status: string}>,
      *     matches: list<array{
      *         game_id: int,
      *         order: int,

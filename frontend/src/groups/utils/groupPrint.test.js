@@ -5,6 +5,7 @@ import {
   groupConsecutiveMatchesByRound,
   isOfficialGroupSheetKind,
   printBestOfLabel,
+  printInactiveParticipantLabels,
   printOrientation,
   printSetColumnLabels,
   printSetColumns,
@@ -121,5 +122,31 @@ describe('groupConsecutiveMatchesByRound', () => {
     assert.equal(rounds[0].matches.length, 1)
     assert.equal(rounds[1].matches.length, 1)
     assert.equal(rounds[2].matches.length, 1)
+  })
+})
+
+describe('printInactiveParticipantLabels', () => {
+  const participants = [
+    { sheet_number: 1, display_name: 'Ana', status: 'active' },
+    { sheet_number: 2, display_name: 'Beto', status: 'disqualified' },
+    { sheet_number: null, display_name: 'Caro', status: 'withdrawn' },
+  ]
+
+  it('lista las bajas con su estado', () => {
+    assert.deepEqual(printInactiveParticipantLabels(participants), [
+      'Beto (Descalificado)',
+      'Caro (Retirado)',
+    ])
+  })
+
+  it('con onlyUnnumbered solo incluye bajas fuera de la planilla', () => {
+    assert.deepEqual(printInactiveParticipantLabels(participants, { onlyUnnumbered: true }), [
+      'Caro (Retirado)',
+    ])
+  })
+
+  it('tolera payloads sin participantes o sin estado', () => {
+    assert.deepEqual(printInactiveParticipantLabels(undefined), [])
+    assert.deepEqual(printInactiveParticipantLabels([{ sheet_number: 1, display_name: 'Ana' }]), [])
   })
 })

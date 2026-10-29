@@ -11,6 +11,7 @@ use App\Support\Audit\AuditContextBuilder;
 use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Competition\TeamCompetitionSchedulingGuard;
+use App\Support\Group\GroupActiveEntries;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -45,9 +46,9 @@ final class GenerateGroupRoundRobinTeamTiesAction
 
         $entryCount = $group->groupEntries()->count();
 
-        if ($entryCount < 2) {
+        if (! GroupActiveEntries::requiresSchedule($group)) {
             throw ValidationException::withMessages([
-                'group' => ['El grupo necesita al menos 2 equipos.'],
+                'group' => ['El grupo necesita al menos 2 equipos activos.'],
             ]);
         }
 

@@ -9,6 +9,7 @@ use App\Enums\GameStatus;
 use App\Enums\TeamTieStatus;
 use App\Models\Competition;
 use App\Models\Group;
+use App\Support\Group\GroupActiveEntries;
 use App\Support\Group\GroupScheduleCompletion;
 use App\Support\Group\GroupStandingsResolver;
 use Illuminate\Support\Collection;
@@ -55,8 +56,12 @@ final class GroupQualifiersCollector
             ]);
         }
 
+        // Con menos de 2 activos el grupo no requiere partidos: su único activo
+        // (si lo hay) clasifica sin disputarlos.
+        $requiresSchedule = GroupActiveEntries::requiresSchedule($group);
+
         if ($isTeam) {
-            if (! $group->teamTies()->exists()) {
+            if ($requiresSchedule && ! $group->teamTies()->exists()) {
                 throw ValidationException::withMessages([
                     'group' => [sprintf('El grupo "%s" no tiene enfrentamientos generados.', $group->name)],
                 ]);
@@ -72,7 +77,7 @@ final class GroupQualifiersCollector
                 ]);
             }
         } else {
-            if (! $group->games()->exists()) {
+            if ($requiresSchedule && ! $group->games()->exists()) {
                 throw ValidationException::withMessages([
                     'group' => [sprintf('El grupo "%s" no tiene partidos generados.', $group->name)],
                 ]);

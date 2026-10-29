@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import {
   formatPrintDisplayName,
   printCompetitionTypeLabel,
+  printInactiveParticipantLabels,
   printRoundLabel,
   printSetColumns,
 } from '../utils/groupPrint'
@@ -17,6 +18,7 @@ const props = defineProps({
 
 const bestOf = computed(() => Number(props.sheet?.best_of) || 3)
 const setColumns = computed(() => printSetColumns(bestOf.value))
+const inactiveLabels = computed(() => printInactiveParticipantLabels(props.sheet?.participants))
 </script>
 
 <template>
@@ -102,6 +104,13 @@ const setColumns = computed(() => printSetColumns(bestOf.value))
       </tbody>
     </table>
 
+    <p
+      v-if="inactiveLabels.length > 0"
+      class="print-inactive-note"
+    >
+      Bajas: {{ inactiveLabels.join(', ') }}
+    </p>
+
     <footer class="print-footer">
       <p><strong>Observaciones</strong></p>
       <div class="print-notes-block" />
@@ -111,6 +120,12 @@ const setColumns = computed(() => printSetColumns(bestOf.value))
 </template>
 
 <style scoped>
+.print-inactive-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
 .print-title {
   margin: 0 0 0.75rem;
   font-size: 1.35rem;

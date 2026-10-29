@@ -786,11 +786,11 @@ Club
     - si el ganador llega exactamente a `points_per_set`, el perdedor debe tener como máximo `points_per_set - 2`;
     - si el ganador supera `points_per_set` (deuce), la diferencia debe ser exactamente 2.
 11. No puede repetirse `set_number` dentro del mismo game.
-12. Un grupo necesita al menos 2 participantes para generar round robin.
+12. Un grupo necesita al menos 2 participantes **activos** para generar round robin. En singles, dobles y equipos, los partidos (o enfrentamientos) se generan solo entre participantes activos del grupo; un participante `withdrawn` o `disqualified` antes de la generación no recibe partidos.
 13. En singles y dobles, generar el round robin de un grupo es idempotente: solo crea los cruces que faltan y no duplica partidos existentes. En `team`, los enfrentamientos de un grupo se generan una sola vez (si ya existen, se rechaza).
 14. Una inscripción no puede estar en dos grupos de la misma competencia.
 15. Solo puede existir un bracket por competencia.
-16. Para crear bracket, todos los partidos de grupos deben estar finalizados.
+16. Para crear bracket, todos los partidos de grupos deben estar finalizados y cada par de participantes activos de cada grupo debe tener su partido (la validación es por pares, no por cantidad: los partidos históricos contra participantes dados de baja no cuentan ni faltan). Un grupo que tuvo al menos 2 participantes y quedó por bajas con un solo activo clasifica a ese participante sin disputar partidos; uno sin activos no aporta clasificados ni bloquea la llave por sí solo. La llave sigue requiriendo al menos 2 clasificados en total.
 17. El bracket usa `Competition.qualified_per_group` para determinar cuántos participantes clasifican de cada grupo, considerando solo participantes elegibles según standings.
 18. El total de clasificados ya no necesita ser exactamente 2, 4 u 8. Si no es potencia de 2, el sistema calcula la siguiente potencia de 2 ≥ total de clasificados y completa la llave con BYEs (hasta 64 clasificados).
 19. En competencias `groups_knockout`, los BYEs se asignan según **procedencia grupal**, no por un ranking global de victorias. Con `qualified_per_group = 3`, los **primeros de cada grupo** tienen prioridad de BYE. Con `qualified_per_group = 2`, los BYEs restantes (si los hubiera) se resuelven dentro del algoritmo de emparejamiento grupal, no por `(won, lost, nombre)`.
@@ -814,7 +814,7 @@ Club
 37. Si hay menos clasificados elegibles que `qualified_per_group`, el bracket se genera con los disponibles; los BYEs y el play-in se ajustan a la cantidad real de clasificados por posición grupal.
 38. En competencias `groups_knockout`, la llave eliminatoria se genera de forma **consciente de la procedencia grupal**. Queda **reemplazada** la regla anterior de combinar todos los clasificados y ordenarlos globalmente por `(won desc, lost asc, nombre)` antes de armar la llave.
 39. En competencias `knockout_direct` (sin fase de grupos), el emparejamiento inicial sigue el **orden de inscripción** y el esquema estándar 1 vs N dentro del `bracket_size` calculado; no aplica el draw grupal.
-40. Mientras no exista bracket, los grupos admiten cambios tardíos: crear grupos, asignar, quitar y mover participantes. Al asignar un participante a un grupo con fixture, se completan automáticamente sus partidos faltantes (singles/dobles). Al quitar o mover, se eliminan los partidos que dejan de corresponder solo si están `pending`, sin sets y sin ganador; si alguno ya comenzó o terminó, la operación se rechaza.
+40. Mientras no exista bracket, los grupos admiten cambios tardíos: crear grupos, asignar, quitar y mover participantes. Al asignar un participante a un grupo con fixture, se completan automáticamente sus partidos faltantes (singles/dobles), solo contra participantes activos. Los partidos históricos contra participantes dados de baja se conservan y no se consideran obsoletos al quitar o mover. Al quitar o mover, se eliminan los partidos que dejan de corresponder solo si están `pending`, sin sets y sin ganador; si alguno ya comenzó o terminó, la operación se rechaza.
 41. En `team`, los cambios tardíos de grupos solo se permiten mientras ningún partido de la competencia haya comenzado; asignar no genera enfrentamientos automáticamente, y quitar o mover participantes no está disponible.
 42. Las inscripciones no se pueden modificar una vez generada la llave ni, en `team`, una vez generados enfrentamientos.
 43. En `team`, un enfrentamiento lo gana el primer equipo que alcanza `victories_required` partidos internos ganados.
@@ -1285,6 +1285,7 @@ POST /api/v1/groups/{group}/player-status
 - **No se permite** si ya existe bracket.
 - En `team`, **no se permite** si el grupo ya tiene enfrentamientos generados.
 - No se puede aplicar a un participante que ya no está activo.
+- Si la baja ocurre **antes** de generar el fixture, el participante no recibe partidos (regla 12).
 - Los partidos **ya finalizados** del participante **no se modifican**.
 - Los partidos `pending` o `in_progress` del participante en ese grupo se cierran **a favor del rival**:
   - `status = finished`
@@ -1293,6 +1294,7 @@ POST /api/v1/groups/{group}/player-status
   - **sin registrar sets**
 - El participante permanece visible en standings, al final, con `eligible_for_qualification = false`.
 - El bracket lo excluye al tomar clasificados.
+- La planilla imprimible (`GET /groups/{group}/print`) informa `status` en cada participante. Si el fixture incluye al participante (baja posterior), se usa la planilla G3/G4/G5 de todos los integrantes y se lo marca como retirado o descalificado. Si la baja fue previa al fixture, la planilla G3/G4/G5 se arma con los activos y el participante se lista sin número ni partidos. Si el fixture no coincide con ninguno de esos formatos (por ejemplo, baja seguida de una asignación tardía), se usa la planilla genérica con todos los partidos, incluidos los históricos.
 
 ### Lo que esto no es
 
@@ -1318,7 +1320,7 @@ POST /api/v1/groups/{group}/player-status
 - Participantes retirados o descalificados **no clasifican**, aunque figuren en posiciones altas antes de moverse al final de la tabla.
 - Si hay **menos elegibles** que `qualified_per_group`, el bracket se genera con los disponibles; play-in y BYEs se recalculan según las posiciones grupalmente ocupadas.
 - El tamaño de llave (`bracket_size`) es la **siguiente potencia de 2 ≥ total de clasificados** (máximo 64).
-- Todos los partidos de **todos** los grupos deben estar finalizados.
+- Todos los partidos de **todos** los grupos deben estar finalizados, y cada par de participantes activos debe tener su partido. Un grupo reducido por bajas a un solo activo lo clasifica sin partidos; uno sin activos no aporta clasificados (ver regla 16).
 - Si un grupo tiene empate manual pendiente que **cruza el corte de clasificación**, o desempates manuales stale, se bloquea la generación del bracket con error explícito.
 
 ### Metadata de origen grupal
@@ -1456,7 +1458,7 @@ Vistas principales relacionadas con la fase de grupos:
 ### `GroupDetailView`
 
 - Lista participantes del grupo, standings y partidos (o enfrentamientos en `team`) del grupo.
-- Permite asignar participantes y generar el round robin.
+- Permite asignar participantes y generar el round robin (solo con al menos 2 participantes activos). Si el grupo tenía al menos 2 participantes y las bajas lo dejaron con 1 o 0 activos, indica que no necesita partidos: el único activo clasifica sin jugar o el grupo no aporta clasificados (regla 16).
 - Mientras no haya bracket, permite quitar o mover participantes entre grupos.
 - Permite cargar resultados de partidos (en `team`, cada enfrentamiento enlaza a su detalle, donde se definen alineaciones y se cargan los partidos internos).
 - Permite marcar participantes activos como retirados/descalificados (modal) mientras no exista bracket y el torneo no esté finalizado; en singles/dobles también con partidos generados, en `team` solo sin enfrentamientos generados.
@@ -1472,6 +1474,7 @@ Panel de control de la fase de grupos. Por cada grupo muestra:
 - desempates stale;
 - partidos o enfrentamientos pendientes;
 - participantes con baja;
+- grupo reducido por bajas sin partidos (**Clasifica sin jugar** con un activo, **Sin participantes activos** sin activos), que no bloquea la generación de la llave;
 - grupo listo;
 - una acción principal según el estado del grupo (**Resolver empate**, **Ver partidos**/**Ver enfrentamientos**, **Ver posiciones** en un modal rápido, o **Abrir grupo**) y acceso directo al grupo.
 

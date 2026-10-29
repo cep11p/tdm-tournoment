@@ -1,3 +1,5 @@
+import { isScheduleNotRequiredByWithdrawals } from '../../groups/utils/buildGroupOperationalStatus.js'
+
 const isInactiveStanding = (standing) => (standing?.group_player_status ?? 'active') !== 'active'
 
 const isPendingGame = (game) => game?.status === 'pending' || game?.status === 'in_progress'
@@ -56,6 +58,14 @@ export function buildGroupPhaseAlert({ group, standings = [], meta = {}, games =
     ? Number(normalizedMeta.total_team_ties_count ?? 0) > 0
     : normalizedGames.length > 0
   const hasStandings = normalizedStandings.length > 0
+  const activeParticipantCount = normalizedStandings.length - inactivePlayers.length
+  // Grupo reducido por bajas a 0 o 1 activos: no necesita partidos ni bloquea la llave.
+  const scheduleNotRequired =
+    !hasGroupGames &&
+    isScheduleNotRequiredByWithdrawals({
+      participantCount: normalizedStandings.length,
+      activeParticipantCount,
+    })
 
   const alerts = []
 
@@ -110,6 +120,11 @@ export function buildGroupPhaseAlert({ group, standings = [], meta = {}, games =
     needsAttention = true
     isReady = false
     highlightLink = 'group'
+  } else if (scheduleNotRequired) {
+    primaryLabel = activeParticipantCount === 1 ? 'Clasifica sin jugar' : 'Sin participantes activos'
+    primaryType = activeParticipantCount === 1 ? 'success' : 'muted'
+    needsAttention = false
+    isReady = true
   } else if (inactivePlayers.length > 0) {
     primaryLabel = 'Con bajas'
     primaryType = 'muted'
@@ -138,7 +153,7 @@ export function buildGroupPhaseAlert({ group, standings = [], meta = {}, games =
     hasPendingManualTiebreak ||
     hasStaleManualTiebreaks ||
     pendingGamesCount > 0 ||
-    !hasGroupGames ||
+    (!hasGroupGames && !scheduleNotRequired) ||
     !hasStandings
 
   return {

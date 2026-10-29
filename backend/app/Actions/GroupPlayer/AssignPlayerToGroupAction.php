@@ -14,6 +14,7 @@ use App\Support\Audit\AuditLogger;
 use App\Support\Competition\CompetitionFormatGuard;
 use App\Support\Competition\LateGroupMutationGuard;
 use App\Support\Competition\ResolveCompetitionEntryForGroup;
+use App\Support\Group\GroupActiveEntries;
 use App\Support\Tournament\TournamentLifecycleGuard;
 use Illuminate\Support\Facades\DB;
 
@@ -92,6 +93,6 @@ final class AssignPlayerToGroupAction
             return false;
         }
 
-        return $group->groupEntries()->count() >= 2;
+        return GroupActiveEntries::requiresSchedule($group);
     }
 }

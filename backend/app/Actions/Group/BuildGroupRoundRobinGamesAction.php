@@ -7,6 +7,7 @@ use App\Models\Game;
 use App\Models\Group;
 use App\Support\Competition\TeamCompetitionSchedulingGuard;
 use App\Support\Game\GameFormatResolver;
+use App\Support\Group\GroupActiveEntries;
 use App\Support\Group\GroupRoundRobinSlotAllocator;
 use App\Support\Group\GroupSheetNumbering;
 use App\Support\Group\GroupSheetPlayingOrder;
@@ -29,12 +30,7 @@ final class BuildGroupRoundRobinGamesAction
 
         TeamCompetitionSchedulingGuard::ensureGamesRoundRobinAllowed($group->competition);
 
-        $entryIds = $group->groupEntries()
-            ->orderBy('competition_entry_id')
-            ->pluck('competition_entry_id')
-            ->map(fn ($entryId) => (int) $entryId)
-            ->values()
-            ->all();
+        $entryIds = GroupActiveEntries::ids($group);
 
         $round = sprintf('Round Robin - %s', $group->name);
         $competitionId = (int) $group->competition_id;

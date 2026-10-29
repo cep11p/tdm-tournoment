@@ -84,6 +84,13 @@
         </tbody>
     </table>
 
+    @php
+        $inactiveLabels = \App\Support\Print\PrintPresentation::inactiveParticipantLabels($sheet->participants);
+    @endphp
+    @if ($inactiveLabels !== [])
+        <p class="print-inactive-note">Bajas: {{ implode(', ', $inactiveLabels) }}</p>
+    @endif
+
     <div class="print-footer">
         <p><strong>Observaciones</strong></p>
         <div class="print-notes-block"></div>

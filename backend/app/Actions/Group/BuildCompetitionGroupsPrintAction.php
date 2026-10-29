@@ -7,6 +7,7 @@ use App\Data\Group\PrintGroupSheetData;
 use App\Enums\CompetitionType;
 use App\Models\Competition;
 use App\Models\Group;
+use App\Support\Group\GroupActiveEntries;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -46,7 +47,8 @@ final class BuildCompetitionGroupsPrintAction
         }
 
         $groupsWithoutSchedule = $groups
-            ->filter(fn (Group $group): bool => (int) $group->games_count === 0)
+            ->filter(fn (Group $group): bool => (int) $group->games_count === 0
+                && ! GroupActiveEntries::skipsScheduleByWithdrawals($group))
             ->values();
 
         if ($groupsWithoutSchedule->isNotEmpty()) {

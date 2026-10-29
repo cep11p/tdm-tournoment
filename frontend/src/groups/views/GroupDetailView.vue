@@ -56,7 +56,11 @@ import {
   listUnassignedEntries,
 } from '../utils/unassignedCompetitionEntries'
 import RegistrationService from '../../registrations/services/RegistrationService'
-import { buildGroupOperationalStatus } from '../utils/buildGroupOperationalStatus'
+import {
+  buildGroupOperationalStatus,
+  buildScheduleNotRequiredLabel,
+  isScheduleNotRequiredByWithdrawals,
+} from '../utils/buildGroupOperationalStatus'
 import {
   buildGroupRoundSections,
   mergeRoundOpenState,
@@ -267,6 +271,9 @@ const groupPlayerNickname = (groupPlayer) => {
 }
 
 const groupPlayersCount = computed(() => groupPlayers.value.length)
+const activeGroupPlayersCount = computed(
+  () => groupPlayers.value.filter((groupPlayer) => (groupPlayer.status ?? 'active') === 'active').length,
+)
 
 const emptyGroupMembersMessage = computed(
   () => `Todavía no hay ${participantPlural(competition.value)} en este grupo.`,
@@ -406,11 +413,8 @@ const canShowGenerateRoundRobin = computed(() => {
     return false
   }
 
-  if (isTeam.value) {
-    return true
-  }
-
-  return groupPlayers.value.length >= 2
+  // Solo los participantes activos disputan partidos.
+  return activeGroupPlayersCount.value >= 2
 })
 
 const printGroupHref = computed(() => {
@@ -673,7 +677,21 @@ const groupOperationalStatus = computed(() =>
       !standingsMeta.value?.standings_are_provisional &&
       (standingsMeta.value?.stale_manual_tiebreaks?.length ?? 0) > 0,
     isTeam: isTeam.value,
+    participantCount: groupPlayersCount.value,
+    activeParticipantCount: activeGroupPlayersCount.value,
   }),
+)
+
+const scheduleNotRequiredLabel = computed(() =>
+  isScheduleNotRequiredByWithdrawals({
+    participantCount: groupPlayersCount.value,
+    activeParticipantCount: activeGroupPlayersCount.value,
+  })
+    ? buildScheduleNotRequiredLabel({
+        activeParticipantCount: activeGroupPlayersCount.value,
+        isTeam: isTeam.value,
+      })
+    : null,
 )
 
 const groupOperationalStatusClasses = computed(() => {
@@ -1500,7 +1518,7 @@ onMounted(async () => {
           v-else-if="!hasGroupTeamTies"
           class="rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
         >
-          Todavía no hay enfrentamientos generados para este grupo.
+          {{ scheduleNotRequiredLabel ? `${scheduleNotRequiredLabel}.` : 'Todavía no hay enfrentamientos generados para este grupo.' }}
         </div>
 
         <div v-else class="space-y-4">
@@ -1588,7 +1606,7 @@ onMounted(async () => {
         v-else-if="!hasGroupGames"
         class="rounded-md border border-slate-200 bg-slate-50 p-3 text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
       >
-        Todavía no hay partidos generados para este grupo.
+        {{ scheduleNotRequiredLabel ? `${scheduleNotRequiredLabel}.` : 'Todavía no hay partidos generados para este grupo.' }}
       </div>
 
       <div v-else class="space-y-4">
