@@ -5,6 +5,7 @@ import {
   GROUP_PLAYER_STATUS_REASONS,
   GROUP_PLAYER_STATUSES,
 } from '../constants/groupPlayerStatus'
+import { extractApiErrorMessage } from '../../shared/utils/extractApiErrorMessage'
 import GroupService from '../services/GroupService'
 
 const props = defineProps({
@@ -57,31 +58,6 @@ const statusHelpText = computed(() =>
     ? 'Esta acción cerrará automáticamente los partidos pendientes o en curso de la participación a favor de sus rivales. No se modificarán partidos ya finalizados.'
     : 'Esta acción cerrará automáticamente los partidos pendientes o en curso del jugador a favor de sus rivales. No se modificarán partidos ya finalizados.',
 )
-
-const extractGroupPlayerStatusError = (error) => {
-  const errors = error?.response?.data?.errors ?? {}
-
-  if (errors.group?.[0]) {
-    return 'No se puede cambiar el estado porque el bracket ya fue creado.'
-  }
-
-  if (errors.competition_entry_id?.[0]?.includes('ya no está activa')) {
-    return 'La participación ya no está activa.'
-  }
-
-  if (errors.player_id?.[0]?.includes('ya no está activo')) {
-    return 'El jugador ya no está activo.'
-  }
-
-  return (
-    errors.competition_entry_id?.[0] ||
-    errors.player_id?.[0] ||
-    errors.status?.[0] ||
-    errors.reason?.[0] ||
-    error?.response?.data?.message ||
-    'No se pudo actualizar el estado.'
-  )
-}
 
 watch(
   () => [props.show, props.groupEntry?.competition_entry_id, props.groupEntry?.id],
@@ -138,7 +114,7 @@ const handleSubmit = async () => {
     await GroupService.setGroupPlayerStatus(props.groupId, payload)
     emit('saved')
   } catch (error) {
-    errorMessage.value = extractGroupPlayerStatusError(error)
+    errorMessage.value = extractApiErrorMessage(error, 'No se pudo actualizar el estado.')
   } finally {
     isSaving.value = false
   }

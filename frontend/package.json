@@ -10,7 +10,7 @@
     "test:print": "node --test src/groups/utils/groupPrint.test.js",
     "test:group-nav": "node --test src/groups/utils/groupResultNavigation.test.js",
     "test:pair-selection": "node --test src/registrations/utils/pairSelection.test.js",
-    "test:late-group-mutation": "node --test src/groups/utils/lateGroupMutation.test.js",
+    "test:late-group-mutation": "node --test src/groups/utils/lateGroupMutation.test.js src/groups/utils/canChangeGroupEntryStatus.test.js",
     "test:standings": "node --test src/standings/utils/buildGroupStandingRows.test.js src/competitions/utils/groupPhaseListColumns.test.js src/groups/utils/buildGroupOperationalStatus.test.js src/groups/utils/buildGroupRoundSections.test.js",
     "test:feedback": "node --test src/composables/useTransientMessage.test.js",
     "test:bracket": "node --test src/brackets/utils/bracketPodium.test.js",

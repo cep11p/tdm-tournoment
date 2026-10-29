@@ -1302,7 +1302,7 @@ POST /api/v1/groups/{group}/player-status
 
 ### UI
 
-`GroupDetailView` permite marcar participantes activos como retirados o descalificados mediante un modal de confirmación. En la UI actual la acción solo se ofrece mientras el grupo no tenga partidos/enfrentamientos generados y no exista bracket (el backend, en singles/dobles, también la acepta con partidos generados).
+`GroupDetailView` permite marcar participantes activos como retirados o descalificados mediante un modal de confirmación, con las mismas condiciones que el backend: no se ofrece si existe bracket ni si el torneo está finalizado (ni mientras su estado administrativo no esté disponible); en singles/dobles se ofrece aunque el grupo tenga partidos generados (incluso todos finalizados); en `team`, solo mientras el grupo no tenga enfrentamientos generados. Los errores de validación se muestran con el mensaje del backend.
 
 ---
 
@@ -1459,7 +1459,7 @@ Vistas principales relacionadas con la fase de grupos:
 - Permite asignar participantes y generar el round robin.
 - Mientras no haya bracket, permite quitar o mover participantes entre grupos.
 - Permite cargar resultados de partidos (en `team`, cada enfrentamiento enlaza a su detalle, donde se definen alineaciones y se cargan los partidos internos).
-- Permite marcar participantes activos como retirados/descalificados (modal), solo mientras el grupo no tenga partidos/enfrentamientos generados ni exista bracket.
+- Permite marcar participantes activos como retirados/descalificados (modal) mientras no exista bracket y el torneo no esté finalizado; en singles/dobles también con partidos generados, en `team` solo sin enfrentamientos generados.
 - Muestra badges de estado y elegibilidad de clasificación.
 - Enlaza a la impresión de la planilla del grupo.
 

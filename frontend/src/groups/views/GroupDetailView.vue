@@ -46,6 +46,10 @@ import {
   canEditGroupEntry,
   groupEntryLockMessage,
 } from '../utils/canEditGroupEntry'
+import {
+  canChangeGroupEntryStatus,
+  fetchTournamentStatus,
+} from '../utils/canChangeGroupEntryStatus'
 import { listMoveTargetGroups } from '../utils/listMoveTargetGroups'
 import {
   collectAssignedEntryIds,
@@ -70,6 +74,7 @@ import {
   sortCompetitionGroupsByName,
 } from '../utils/groupResultNavigation'
 import TeamTieService from '../../team-ties/services/TeamTieService'
+import TournamentService from '../../tournaments/services/TournamentService'
 import {
   getTeamTieStatusBadgeClasses,
   getTeamTieStatusLabel,
@@ -86,6 +91,8 @@ const competitionId = computed(() => route.query.competitionId || '')
 const groupName = computed(() => route.query.groupName || `Grupo #${groupId.value}`)
 const competition = ref(null)
 const hasBracket = ref(false)
+// Tournament.status; null mientras no se conoce (carga o error).
+const tournamentStatus = ref(null)
 
 const qualifiedPerGroup = computed(() => competition.value?.qualified_per_group ?? 2)
 
@@ -202,7 +209,12 @@ const managementGroupPlayers = computed(() => {
 const isPlayerActive = (groupPlayer) => (groupPlayer?.status ?? 'active') === 'active'
 
 const canChangePlayerStatus = (groupPlayer) =>
-  isPlayerActive(groupPlayer) && !hasBracket.value && !hasGroupSchedule.value
+  canChangeGroupEntryStatus(groupPlayer, {
+    competition: competition.value,
+    hasBracket: hasBracket.value,
+    hasTeamTies: hasGroupTeamTies.value,
+    tournamentStatus: tournamentStatus.value,
+  })
 
 const loadGroupPlayers = async () => {
   isLoadingGroupPlayers.value = true
@@ -222,6 +234,7 @@ const loadCompetition = async () => {
   if (!competitionId.value) {
     competition.value = null
     hasBracket.value = false
+    tournamentStatus.value = null
     return
   }
 
@@ -230,6 +243,12 @@ const loadCompetition = async () => {
   } catch {
     competition.value = null
   }
+
+  tournamentStatus.value = null
+  tournamentStatus.value = await fetchTournamentStatus(
+    TournamentService.show,
+    competition.value?.tournament_id,
+  )
 
   try {
     const bracket = await BracketService.show(competitionId.value)
